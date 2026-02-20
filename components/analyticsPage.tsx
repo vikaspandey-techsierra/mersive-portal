@@ -7,7 +7,7 @@ import DeviceUtilizationChart from "@/components/DeviceUtilizationChart";
 import UserConnectionsChart from "@/components/UserConnectionsChartEg";
 import CollaborationChart from "@/components/CollaborationChart";
 
-export default function AnalyticsPage() {
+export default function AnalyticsGraphPage() {
   const [protocol, setProtocol] = useState("ALL");
   const [os, setOs] = useState("ALL");
   const [conference, setConference] = useState("ALL");
