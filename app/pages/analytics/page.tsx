@@ -417,8 +417,8 @@ export default function AnalyticsPage() {
       FILTER_GROUPS.map((g) => [
         g.id,
         Object.fromEntries(g.items.map((i) => [i.key, true])),
-      ]),
-    ),
+      ])
+    )
   );
 
   const toggleKey = (groupId: string, key: string) =>
@@ -636,72 +636,67 @@ export default function AnalyticsPage() {
           <div style={{ height: 300 }}>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={deviceData}>
-                <CartesianGrid stroke="#efefef" vertical={false} />
+                <CartesianGrid stroke="#EAEAEA" vertical={false} />
+
                 <XAxis
                   dataKey="label"
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fontSize: 12, fill: "#888" }}
+                  tick={{ fontSize: 12, fill: "#9CA3AF" }}
                 />
+
                 <YAxis
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fontSize: 12, fill: "#888" }}
+                  tick={{ fontSize: 12, fill: "#9CA3AF" }}
                 />
+
                 <Tooltip
-                  content={({ active, payload, label }) => {
-                    if (!active || !payload?.length) return null;
-                    return (
-                      <div
-                        style={{
-                          background: "#fff",
-                          border: "1px solid #e5e5e5",
-                          borderRadius: 8,
-                          padding: 12,
-                          boxShadow: "0 6px 18px rgba(0,0,0,0.08)",
-                        }}
-                      >
-                        <div style={{ fontWeight: 600, marginBottom: 6 }}>
-                          {label}
-                        </div>
-                        {payload.map((p) => (
-                          <div
-                            key={p.name}
-                            style={{
-                              color: p.color,
-                              fontWeight: 500,
-                              fontSize: 14,
-                            }}
-                          >
-                            {p.name}: {p.value}
-                          </div>
-                        ))}
-                      </div>
-                    );
+                  contentStyle={{
+                    background: "#fff",
+                    border: "1px solid #E5E7EB",
+                    borderRadius: 8,
+                    fontSize: 12,
                   }}
                 />
 
                 <Line
-                  type="monotone"
-                  dataKey={metricA}
+                  type="linear" // ← IMPORTANT CHANGE
+                  dataKey="meetings"
                   stroke="#6860C8"
                   strokeWidth={3}
-                  dot={{ r: 6 }}
-                  activeDot={{ r: 8 }}
-                  name={METRIC_LABELS[metricA]}
+                  dot={{
+                    r: 6,
+                    strokeWidth: 3,
+                    stroke: "#6860C8",
+                    fill: "#fff",
+                  }}
+                  activeDot={{
+                    r: 8,
+                    strokeWidth: 3,
+                    stroke: "#6860C8",
+                    fill: "#fff",
+                  }}
                 />
 
-                {metricB !== "none" && (
-                  <Line
-                    type="monotone"
-                    dataKey={metricB}
-                    stroke="#D44E80"
-                    strokeWidth={3}
-                    dot={{ r: 6 }}
-                    activeDot={{ r: 8 }}
-                    name={METRIC_LABELS[metricB]}
-                  />
-                )}
+                <Line
+                  type="linear" // ← IMPORTANT CHANGE
+                  dataKey="connections"
+                  stroke="#D44E80"
+                  strokeWidth={3}
+                  dot={{
+                    r: 6,
+                    strokeWidth: 3,
+                    stroke: "#D44E80",
+                    fill: "#fff",
+                  }}
+                  activeDot={{
+                    r: 8,
+                    strokeWidth: 3,
+                    stroke: "#D44E80",
+                    fill: "#fff",
+                  }}
+                />
               </LineChart>
             </ResponsiveContainer>
           </div>
