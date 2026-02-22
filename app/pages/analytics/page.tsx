@@ -660,43 +660,47 @@ export default function AnalyticsPage() {
                   }}
                 />
 
-                <Line
-                  type="linear" // ← IMPORTANT CHANGE
-                  dataKey="meetings"
-                  stroke="#6860C8"
-                  strokeWidth={3}
-                  dot={{
-                    r: 6,
-                    strokeWidth: 3,
-                    stroke: "#6860C8",
-                    fill: "#fff",
-                  }}
-                  activeDot={{
-                    r: 8,
-                    strokeWidth: 3,
-                    stroke: "#6860C8",
-                    fill: "#fff",
-                  }}
-                />
+                {metricA && (
+                  <Line
+                    type="linear"
+                    dataKey={metricA}
+                    stroke="#6860C8"
+                    strokeWidth={3}
+                    dot={{
+                      r: 6,
+                      strokeWidth: 3,
+                      stroke: "#6860C8",
+                      fill: "#fff",
+                    }}
+                    activeDot={{
+                      r: 8,
+                      strokeWidth: 3,
+                      stroke: "#6860C8",
+                      fill: "#fff",
+                    }}
+                  />
+                )}
 
-                <Line
-                  type="linear" // ← IMPORTANT CHANGE
-                  dataKey="connections"
-                  stroke="#D44E80"
-                  strokeWidth={3}
-                  dot={{
-                    r: 6,
-                    strokeWidth: 3,
-                    stroke: "#D44E80",
-                    fill: "#fff",
-                  }}
-                  activeDot={{
-                    r: 8,
-                    strokeWidth: 3,
-                    stroke: "#D44E80",
-                    fill: "#fff",
-                  }}
-                />
+                {metricB !== "none" && (
+                  <Line
+                    type="linear"
+                    dataKey={metricB}
+                    stroke="#D44E80"
+                    strokeWidth={3}
+                    dot={{
+                      r: 6,
+                      strokeWidth: 3,
+                      stroke: "#D44E80",
+                      fill: "#fff",
+                    }}
+                    activeDot={{
+                      r: 8,
+                      strokeWidth: 3,
+                      stroke: "#D44E80",
+                      fill: "#fff",
+                    }}
+                  />
+                )}
               </LineChart>
             </ResponsiveContainer>
           </div>
