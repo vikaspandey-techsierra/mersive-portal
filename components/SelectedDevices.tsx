@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 
-/* ================= TYPES ================= */
+/* TYPES  */
 
 interface Device {
   id: string;
@@ -27,7 +27,7 @@ type SortKey =
 
 type SortDir = "asc" | "desc";
 
-/* ================= MOCK DATA ================= */
+/*  MOCK DATA */
 
 const MOCK_DEVICES: Device[] = [
   {
@@ -87,11 +87,11 @@ const MOCK_DEVICES: Device[] = [
   },
 ];
 
-/* ================= HELPERS ================= */
+/*  HELPERS  */
 
 const fmt = (v: number | null) => (v === null ? "-" : String(v));
 
-/* ================= SORT ICON ================= */
+/*  SORT ICON  */
 
 const SortIcon = ({
   active,
@@ -125,7 +125,7 @@ const SortIcon = ({
   </span>
 );
 
-/* ================= CHECKBOX ================= */
+/*  CHECKBOX  */
 
 const Checkbox = ({
   checked,
@@ -164,7 +164,7 @@ const Checkbox = ({
   </span>
 );
 
-/* ================= HEADER CELL ================= */
+/*  HEADER CELL  */
 
 interface ThProps {
   label: string;
@@ -198,7 +198,7 @@ const Th = ({
   </th>
 );
 
-/* ================= MAIN COMPONENT ================= */
+/*  MAIN COMPONENT  */
 
 export default function SelectedDevices() {
   const [search, setSearch] = useState("");
