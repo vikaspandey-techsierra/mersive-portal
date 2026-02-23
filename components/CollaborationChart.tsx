@@ -1,7 +1,6 @@
 "use client";
 
 import { DeviceUtilizationPoint } from "@/components/analytics/usage/page";
-import React from "react";
 import {
   LineChart,
   Line,
@@ -35,22 +34,14 @@ const ChartTooltip = ({
   label?: string;
 }) => {
   if (!active || !payload?.length) return null;
+
   return (
-    <div
-      style={{
-        background: "#fff",
-        border: "1px solid #e0e0e0",
-        borderRadius: 8,
-        padding: "8px 12px",
-        fontSize: 13,
-        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-      }}
-    >
-      <div style={{ fontWeight: 600, marginBottom: 4, color: "#333" }}>
+    <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-[13px] shadow-md">
+      <div className="font-semibold mb-1 text-gray-800">
         {label}
       </div>
       {payload.map((e) => (
-        <div key={e.name} style={{ color: e.color, marginTop: 2 }}>
+        <div key={e.name} className="mt-1" style={{ color: e.color }}>
           {e.name}: {e.value}
         </div>
       ))}
@@ -58,20 +49,11 @@ const ChartTooltip = ({
   );
 };
 
-
+// LEGEND
 const LegendPill = ({ label, color }: { label: string; color: string }) => (
   <div
-    style={{
-      display: "inline-flex",
-      alignItems: "center",
-      background: color,
-      color: "#fff",
-      borderRadius: 6,
-      padding: "5px 12px",
-      fontSize: 12,
-      fontWeight: 500,
-      whiteSpace: "nowrap",
-    }}
+    className="inline-flex items-center text-white rounded-md px-3 py-1 text-xs font-medium whitespace-nowrap"
+    style={{ background: color }}
   >
     {label}
   </div>
@@ -94,29 +76,21 @@ export default function CollaborationUsage({
   }));
 
   return (
-    <div style={{ marginBottom: 32 }}>
-      <div
-        style={{ fontWeight: 600, fontSize: 15, marginBottom: 2, color: "#000" }}
-      >
+    <div className="mb-8">
+      <div className="font-semibold text-[15px] text-black mb-0.5">
         Collaboration Usage
       </div>
-      <div style={{ color: "#888", fontSize: 13, marginBottom: 12 }}>
+
+      <div className="text-[13px] text-gray-400 mb-3">
         Compare how many users connect versus how often they share a post within
         a meeting on average
       </div>
 
-      <div
-        style={{
-          background: "#fff",
-          borderRadius: 10,
-          padding: "20px 16px 16px",
-          border: "1px solid #ebebeb",
-        }}
-      >
+      <div className="bg-white rounded-xl p-5 pb-4 border border-gray-200">
         <ResponsiveContainer width="100%" height={260}>
           <LineChart
             data={chartData}
-            margin={{ top: 8, right: 16, left: 8, bottom: 0 }}
+            margin={{ top: 8, right: 16, left: -20, bottom: 0 }}
           >
             <CartesianGrid
               strokeDasharray=""
@@ -126,14 +100,14 @@ export default function CollaborationUsage({
 
             <XAxis
               dataKey="label"
-              tick={{ fontSize: 11, fill: "#aaa" }}
+              tick={{ fontSize: 11, fill: "#000" }}
               interval={interval}
               axisLine={false}
               tickLine={false}
             />
 
             <YAxis
-              tick={{ fontSize: 11, fill: "#aaa" }}
+              tick={{ fontSize: 11, fill: "#000" }}
               axisLine={false}
               tickLine={false}
               tickCount={5}
@@ -163,17 +137,15 @@ export default function CollaborationUsage({
           </LineChart>
         </ResponsiveContainer>
 
-        <div
-          style={{
-            display: "flex",
-            gap: 8,
-            marginTop: 14,
-            flexWrap: "wrap",
-            alignItems: "center",
-          }}
-        >
-          <LegendPill label="Avg. connections per meeting" color="#6860C8" />
-          <LegendPill label="Avg. posts per meeting" color="#D44E80" />
+        <div className="flex gap-2 mt-3.5 flex-wrap items-center">
+          <LegendPill
+            label="Avg. connections per meeting"
+            color="#6860C8"
+          />
+          <LegendPill
+            label="Avg. posts per meeting"
+            color="#D44E80"
+          />
         </div>
       </div>
     </div>

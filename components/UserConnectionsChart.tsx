@@ -1,6 +1,5 @@
 "use client";
 
-
 import { UserConnectionPoint } from "@/components/analytics/usage/page";
 import { useState, useMemo } from "react";
 import {
@@ -35,24 +34,14 @@ const ChartTooltip = ({
 }) => {
   if (!active || !payload?.length) return null;
   const items = [...payload].reverse();
+
   return (
-    <div
-      style={{
-        background: "#fff",
-        border: "1px solid #e0e0e0",
-        borderRadius: 8,
-        padding: "8px 12px",
-        fontSize: 13,
-        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-      }}
-    >
-      <div style={{ fontWeight: 600, marginBottom: 4, color: "#333" }}>
-        {label}
-      </div>
+    <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-[13px] shadow-md">
+      <div className="font-semibold mb-1 text-gray-800">{label}</div>
       {items
         .filter((e) => e.value > 0)
         .map((e) => (
-          <div key={e.name} style={{ color: e.color, marginTop: 2 }}>
+          <div key={e.name} className="mt-1" style={{ color: e.color }}>
             {e.name}: {e.value}
           </div>
         ))}
@@ -72,8 +61,6 @@ interface FilterGroup {
   items: SeriesItem[];
 }
 
-// IMPORTANT: items are listed in BOTTOM-TO-TOP stack order.
-// This order must never change at runtime.
 const FILTER_GROUPS: FilterGroup[] = [
   {
     id: "mode",
@@ -126,32 +113,24 @@ const SeriesToggle = ({
   onToggle: () => void;
 }) => (
   <div
-    style={{
-      display: "inline-flex",
-      alignItems: "center",
-      gap: 6,
-      cursor: "pointer",
-      outline: "none",
-    }}
+    className="inline-flex items-center gap-1.5 cursor-pointer"
     onClick={onToggle}
   >
-    {/* Standalone checkbox — left of the chip */}
     <span
-      style={{
-        width: 18,
-        height: 18,
-        borderRadius: 4,
-        border: checked ? `2px solid ${item.color}` : "2px solid #ccc",
-        background: checked ? item.color : "#fff",
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        flexShrink: 0,
-        transition: "all 0.15s",
-      }}
+      className={`w-4.5 h-4.5 rounded border-2 flex items-center justify-center transition-all ${
+        checked ? "" : "border-gray-300 bg-white"
+      }`}
+      style={
+        checked
+          ? {
+              borderColor: item.color,
+              background: item.color,
+            }
+          : undefined
+      }
     >
       {checked && (
-        <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+        <svg width="10" height="8" viewBox="0 0 10 8">
           <path
             d="M1 4L3.5 6.5L9 1"
             stroke="#fff"
@@ -164,16 +143,11 @@ const SeriesToggle = ({
     </span>
 
     <span
+      className="rounded px-2.5 py-1 text-xs font-medium whitespace-nowrap transition-opacity"
       style={{
         background: item.color,
         color: "#fff",
-        borderRadius: 5,
-        padding: "4px 10px",
-        fontSize: 12,
-        fontWeight: 500,
         opacity: checked ? 1 : 0.45,
-        transition: "opacity 0.15s",
-        whiteSpace: "nowrap",
       }}
     >
       {item.label}
@@ -212,7 +186,6 @@ export default function UserConnections({
   const currentGroup = FILTER_GROUPS.find((g) => g.id === selectedGroupId)!;
   const currentActive = activeKeys[selectedGroupId];
 
-  // KEY FIX: Zero-out hidden series instead of unmounting <Area> components
   const connectionData = useMemo(() => {
     return data.map((d) => {
       const point: Record<string, string | number> = { label: fmtDate(d.date) };
@@ -223,56 +196,42 @@ export default function UserConnections({
     });
   }, [data, currentGroup, currentActive]);
 
-  // Legend: left→right = top→bottom in stack (reverse of items[] which is bottom→top)
   const legendItems = [...currentGroup.items].reverse();
 
   return (
-    <div style={{ marginBottom: 32 }}>
-      <div
-        style={{
-          fontWeight: 600,
-          fontSize: 15,
-          marginBottom: 2,
-          color: "#000",
-        }}
-      >
+    <div className="mb-8">
+      <div className="font-semibold text-[15px] text-black mb-0.5">
         User Connections
       </div>
-      <div style={{ color: "#888", fontSize: 13, marginBottom: 12 }}>
+
+      <div className="text-[13px] text-gray-400 mb-3">
         Compare connection modes, sharing protocols, user operating systems, and
         types of conferencing solutions used
       </div>
 
-      <div
-        style={{
-          background: "#fff",
-          borderRadius: 10,
-          padding: "20px 16px 16px",
-          border: "1px solid #ebebeb",
-        }}
-      >
+      <div className="bg-white rounded-xl p-5 pb-4 border border-gray-200">
         <ResponsiveContainer width="100%" height={260}>
           <AreaChart
             data={connectionData}
-            margin={{ top: 8, right: 16, left: 8, bottom: 0 }}
+            margin={{ top: 8, right: 16, left: -20, bottom: 0 }}
           >
-            <CartesianGrid
-              strokeDasharray=""
-              stroke="#f0f0f0"
-              vertical={false}
-            />
+            <CartesianGrid stroke="#f0f0f0" vertical={false} />
+
             <XAxis
               dataKey="label"
-              tick={{ fontSize: 11, fill: "#aaa" }}
+              tick={{ fontSize: 11, fill: "#000" }}
               interval={interval}
               axisLine={false}
               tickLine={false}
+              padding={{ left: 8, right: 8 }}
             />
+
             <YAxis
-              tick={{ fontSize: 11, fill: "#aaa" }}
+              tick={{ fontSize: 11, fill: "#000" }}
               axisLine={false}
               tickLine={false}
             />
+
             <Tooltip content={<ChartTooltip />} />
 
             {currentGroup.items.map((item) => (
@@ -290,41 +249,12 @@ export default function UserConnections({
           </AreaChart>
         </ResponsiveContainer>
 
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            marginTop: 14,
-            flexWrap: "wrap",
-          }}
-        >
-          {/* Group dropdown — no checkbox */}
-          <div
-            style={{
-              border: "1px solid #d0d0d0",
-              borderRadius: 6,
-              display: "inline-flex",
-              alignItems: "center",
-              background: "#fff",
-            }}
-          >
+        <div className="flex items-center gap-3 mt-3.5 flex-wrap">
+          <div className="border border-gray-300 rounded-md inline-flex items-center bg-white">
             <select
               value={selectedGroupId}
               onChange={(e) => setSelectedGroupId(e.target.value)}
-              style={{
-                appearance: "none",
-                WebkitAppearance: "none",
-                border: "none",
-                padding: "6px 22px 6px 10px",
-                fontSize: 13,
-                fontFamily: "inherit",
-                color: "#333",
-                background: "transparent",
-                cursor: "pointer",
-                outline: "none",
-                fontWeight: 500,
-              }}
+              className="appearance-none border-none px-2.5 py-1.5 text-[13px] text-gray-800 bg-transparent cursor-pointer outline-none font-medium"
             >
               {FILTER_GROUPS.map((g) => (
                 <option key={g.id} value={g.id}>
@@ -332,20 +262,12 @@ export default function UserConnections({
                 </option>
               ))}
             </select>
-            <span
-              style={{
-                marginLeft: -20,
-                marginRight: 6,
-                pointerEvents: "none",
-                fontSize: 10,
-                color: "#666",
-              }}
-            >
+
+            <span className="-ml-5 mr-1.5 text-[10px] text-gray-500 pointer-events-none">
               ▾
             </span>
           </div>
 
-          {/* Series toggles: standalone checkbox to the left of each colored chip */}
           {legendItems.map((item) => (
             <SeriesToggle
               key={item.key}

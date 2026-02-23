@@ -132,37 +132,19 @@ export default function UsagePage() {
 
   return (
     <>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 20,
-          flexWrap: "wrap",
-          gap: 12,
-        }}
-      >
-        <span style={{ fontWeight: 700, fontSize: 20, color: "#000" }}>Usage</span>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+        <span className="text-xl font-bold text-black">Usage</span>
 
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <div className="flex flex-wrap gap-2">
           {TIME_RANGES.map(({ key, label }) => (
             <button
               key={key}
               onClick={() => setTimeRange(key)}
-              style={{
-                border: "1px solid",
-                borderRadius: 8,
-                padding: "6px 14px",
-                fontSize: 13,
-                fontWeight: 500,
-                cursor: "pointer",
-                outline: "none",
-                transition: "all 0.15s",
-                background: timeRange === key ? "#6860C8" : "#fff",
-                color: timeRange === key ? "#fff" : "#333",
-                borderColor: timeRange === key ? "#6860C8" : "#d0d0d0",
-                fontFamily: "inherit",
-              }}
+              className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition ${
+                timeRange === key
+                  ? "bg-[#6860C8] text-white border-[#6860C8]"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+              }`}
             >
               {label}
             </button>
@@ -170,11 +152,10 @@ export default function UsagePage() {
         </div>
       </div>
 
-      {/* Charts — each receives the time-filtered data slice */}
       <DeviceUtilization data={apiData.deviceUtilization} interval={interval} />
       <UserConnections data={apiData.userConnections} interval={interval} />
       <CollaborationUsage data={apiData.deviceUtilization} interval={interval} />
-      <SelectedDevices/>
+      <SelectedDevices />
     </>
   );
 }
