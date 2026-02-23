@@ -1,16 +1,8 @@
 "use client";
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  STACKING-ORDER BUG FIX
-//  Root cause: conditionally mounting/unmounting <Area> tags resets
-//  Recharts' internal stack registration order. The re-mounted Area always
-//  lands on top regardless of its intended position.
-//
-//  Fix: ALL <Area> components stay permanently mounted. Hidden series are
-//  zeroed-out in the chart data via useMemo so the DOM order never changes.
-// ═══════════════════════════════════════════════════════════════════════════
 
-import React, { useState, useMemo } from "react";
+import { UserConnectionPoint } from "@/app/pages/analytics/usage/page";
+import { useState, useMemo } from "react";
 import {
   AreaChart,
   Area,
@@ -21,150 +13,59 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// BACKEND API CONTRACT  ← share with backend developer
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** One day of Device Utilization data */
-export interface DeviceUtilizationPoint {
-  date: string; // ISO-8601 "2024-12-16"
-  meetings: number; // total meetings that day
-  connections: number; // total connections that day
+function fmtDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-/**
- * One day of User Connections data.
- * All 14 fields must always be present (0 if none that day).
- *
- * Grouping reference:
- *   Mode       → wireless, wired
- *   Protocol   → web, airplay, miracast, googleCast, hdmiIn
- *   OS         → macos, windows, ios, android, otherOs
- *   Conference → teams, zoom, presentationOnly
- */
-export interface UserConnectionPoint {
-  date: string;
-  wireless: number;
-  wired: number;
-  web: number;
-  airplay: number;
-  miracast: number;
-  googleCast: number;
-  hdmiIn: number;
-  macos: number;
-  windows: number;
-  ios: number;
-  android: number;
-  otherOs: number;
-  teams: number;
-  zoom: number;
-  presentationOnly: number;
+interface TEntry {
+  name: string;
+  value: number;
+  color: string;
 }
 
-/**
- * Full API response shape
- *
- * GET /api/analytics/usage?range=7d
- *   range: "7d" | "30d" | "60d" | "90d" | "all"
- *
- * Sample response:
- * {
- *   "range": "7d",
- *   "deviceUtilization": [
- *     { "date": "2024-12-16", "meetings": 10, "connections": 11 },
- *     ...
- *   ],
- *   "userConnections": [
- *     {
- *       "date": "2024-12-16",
- *       "wireless": 8, "wired": 3,
- *       "web": 4, "airplay": 3, "miracast": 2, "googleCast": 1, "hdmiIn": 1,
- *       "macos": 3, "windows": 3, "ios": 2, "android": 2, "otherOs": 1,
- *       "teams": 4, "zoom": 4, "presentationOnly": 3
- *     },
- *     ...
- *   ]
- * }
- */
-export interface AnalyticsApiResponse {
-  range: "7d" | "30d" | "60d" | "90d" | "all";
-  deviceUtilization: DeviceUtilizationPoint[];
-  userConnections: UserConnectionPoint[];
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MOCK DATA GENERATOR  (replace with real API call)
-// ─────────────────────────────────────────────────────────────────────────────
-function generateMockData(days: number): AnalyticsApiResponse {
-  const deviceUtilization: DeviceUtilizationPoint[] = [];
-  const userConnections: UserConnectionPoint[] = [];
-  const baseDate = new Date("2024-12-16");
-  const wave = [10, 13, 3, 11, 20, 4, 2];
-  const r = (base: number, spread = 0.1) =>
-    Math.max(0, Math.round(base + (Math.random() - 0.5) * base * spread));
-
-  for (let i = 0; i < days; i++) {
-    const d = new Date(baseDate);
-    d.setDate(d.getDate() + i);
-    const date = d.toISOString().split("T")[0];
-    const p = wave[i % 7];
-    deviceUtilization.push({
-      date,
-      meetings: r(p * 0.9),
-      connections: r(p * 1.1),
-    });
-    userConnections.push({
-      date,
-      wireless: r(p * 0.7),
-      wired: r(p * 0.3),
-      web: r(p * 0.35),
-      airplay: r(p * 0.28),
-      miracast: r(p * 0.15),
-      googleCast: r(p * 0.12),
-      hdmiIn: r(p * 0.1),
-      macos: r(p * 0.3),
-      windows: r(p * 0.25),
-      ios: r(p * 0.2),
-      android: r(p * 0.15),
-      otherOs: r(p * 0.1),
-      teams: r(p * 0.4),
-      zoom: r(p * 0.35),
-      presentationOnly: r(p * 0.25),
-    });
-  }
-  const rangeKey = { 7: "7d", 30: "30d", 60: "60d", 90: "90d" } as Record<
-    number,
-    string
-  >;
-  return {
-    range: (rangeKey[days] ?? "all") as AnalyticsApiResponse["range"],
-    deviceUtilization,
-    userConnections,
-  };
-}
-
-const MOCK: Record<string, AnalyticsApiResponse> = {
-  "7d": generateMockData(7),
-  "30d": generateMockData(30),
-  "60d": generateMockData(60),
-  "90d": generateMockData(90),
-  all: generateMockData(120),
+const ChartTooltip = ({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: TEntry[];
+  label?: string;
+}) => {
+  if (!active || !payload?.length) return null;
+  const items = [...payload].reverse();
+  return (
+    <div
+      style={{
+        background: "#fff",
+        border: "1px solid #e0e0e0",
+        borderRadius: 8,
+        padding: "8px 12px",
+        fontSize: 13,
+        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+      }}
+    >
+      <div style={{ fontWeight: 600, marginBottom: 4, color: "#333" }}>
+        {label}
+      </div>
+      {items
+        .filter((e) => e.value > 0)
+        .map((e) => (
+          <div key={e.name} style={{ color: e.color, marginTop: 2 }}>
+            {e.name}: {e.value}
+          </div>
+        ))}
+    </div>
+  );
 };
 
-// Replace with real fetch:
-// async function loadData(range: string): Promise<AnalyticsApiResponse> {
-//   const res = await fetch(`/api/analytics/usage?range=${range}`);
-//   return res.json();
-// }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// FILTER GROUP CONFIG
-// ─────────────────────────────────────────────────────────────────────────────
 interface SeriesItem {
   key: keyof Omit<UserConnectionPoint, "date">;
   label: string;
   color: string;
 }
+
 interface FilterGroup {
   id: string;
   label: string;
@@ -172,7 +73,7 @@ interface FilterGroup {
 }
 
 // IMPORTANT: items are listed in BOTTOM-TO-TOP stack order.
-// This order must never change at runtime (that would re-trigger the bug).
+// This order must never change at runtime.
 const FILTER_GROUPS: FilterGroup[] = [
   {
     id: "mode",
@@ -215,109 +116,7 @@ const FILTER_GROUPS: FilterGroup[] = [
   },
 ];
 
-// Legend display order = reverse of stack order (top series shown first in legend)
-// But we show legend in the order: left to right as they appear in the checkbox bar
-
-// ─────────────────────────────────────────────────────────────────────────────
-// HELPERS
-// ─────────────────────────────────────────────────────────────────────────────
-function fmtDate(dateStr: string): string {
-  const d = new Date(dateStr);
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
-function tickInterval(days: number): number {
-  if (days <= 7) return 0;
-  if (days <= 30) return 4;
-  if (days <= 60) return 8;
-  return 13;
-}
-const DAY_COUNTS: Record<string, number> = {
-  "7d": 7,
-  "30d": 30,
-  "60d": 60,
-  "90d": 90,
-  all: 120,
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// TOOLTIP
-// ─────────────────────────────────────────────────────────────────────────────
-interface TEntry {
-  name: string;
-  value: number;
-  color: string;
-}
-const ChartTooltip = ({
-  active,
-  payload,
-  label,
-  flipOrder = false,
-}: {
-  active?: boolean;
-  payload?: TEntry[];
-  label?: string;
-  flipOrder?: boolean;
-}) => {
-  if (!active || !payload?.length) return null;
-  const items = flipOrder ? [...payload].reverse() : payload;
-  return (
-    <div
-      style={{
-        background: "#1a1a2e",
-        border: "1px solid rgba(255,255,255,0.12)",
-        borderRadius: 8,
-        padding: "10px 14px",
-        fontSize: 12,
-        boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
-        minWidth: 160,
-      }}
-    >
-      <p style={{ color: "#aaa", margin: "0 0 7px", fontWeight: 600 }}>
-        {label}
-      </p>
-      {items
-        .filter((e) => e.value > 0)
-        .map((e) => (
-          <div
-            key={e.name}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              marginBottom: 4,
-            }}
-          >
-            <span
-              style={{
-                width: 10,
-                height: 10,
-                borderRadius: 2,
-                backgroundColor: e.color,
-                flexShrink: 0,
-                display: "inline-block",
-              }}
-            />
-            <span style={{ color: "#ccc" }}>{e.name}:</span>
-            <span
-              style={{
-                color: "#fff",
-                fontWeight: 600,
-                marginLeft: "auto",
-                paddingLeft: 8,
-              }}
-            >
-              {e.value}
-            </span>
-          </div>
-        ))}
-    </div>
-  );
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// CHECKBOX PILL
-// ─────────────────────────────────────────────────────────────────────────────
-const CheckPill = ({
+const SeriesToggle = ({
   item,
   checked,
   onToggle,
@@ -326,28 +125,25 @@ const CheckPill = ({
   checked: boolean;
   onToggle: () => void;
 }) => (
-  <button
-    onClick={onToggle}
+  <div
     style={{
-      display: "flex",
+      display: "inline-flex",
       alignItems: "center",
       gap: 6,
-      background: "none",
-      border: "none",
       cursor: "pointer",
-      padding: 0,
-      opacity: checked ? 1 : 0.35,
-      transition: "opacity 0.2s",
+      outline: "none",
     }}
+    onClick={onToggle}
   >
+    {/* Standalone checkbox — left of the chip */}
     <span
       style={{
         width: 18,
         height: 18,
         borderRadius: 4,
-        border: `2px solid ${checked ? "#6860C8" : "#ccc"}`,
-        backgroundColor: checked ? "#6860C8" : "#fff",
-        display: "flex",
+        border: checked ? `2px solid ${item.color}` : "2px solid #ccc",
+        background: checked ? item.color : "#fff",
+        display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
         flexShrink: 0,
@@ -358,7 +154,7 @@ const CheckPill = ({
         <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
           <path
             d="M1 4L3.5 6.5L9 1"
-            stroke="white"
+            stroke="#fff"
             strokeWidth="1.8"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -366,42 +162,36 @@ const CheckPill = ({
         </svg>
       )}
     </span>
+
     <span
       style={{
-        backgroundColor: item.color,
+        background: item.color,
         color: "#fff",
+        borderRadius: 5,
+        padding: "4px 10px",
         fontSize: 12,
-        fontWeight: 600,
-        padding: "3px 11px",
-        borderRadius: 999,
-        userSelect: "none",
+        fontWeight: 500,
+        opacity: checked ? 1 : 0.45,
+        transition: "opacity 0.15s",
+        whiteSpace: "nowrap",
       }}
     >
       {item.label}
     </span>
-  </button>
+  </div>
 );
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MAIN PAGE
-// ─────────────────────────────────────────────────────────────────────────────
-type TimeRange = "7d" | "30d" | "60d" | "90d" | "all";
-type Tab = "Usage" | "Monitoring" | "Email Alerts";
+interface UserConnectionsProps {
+  data: UserConnectionPoint[];
+  interval: number;
+}
 
-const TIME_RANGES: { key: TimeRange; label: string }[] = [
-  { key: "7d", label: "Last 7 days" },
-  { key: "30d", label: "Last 30 days" },
-  { key: "60d", label: "Last 60 days" },
-  { key: "90d", label: "Last 90 days" },
-  { key: "all", label: "All time" },
-];
-
-export default function AnalyticsPage() {
-  const [activeTab, setActiveTab] = useState<Tab>("Usage");
-  const [timeRange, setTimeRange] = useState<TimeRange>("7d");
+export default function UserConnections({
+  data,
+  interval,
+}: UserConnectionsProps) {
   const [selectedGroupId, setSelectedGroupId] = useState("protocol");
 
-  // activeKeys[groupId][seriesKey] = boolean
   const [activeKeys, setActiveKeys] = useState<
     Record<string, Record<string, boolean>>
   >(() =>
@@ -409,8 +199,8 @@ export default function AnalyticsPage() {
       FILTER_GROUPS.map((g) => [
         g.id,
         Object.fromEntries(g.items.map((i) => [i.key, true])),
-      ]),
-    ),
+      ])
+    )
   );
 
   const toggleKey = (groupId: string, key: string) =>
@@ -419,307 +209,152 @@ export default function AnalyticsPage() {
       [groupId]: { ...prev[groupId], [key]: !prev[groupId][key] },
     }));
 
-  const apiData = MOCK[timeRange];
-  const days = DAY_COUNTS[timeRange];
-  const interval = tickInterval(days);
-
-  // ── User connections chart data ──
-  // KEY FIX: instead of conditionally rendering <Area> components (which
-  // breaks stack order), we always render ALL areas and zero-out values
-  // for hidden series right here in the data transform.
   const currentGroup = FILTER_GROUPS.find((g) => g.id === selectedGroupId)!;
   const currentActive = activeKeys[selectedGroupId];
 
+  // KEY FIX: Zero-out hidden series instead of unmounting <Area> components
   const connectionData = useMemo(() => {
-    return apiData.userConnections.map((d) => {
+    return data.map((d) => {
       const point: Record<string, string | number> = { label: fmtDate(d.date) };
       currentGroup.items.forEach((item) => {
-        // If the series is active: use real value. If hidden: use 0.
         point[item.key] = currentActive[item.key] ? (d[item.key] as number) : 0;
       });
       return point;
     });
-  }, [apiData, currentGroup, currentActive]);
+  }, [data, currentGroup, currentActive]);
 
-  // Legend displayed left→right (reverse of bottom→top stack order)
+  // Legend: left→right = top→bottom in stack (reverse of items[] which is bottom→top)
   const legendItems = [...currentGroup.items].reverse();
 
   return (
-    <div
-      style={{
-        fontFamily: "'Inter','Segoe UI',sans-serif",
-        background: "#fff",
-        minHeight: "100vh",
-      }}
-      className="text-black"
-    >
-      {/* ── Top Nav ── */}
+    <div style={{ marginBottom: 32 }}>
       <div
         style={{
-          borderBottom: "1px solid #e5e5e5",
-          padding: "14px 28px",
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
+          fontWeight: 600,
+          fontSize: 15,
+          marginBottom: 2,
+          color: "#000",
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            marginRight: 28,
-          }}
-        >
-          <div
-            style={{
-              width: 28,
-              height: 28,
-              background: "#6860C8",
-              borderRadius: 6,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <rect x="1" y="8" width="4" height="6" rx="1" fill="white" />
-              <rect x="6" y="5" width="4" height="9" rx="1" fill="white" />
-              <rect x="11" y="1" width="4" height="13" rx="1" fill="white" />
-            </svg>
-          </div>
-          <span style={{ fontSize: 18, fontWeight: 700 }}>Analytics</span>
-        </div>
-        {(["Usage", "Monitoring", "Email Alerts"] as Tab[]).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              fontSize: 14,
-              fontWeight: 500,
-              padding: "6px 4px",
-              color: activeTab === tab ? "#6860C8" : "#888",
-              borderBottom:
-                activeTab === tab
-                  ? "2px solid #6860C8"
-                  : "2px solid transparent",
-              transition: "all 0.15s",
-            }}
-          >
-            {tab}
-          </button>
-        ))}
-        <div style={{ marginLeft: "auto" }}>
-          <button
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              border: "1px solid #d0d0d0",
-              borderRadius: 8,
-              padding: "7px 14px",
-              fontSize: 13,
-              fontWeight: 500,
-              background: "#fff",
-              cursor: "pointer",
-              color: "#333",
-            }}
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path
-                d="M7 1v8M4 6l3 3 3-3M2 11h10"
-                stroke="#555"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            Export to CSV
-          </button>
-        </div>
+        User Connections
+      </div>
+      <div style={{ color: "#888", fontSize: 13, marginBottom: 12 }}>
+        Compare connection modes, sharing protocols, user operating systems, and
+        types of conferencing solutions used
       </div>
 
-      {/* ── Content ── */}
-      <div style={{ padding: "24px 28px" }}>
-        {/* Usage header + time range */}
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 10,
+          padding: "20px 16px 16px",
+          border: "1px solid #ebebeb",
+        }}
+      >
+        <ResponsiveContainer width="100%" height={260}>
+          <AreaChart
+            data={connectionData}
+            margin={{ top: 8, right: 16, left: 8, bottom: 0 }}
+          >
+            <CartesianGrid
+              strokeDasharray=""
+              stroke="#f0f0f0"
+              vertical={false}
+            />
+            <XAxis
+              dataKey="label"
+              tick={{ fontSize: 11, fill: "#aaa" }}
+              interval={interval}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              tick={{ fontSize: 11, fill: "#aaa" }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <Tooltip content={<ChartTooltip />} />
+
+            {currentGroup.items.map((item) => (
+              <Area
+                key={item.key}
+                type="linear"
+                dataKey={item.key}
+                name={item.label}
+                stackId="1"
+                stroke={item.color}
+                fill={item.color}
+                fillOpacity={0.85}
+              />
+            ))}
+          </AreaChart>
+        </ResponsiveContainer>
+
         <div
           style={{
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: 24,
+            gap: 12,
+            marginTop: 14,
+            flexWrap: "wrap",
           }}
         >
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Usage</h1>
-          <div style={{ display: "flex", gap: 8 }}>
-            {TIME_RANGES.map(({ key, label }) => (
-              <button
-                key={key}
-                onClick={() => setTimeRange(key)}
-                style={{
-                  border: "1px solid",
-                  borderRadius: 8,
-                  padding: "7px 14px",
-                  fontSize: 13,
-                  fontWeight: 500,
-                  cursor: "pointer",
-                  transition: "all 0.15s",
-                  background: timeRange === key ? "#6860C8" : "#fff",
-                  color: timeRange === key ? "#fff" : "#333",
-                  borderColor: timeRange === key ? "#6860C8" : "#d0d0d0",
-                }}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* ── User Connections ── */}
-        <section
-          style={{
-            border: "1px solid #e8e8e8",
-            borderRadius: 14,
-            padding: "20px 20px 16px",
-            boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
-          }}
-        >
-          <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>
-            User Connections
-          </h2>
-          <p style={{ margin: "3px 0 16px", fontSize: 12.5, color: "#888" }}>
-            Compare connection modes, sharing protocols, user operating systems,
-            and types of conferencing solutions used
-          </p>
-
-          <div style={{ height: 300 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart
-                data={connectionData}
-                margin={{ top: 8, right: 8, bottom: 0, left: -20 }}
-              >
-                <CartesianGrid stroke="#efefef" vertical={false} />
-                <XAxis
-                  dataKey="label"
-                  tick={{ fontSize: 11, fill: "#aaa", fontFamily: "inherit" }}
-                  axisLine={false}
-                  tickLine={false}
-                  interval={interval}
-                />
-                <YAxis
-                  tick={{ fontSize: 11, fill: "#aaa", fontFamily: "inherit" }}
-                  axisLine={false}
-                  tickLine={false}
-                  ticks={[0, 6, 12, 18, 24]}
-                  domain={[0, 24]}
-                />
-                <Tooltip content={<ChartTooltip flipOrder />} />
-
-                {/*
-                 * ✅ BUG FIX: All <Area> components are ALWAYS rendered.
-                 *    Hidden series show 0 values (via connectionData transform above).
-                 *    This keeps the DOM/stack order stable — toggling checkboxes
-                 *    can never reorder layers because no Area is ever unmounted.
-                 *
-                 *    Stack order = order of items[] in FILTER_GROUPS (bottom→top).
-                 */}
-                {currentGroup.items.map((item) => (
-                  <Area
-                    key={`${selectedGroupId}-${item.key}`}
-                    type="linear"
-                    dataKey={item.key}
-                    name={item.label}
-                    stackId="uc"
-                    stroke="none"
-                    strokeWidth={0}
-                    fill={item.color}
-                    fillOpacity={1}
-                    isAnimationActive={false}
-                  />
-                ))}
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Controls row */}
+          {/* Group dropdown — no checkbox */}
           <div
             style={{
-              marginTop: 14,
-              display: "flex",
+              border: "1px solid #d0d0d0",
+              borderRadius: 6,
+              display: "inline-flex",
               alignItems: "center",
-              flexWrap: "wrap",
-              gap: 12,
+              background: "#fff",
             }}
           >
-            {/* Dropdown */}
-            <div style={{ position: "relative" }}>
-              <select
-                value={selectedGroupId}
-                onChange={(e) => setSelectedGroupId(e.target.value)}
-                style={{
-                  appearance: "none",
-                  WebkitAppearance: "none",
-                  border: "1px solid #d0d0d0",
-                  borderRadius: 8,
-                  padding: "6px 30px 6px 12px",
-                  fontSize: 13,
-                  fontFamily: "inherit",
-                  color: "#333",
-                  background: "#fff",
-                  cursor: "pointer",
-                  outline: "none",
-                  fontWeight: 500,
-                }}
-              >
-                {FILTER_GROUPS.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.label}
-                  </option>
-                ))}
-              </select>
-              <span
-                style={{
-                  position: "absolute",
-                  right: 10,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  pointerEvents: "none",
-                }}
-              >
-                <svg width="11" height="7" viewBox="0 0 11 7" fill="none">
-                  <path
-                    d="M1 1L5.5 6L10 1"
-                    stroke="#666"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </span>
-            </div>
-
-            {/* Checkboxes — legend order (top layer first = left in legend) */}
-            {legendItems.map((item, idx) => (
-              <React.Fragment key={item.key}>
-                <CheckPill
-                  item={item}
-                  checked={currentActive[item.key]}
-                  onToggle={() => toggleKey(selectedGroupId, item.key)}
-                />
-                {idx < legendItems.length - 1 && (
-                  <span
-                    style={{ color: "#ddd", fontSize: 18, userSelect: "none" }}
-                  >
-                    |
-                  </span>
-                )}
-              </React.Fragment>
-            ))}
+            <select
+              value={selectedGroupId}
+              onChange={(e) => setSelectedGroupId(e.target.value)}
+              style={{
+                appearance: "none",
+                WebkitAppearance: "none",
+                border: "none",
+                padding: "6px 22px 6px 10px",
+                fontSize: 13,
+                fontFamily: "inherit",
+                color: "#333",
+                background: "transparent",
+                cursor: "pointer",
+                outline: "none",
+                fontWeight: 500,
+              }}
+            >
+              {FILTER_GROUPS.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.label}
+                </option>
+              ))}
+            </select>
+            <span
+              style={{
+                marginLeft: -20,
+                marginRight: 6,
+                pointerEvents: "none",
+                fontSize: 10,
+                color: "#666",
+              }}
+            >
+              ▾
+            </span>
           </div>
-        </section>
+
+          {/* Series toggles: standalone checkbox to the left of each colored chip */}
+          {legendItems.map((item) => (
+            <SeriesToggle
+              key={item.key}
+              item={item}
+              checked={currentActive[item.key]}
+              onToggle={() => toggleKey(selectedGroupId, item.key)}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
