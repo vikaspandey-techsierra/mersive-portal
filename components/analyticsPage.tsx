@@ -41,7 +41,7 @@ export default function Home() {
           📈 Analytics
         </h1>
         <button
-          onClick={() => router.push("/pages/analytics/usage")}
+          onClick={() => router.push("/pages/analytics")}
           className="bg-violet-600 hover:bg-violet-700 transition-all duration-300 px-6 py-3 rounded-lg font-medium shadow-lg hover:scale-105 active:scale-95 text-white"
         >
           Analytics →

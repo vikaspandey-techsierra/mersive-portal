@@ -1,6 +1,6 @@
 "use client";
 
-import { DeviceUtilizationPoint } from "@/app/pages/analytics/usage/page";
+import { DeviceUtilizationPoint } from "@/components/analytics/usage/page";
 import { useState, useRef, useEffect } from "react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,

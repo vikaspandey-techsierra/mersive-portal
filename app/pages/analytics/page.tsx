@@ -1,26 +1,35 @@
 "use client";
 
-import React from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import EmailAlertsPage from "@/components/analytics/email/page";
+import MonitoringPage from "@/components/analytics/monitoring/page";
+import UsagePage from "@/components/analytics/usage/page";
+import { useState } from "react";
 
 
-const TABS = [
-  { label: "Usage",        href: "/pages/analytics/usage" },
-  { label: "Monitoring",   href: "/pages/analytics/monitoring" },
-  { label: "Email Alerts", href: "/pages/analytics/email" },
-];
+// TAB CONFIG
+type Tab = "Usage" | "Monitoring" | "Email Alerts";
 
-export default function AnalyticsLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const pathname = usePathname();
+const TABS: Tab[] = ["Usage", "Monitoring", "Email Alerts"];
+
+// LAYOUT
+export default function AnalyticsLayout() {
+  const [activeTab, setActiveTab] = useState<Tab>("Usage");
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case "Usage":
+        return <UsagePage />;
+      case "Monitoring":
+        return <MonitoringPage />;
+      case "Email Alerts":
+        return <EmailAlertsPage />;
+    }
+  };
 
   return (
     <div style={{ fontFamily: "sans-serif", minHeight: "100vh", background: "#fff" }}>
 
+      {/* Global style — removes blue focus outlines */}
       <style>{`
         *:focus                 { outline: none !important; }
         *:focus-visible         { outline: none !important; }
@@ -32,8 +41,10 @@ export default function AnalyticsLayout({
         a:focus                 { outline: none !important; }
       `}</style>
 
+      {/*  Header */}
       <div style={{ padding: "20px 24px 0" }}>
 
+        {/* Icon + Analytics title */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
           <div style={{
             width: 28, height: 28, borderRadius: 6,
@@ -56,35 +67,35 @@ export default function AnalyticsLayout({
           alignItems: "center",
           justifyContent: "space-between",
         }}>
+          {/* Tab buttons — state driven, no routing */}
           <div style={{ display: "flex", gap: 0 }}>
-            {TABS.map(({ label, href }) => {
-              const isActive =
-                pathname === href || pathname.startsWith(href + "/");
+            {TABS.map((tab) => {
+              const isActive = activeTab === tab;
               return (
-                <Link
-                  key={href}
-                  href={href}
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
                   style={{
-                    display: "inline-block",
-                    textDecoration: "none",
-                    borderLeft: isActive
-                      ? "3px solid #6860C8"
-                      : "3px solid transparent",
+                    background: "none",
+                    border: "none",
+                    borderLeft: isActive ? "3px solid #6860C8" : "3px solid transparent",
                     fontSize: 13,
                     fontWeight: isActive ? 600 : 400,
                     padding: "8px 16px",
                     color: isActive ? "#000" : "#888",
+                    cursor: "pointer",
+                    outline: "none",
                     transition: "all 0.15s",
                     fontFamily: "inherit",
-                    cursor: "pointer",
                   }}
                 >
-                  {label}
-                </Link>
+                  {tab}
+                </button>
               );
             })}
           </div>
 
+          {/* Export to CSV */}
           <button
             style={{
               background: "#fff",
@@ -117,9 +128,9 @@ export default function AnalyticsLayout({
         </div>
       </div>
 
-      {/* Child page content renders here  */}
+      {/* Active tab content */}
       <div style={{ padding: "24px", maxWidth: "100%", margin: "0 auto" }}>
-        {children}
+        {renderContent()}
       </div>
     </div>
   );

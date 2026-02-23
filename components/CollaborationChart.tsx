@@ -1,6 +1,6 @@
 "use client";
 
-import { DeviceUtilizationPoint } from "@/app/pages/analytics/usage/page";
+import { DeviceUtilizationPoint } from "@/components/analytics/usage/page";
 import React from "react";
 import {
   LineChart,

@@ -1,7 +1,7 @@
 "use client";
 
 
-import { UserConnectionPoint } from "@/app/pages/analytics/usage/page";
+import { UserConnectionPoint } from "@/components/analytics/usage/page";
 import { useState, useMemo } from "react";
 import {
   AreaChart,

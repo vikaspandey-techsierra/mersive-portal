@@ -1,11 +1,7 @@
-import React from 'react'
-
-const page = () => {
+export default function EmailAlertsPage() {
   return (
     <div style={{ padding: 24, fontFamily: "sans-serif", color: "#333" }}>
-      MONITORING PAGE
+      EMAIL ALERTS PAGE
     </div>
   )
 }
-
-export default page
