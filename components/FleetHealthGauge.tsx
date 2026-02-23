@@ -11,7 +11,7 @@ export default function FleetHealthGauge() {
 
   return (
     <div className="flex items-center justify-between">
-      <div className="w-72 h-40">
+      <div className="w-72 h-65">
         <ResponsiveContainer>
           <PieChart>
             <Pie
