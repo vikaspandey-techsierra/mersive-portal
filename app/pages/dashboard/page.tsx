@@ -10,6 +10,7 @@ import UpdatesSection from "@/components/home/UpdatesSection";
 import PlanTypePie from "@/components/PlanTypePie";
 import Replay from "@/components/icons/replay.svg";
 import Image from "next/image";
+import Sidebar from "@/components/Sidebar";
 
 // ─── TYPES ──────────────────────────────────────────────────────────────────
 
@@ -149,15 +150,28 @@ export default function DashboardPage() {
   // ▼ Replace this with your API call when backend is ready
   const data: DashboardData = DUMMY_DATA;
 
-  return (
-    <div className="min-h-screen bg-white text-[#090814]">
-      <div className=" mx-auto space-y-4">
+return (
+  <div className="flex min-h-screen bg-white text-[#090814]">
+    
+    {/* LEFT SIDEBAR */}
+    <Sidebar />
+
+    {/* RIGHT CONTENT */}
+    <div className="flex-1">
+      <div className="mx-auto space-y-4 p-6">
         <AlertBanner alert={data.alert} />
         <StatCards stats={data.stats} />
         <UpdatesSection release={data.latestRelease} faqs={data.faqs} />
-        <main className="p-10 bg-white text-black min-h-screen">
-          <div className="text-2xl font-semibold mb-6  flex gap-2 items-baseline ">
-            Device Breakdown <span className="text-[16px] font-normal text-[#93949C] " > as of Dec 23, 2025 at 3:40 PM</span><span> <Image src={Replay} alt="Replay icon" width={24} height={24} /></span>
+
+        <div className="p-6 bg-white text-black">
+          <div className="text-2xl font-semibold mb-6 flex gap-2 items-baseline">
+            Device Breakdown
+            <span className="text-[16px] font-normal text-[#93949C]">
+              as of Dec 23, 2025 at 3:40 PM
+            </span>
+            <span>
+              <Image src={Replay} alt="Replay icon" width={24} height={24} />
+            </span>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -177,8 +191,10 @@ export default function DashboardPage() {
               <FleetHealthGauge />
             </Card>
           </div>
-        </main>
+        </div>
       </div>
     </div>
+  </div>
+
   );
 }
