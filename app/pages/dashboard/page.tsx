@@ -10,6 +10,10 @@ import UpdatesSection from "@/components/home/UpdatesSection";
 import PlanTypePie from "@/components/PlanTypePie";
 import Replay from "@/components/icons/replay.svg";
 import Image from "next/image";
+import DeviceType from "@/components/icons/tv_black.svg";
+import PlanType from "@/components/icons/dvr.svg";
+import OverallFleetHealth from "@/components/icons/health_and_safety.svg";
+import DeviceStatus from "@/components/icons/assignment.svg";
 
 // ─── TYPES ──────────────────────────────────────────────────────────────────
 
@@ -161,19 +165,19 @@ export default function DashboardPage() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card title="Device Type">
+            <Card title="Device Type" icon={DeviceType}>
               <DeviceTypeDonut />
             </Card>
 
-            <Card title="Device Status">
+            <Card title="Device Status"icon={DeviceStatus}>
               <DeviceStatusPie />
             </Card>
 
-            <Card title="Plan Type">
+            <Card title="Plan Type"icon={PlanType}>
               <PlanTypePie />
             </Card>
 
-            <Card title="Overall Fleet Health">
+            <Card title="Overall Fleet Health" icon={OverallFleetHealth}>
               <FleetHealthGauge />
             </Card>
           </div>

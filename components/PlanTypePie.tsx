@@ -16,7 +16,7 @@ export default function PlanTypePie() {
   const total = planTypeData.reduce((a, b) => a + b.value, 0);
 
   return (
-    <div className="flex">
+     <div className="flex items-center justify-between text-[#090814] w-[90%] ">
       <div className="w-64 h-64">
         <ResponsiveContainer>
           <PieChart>
@@ -29,7 +29,7 @@ export default function PlanTypePie() {
         </ResponsiveContainer>
       </div>
 
-      <div className="ml-6 space-y-2 text-sm">
+      <div className="ml-6 space-y-2 text-sm w-[50%] ">
         {planTypeData.map((d, i) => (
           <div key={d.name} className="flex items-center gap-3">
             <span
