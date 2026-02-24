@@ -9,7 +9,7 @@ export default function DeviceStatusPie() {
   const total = deviceStatusData.reduce((a, b) => a + b.value, 0);
 
   return (
-      <div className="flex items-center justify-between text-[#090814] w-[90%] ">
+      <div className="flex items-center justify-between text-[#090814] w-[90%] max-md:flex-col ">
       <div className="w-57 h-57 ">
         <ResponsiveContainer>
           <PieChart>
@@ -22,7 +22,7 @@ export default function DeviceStatusPie() {
         </ResponsiveContainer>
       </div>
 
-      <div className="ml-6 space-y-4 flex flex-col justify-between w-[50%]">
+      <div className="ml-6 space-y-4 flex flex-col justify-between w-[50%] max-md:w-full">
         {deviceStatusData.map((d, i) => (
           <div key={d.name} className="flex items-center justify-between gap-6 ">
             <span

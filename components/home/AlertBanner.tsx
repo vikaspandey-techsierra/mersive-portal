@@ -9,7 +9,7 @@ import ErrorIcon from "@/components/icons/error.svg";
 
 const AlertBanner = ({ alert }: { alert: AdminAlert }) => {
   return (
-    <div className=" px-8 py-4 flex items-center gap-3 bg-[#F3D9D7] justify-between ">
+    <div className=" px-8 py-4 flex items-center gap-2 bg-[#F3D9D7] justify-between ">
       {/* Left: title */}
       <div className="flex items-center gap-2 text-[#090814]">
         <div>
@@ -26,7 +26,7 @@ const AlertBanner = ({ alert }: { alert: AdminAlert }) => {
       </div>
 
       {/* Chips */}
-      <div className="flex w-[70%] gap-2 justify-between flex-wrap">
+      <div className="flex w-[74%] gap-1 justify-between flex-wrap">
         <AlertChip
           icon={TvOffIcon}
           label="Offline devices"

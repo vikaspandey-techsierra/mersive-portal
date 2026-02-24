@@ -9,7 +9,7 @@ export default function DeviceTypeDonut() {
   const total = deviceTypeData.reduce((a, b) => a + b.value, 0);
 
   return (
-    <div className="flex items-center justify-between text-[#090814] w-[90%] ">
+    <div className="flex items-center justify-between text-[#090814] w-[90%] max-md:flex-col  ">
       <div className="w-57 h-57 relative ">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
@@ -32,7 +32,7 @@ export default function DeviceTypeDonut() {
         </div>
       </div>
 
-      <div className="ml-6 space-y-4 w-[50%] ">
+      <div className="ml-6 space-y-4 w-[50%] max-md:w-full ">
         {deviceTypeData.map((d, i) => (
           <div key={d.name} className="flex items-center gap-6">
             <span
