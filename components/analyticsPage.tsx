@@ -21,7 +21,7 @@ export default function Home() {
 
         <h1 className="text-4xl font-bold mb-4 tracking-tight">📊 Dashboard</h1>
         <button
-          onClick={() => router.push("/pages/dashboard")}
+          onClick={() => router.push("/pages/home")}
           className="bg-violet-600 hover:bg-violet-700 transition-all duration-300 px-6 py-3 rounded-lg font-medium shadow-lg hover:scale-105 active:scale-95 text-white"
         >
           dashboard →
