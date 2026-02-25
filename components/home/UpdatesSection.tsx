@@ -29,7 +29,7 @@ const UpdatesSection = ({
     <div className="px-8 text-[#090814]">
       {/* Header */}
       <button
-        className="w-full flex items-center justify-between px-6 py-4"
+        className="w-full flex items-center justify-between py-4"
         onClick={() => setOpen((v) => !v)}
       >
         <span className="text-2xl font-medium">Updates</span>

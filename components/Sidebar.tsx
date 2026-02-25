@@ -7,13 +7,12 @@ export default function Sidebar() {
   const pathname = usePathname();
 
   const navItems = [
-    { name: "Home", href: "/pages/dashboard" },
+    { name: "Home", href: "/pages/home" },
     { name: "Analytics", href: "/pages/analytics" },
   ];
 
   return (
-    <div className="h-screen w-60 bg-white border-r border-gray-200 p-4">
-
+    <aside className="hidden md:flex md:flex-col md:w-60 min-h-screen bg-gray-50 border-r border-gray-200 p-4 shrink-0">
       <nav className="flex flex-col gap-2">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
@@ -33,6 +32,6 @@ export default function Sidebar() {
           );
         })}
       </nav>
-    </div>
+    </aside>
   );
 }

@@ -273,29 +273,30 @@ export default function SelectedDevices() {
     onSort: handleSort,
   };
 
-  return (
-    <div className="mb-8">
-      <div className="font-bold text-lg text-black mb-1">
-        Selected Devices ({selected.size})
-      </div>
+return (
+  <div className="mb-8 w-full min-w-0">
+    <div className="font-bold text-lg text-black mb-1">
+      Selected Devices ({selected.size})
+    </div>
 
-      <div className="text-sm text-gray-400 mb-4">
-        Select all or narrow the data down to a specific group of devices
-      </div>
+    <div className="text-sm text-gray-400 mb-4">
+      Select all or narrow the data down to a specific group of devices
+    </div>
 
-      <div className="mb-6">
-        <div className="inline-flex items-center border border-gray-200 rounded-lg px-3 py-2 bg-white w-60">
-          <input
-            type="text"
-            placeholder="Search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="outline-none text-sm text-gray-800 bg-transparent w-full"
-          />
-        </div>
+    <div className="mb-6">
+      <div className="inline-flex items-center border border-gray-200 rounded-lg px-3 py-2 bg-white w-full sm:w-60">
+        <input
+          type="text"
+          placeholder="Search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="outline-none text-sm text-gray-800 bg-transparent w-full"
+        />
       </div>
+    </div>
 
-      <table className="w-full">
+    <div className="w-full overflow-x-auto">
+      <table className="min-w-225 w-full">
         <thead>
           <tr className="border-b border-gray-200">
             <th className="px-6 py-3 w-12">
@@ -336,13 +337,7 @@ export default function SelectedDevices() {
                   />
                 </td>
 
-                <td
-                  className={`px-6 py-4 text-sm ${
-                    isChecked
-                      ? "font-semibold text-black"
-                      : "text-black"
-                  }`}
-                >
+                <td className={`px-6 py-4 text-sm ${isChecked ? "font-semibold text-black" : "text-black"}`}>
                   {device.name}
                 </td>
 
@@ -370,5 +365,6 @@ export default function SelectedDevices() {
         </tbody>
       </table>
     </div>
-  );
+  </div>
+);
 }

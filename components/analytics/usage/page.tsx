@@ -153,8 +153,11 @@ export default function UsagePage() {
       </div>
 
       <DeviceUtilization data={apiData.deviceUtilization} interval={interval} />
+      <hr className="pb-5"/>
       <UserConnections data={apiData.userConnections} interval={interval} />
+      <hr className="pb-5"/>
       <CollaborationUsage data={apiData.deviceUtilization} interval={interval} />
+      <hr className="pb-5"/>
       <SelectedDevices />
     </>
   );
