@@ -1,9 +1,9 @@
 "use client";
 
-import UserConnections from "@/components/UserConnectionsChart";
 import { useState } from "react";
 import { AnalyticsApiResponse, DAY_COUNTS, generateMockData, isValidEmail, tickInterval } from "@/lib/homePage";
 import { AlertConfig, AlertHistoryRow, Recipient } from "@/lib/types/homepage";
+import AlertGraph from "@/components/AlertGraph";
 
 // ─── Mock Data ───────────────────────────────────────────────────────────────
 
@@ -494,7 +494,7 @@ export default function EmailAlertsPage() {
   };
 
   return (
-    <div className="p-6 text-[#090814]">
+    <div className="px-8 text-[#090814]">
 
       {/* ── Alert Settings section ── */}
       <div className="flex items-start justify-between mb-4">
@@ -621,9 +621,9 @@ export default function EmailAlertsPage() {
       <hr className="my-8 border-gray-200" />
 
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-        <span className="text-xl font-bold text-black">Usage</span>
+        {/* <span className="text-xl font-bold text-black">Usage</span> */}
 
-        <div className="flex flex-wrap gap-2">
+        {/* <div className="flex flex-wrap gap-2">
           {TIME_RANGES.map(({ key, label }) => (
             <button
               key={key}
@@ -637,10 +637,10 @@ export default function EmailAlertsPage() {
               {label}
             </button>
           ))}
-        </div>
+        </div> */}
       </div>
 
-       <UserConnections data={apiData.userConnections} interval={interval} title="Alert Settings" subtitle="View the quantity and which types of alerts were emailed to users" />
+       <AlertGraph data={apiData.userConnections} interval={interval} />
 
       {/* ── Alert History ── */}
       <div>
