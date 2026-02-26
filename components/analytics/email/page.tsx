@@ -1,7 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { AnalyticsApiResponse, DAY_COUNTS, generateMockData, isValidEmail, tickInterval } from "@/lib/homePage";
+import {
+  AnalyticsApiResponse,
+  DAY_COUNTS,
+  generateMockData,
+  isValidEmail,
+  tickInterval,
+} from "@/lib/homePage";
 import { AlertConfig, AlertHistoryRow, Recipient } from "@/lib/types/homepage";
 import AlertGraph from "@/components/AlertGraph";
 
@@ -30,7 +36,8 @@ const MOCK_HISTORY: AlertHistoryRow[] = [
     name: "Hallway",
     id: "PD0104A0003",
     description: "Device firmware update from 15.0 to 15.1 failed",
-    recipients: "itsupport@mersive.com, jflores@mersive.com, rkumar@mersive.com",
+    recipients:
+      "itsupport@mersive.com, jflores@mersive.com, rkumar@mersive.com",
   },
   {
     date: "December 16th 2025, 11:45AM",
@@ -70,7 +77,7 @@ function Toggle({
       aria-checked={checked}
       onClick={() => onChange(!checked)}
       className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 ${
-        checked ? "bg-indigo-600" : "bg-gray-300"
+        checked ? "bg-[#6860C8]" : "bg-gray-300"
       }`}
     >
       <span
@@ -100,32 +107,41 @@ function AlertRow({
   showMinutes?: boolean;
 }) {
   return (
-    <div className="flex items-center gap-3 py-2">
+    <div className="flex items-center h-[44px] gap-3 px-3 border-[#E5E7EB] last:border-b-0">
       <Toggle checked={checked} onChange={onChange} />
-      <span className="text-sm text-gray-700 flex items-center gap-2 flex-wrap">
+      <span className="text-[14px] text-[#374151] flex items-center gap-2 leading-none">
         {showMinutes ? (
           <>
             <span>Email when a Pod is unreachable for</span>
-            <div className="flex items-center border border-gray-300 rounded overflow-hidden h-7">
+            <div className="flex items-center h-[44px] border border-[#E5E7EB] rounded-lg overflow-hidden px-2">
               <input
                 type="number"
                 min={1}
                 max={60}
                 value={minutes ?? 5}
                 onChange={(e) => onMinutesChange?.(Number(e.target.value))}
-                className="w-10 px-1 text-sm text-center focus:outline-none"
+                className="w-12 text-[13px] text-center focus:outline-none bg-transparent"
               />
-              <div className="flex flex-col border-l border-gray-300 h-full">
+              <div className="flex flex-col ml-2">
                 <button
                   type="button"
-                  onClick={() => onMinutesChange?.(Math.min(60, (minutes ?? 5) + 1))}
-                  className="flex-1 px-1 text-gray-400 hover:text-gray-700 text-[9px] flex items-center justify-center"
-                >▲</button>
+                  onClick={() =>
+                    onMinutesChange?.(Math.min(60, (minutes ?? 5) + 1))
+                  }
+                  className="text-gray-400 hover:text-gray-700 text-[10px] leading-none"
+                >
+                  ▲
+                </button>
+
                 <button
                   type="button"
-                  onClick={() => onMinutesChange?.(Math.max(1, (minutes ?? 5) - 1))}
-                  className="flex-1 px-1 text-gray-400 hover:text-gray-700 text-[9px] flex items-center justify-center border-t border-gray-300"
-                >▼</button>
+                  onClick={() =>
+                    onMinutesChange?.(Math.max(1, (minutes ?? 5) - 1))
+                  }
+                  className="text-gray-400 hover:text-gray-700 text-[10px] leading-none"
+                >
+                  ▼
+                </button>
               </div>
             </div>
             <span>minutes</span>
@@ -199,7 +215,7 @@ function RecipientCard({
   emailError?: string;
 }) {
   return (
-    <div className="border border-gray-200 rounded-lg p-4 mb-3 bg-white">
+    <div className="border border-[#E5E7EB] rounded-lg p-4 mb-3 bg-white">
       <div className="flex items-start justify-between mb-1">
         <label className="text-sm font-medium text-gray-700">
           Recipient Email<span className="text-red-500">*</span>
@@ -210,8 +226,18 @@ function RecipientCard({
           className="text-gray-400 hover:text-gray-600 transition-colors"
           aria-label="Remove recipient"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
           </svg>
         </button>
       </div>
@@ -228,20 +254,33 @@ function RecipientCard({
 
       {emailError ? (
         <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
-          <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+          <svg
+            className="w-3 h-3 shrink-0"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+          >
+            <path
+              fillRule="evenodd"
+              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+              clipRule="evenodd"
+            />
           </svg>
           {emailError}
         </p>
       ) : (
-        <p className="text-xs text-gray-400 mt-1">Separate multiple email addresses with a comma</p>
+        <p className="text-xs text-gray-400 mt-1">
+          Separate multiple email addresses with a comma
+        </p>
       )}
 
       <div className="mt-2">
         <AlertConfigSection
           config={recipient.alerts}
           onChange={(patch) =>
-            onChange({ ...recipient, alerts: { ...recipient.alerts, ...patch } })
+            onChange({
+              ...recipient,
+              alerts: { ...recipient.alerts, ...patch },
+            })
           }
         />
       </div>
@@ -258,10 +297,22 @@ type SortDir = "asc" | "desc";
 function SortArrows({ active, dir }: { active: boolean; dir: SortDir }) {
   return (
     <span className="inline-flex flex-col ml-1 align-middle">
-      <svg className={`w-2.5 h-2.5 -mb-0.5 ${active && dir === "asc" ? "text-indigo-600" : "text-gray-300"}`} viewBox="0 0 10 6" fill="currentColor">
+      <svg
+        className={`w-2.5 h-2.5 -mb-0.5 ${
+          active && dir === "asc" ? "text-indigo-600" : "text-gray-300"
+        }`}
+        viewBox="0 0 10 6"
+        fill="currentColor"
+      >
         <path d="M5 0L10 6H0L5 0Z" />
       </svg>
-      <svg className={`w-2.5 h-2.5 ${active && dir === "desc" ? "text-indigo-600" : "text-gray-300"}`} viewBox="0 0 10 6" fill="currentColor">
+      <svg
+        className={`w-2.5 h-2.5 ${
+          active && dir === "desc" ? "text-indigo-600" : "text-gray-300"
+        }`}
+        viewBox="0 0 10 6"
+        fill="currentColor"
+      >
         <path d="M5 6L0 0H10L5 6Z" />
       </svg>
     </span>
@@ -327,37 +378,52 @@ function AlertHistorySection() {
     <div>
       {/* Controls row */}
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-5">
           {/* Search */}
           <div className="relative">
-            <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+            <svg
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"
+              />
             </svg>
             <input
               type="text"
               placeholder="Search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-8 pr-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 w-44"
+              className="w-[300px] h-[44px] pl-9 pr-3 text-[13px] border border-[#E5E7EB] rounded-lg focus:outline-none"
             />
           </div>
 
           {/* Filter toggle */}
-          <div className="flex rounded-lg overflow-hidden border border-gray-200 text-sm">
+          <div className="flex h-[32px] border border-[#E5E7EB] rounded-lg overflow-hidden">
             <button
               type="button"
               onClick={() => setFilter("my")}
-              className={`px-3 py-1.5 font-medium transition-colors ${
-                filter === "my" ? "bg-indigo-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
+              className={`w-[120px] text-[13px] font-medium flex items-center justify-center transition-colors ${
+                filter === "my"
+                  ? "bg-[#5E54C5] text-white border-[#5E54C5]"
+                  : "bg-white text-[#6B7280]"
               }`}
             >
               My alerts
             </button>
+
             <button
               type="button"
               onClick={() => setFilter("all")}
-              className={`px-3 py-1.5 font-medium transition-colors border-l border-gray-200 ${
-                filter === "all" ? "bg-indigo-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
+              className={`w-[120px] text-[13px] font-medium flex items-center justify-center transition-colors border-l border-[#E5E7EB] ${
+                filter === "all"
+                  ? "bg-[#5E54C5] text-white border-[#5E54C5]"
+                  : "bg-white text-[#6B7280]"
               }`}
             >
               All alerts
@@ -370,23 +436,63 @@ function AlertHistorySection() {
           type="button"
           className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border border-gray-300 rounded-lg bg-white hover:bg-gray-50 transition-colors"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 12v6m0 0l-3-3m3 3l3-3M12 3v9" />
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 12v6m0 0l-3-3m3 3l3-3M12 3v9"
+            />
           </svg>
           Export to CSV
         </button>
       </div>
 
       {/* Table */}
-      <div className="border border-gray-200 rounded-lg overflow-x-auto bg-white">
+      <div className="border border-[#E5E7EB] rounded-lg overflow-x-auto bg-white">
         <table className="w-full text-sm min-w-160">
           <thead className="border-b border-gray-200">
             <tr>
-              <Th label="Date" field="date" sortField={sortField} sortDir={sortDir} handleSort={handleSort} />
-              <Th label="Name" field="name" sortField={sortField} sortDir={sortDir} handleSort={handleSort} />
-              <Th label="ID" field="id" sortField={sortField} sortDir={sortDir} handleSort={handleSort} />
-              <Th label="Description" field="description" sortField={sortField} sortDir={sortDir} handleSort={handleSort} />
-              <Th label="Recipients" field="recipients" sortField={sortField} sortDir={sortDir} handleSort={handleSort} />
+              <Th
+                label="Date"
+                field="date"
+                sortField={sortField}
+                sortDir={sortDir}
+                handleSort={handleSort}
+              />
+              <Th
+                label="Name"
+                field="name"
+                sortField={sortField}
+                sortDir={sortDir}
+                handleSort={handleSort}
+              />
+              <Th
+                label="ID"
+                field="id"
+                sortField={sortField}
+                sortDir={sortDir}
+                handleSort={handleSort}
+              />
+              <Th
+                label="Description"
+                field="description"
+                sortField={sortField}
+                sortDir={sortDir}
+                handleSort={handleSort}
+              />
+              <Th
+                label="Recipients"
+                field="recipients"
+                sortField={sortField}
+                sortDir={sortDir}
+                handleSort={handleSort}
+              />
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -401,12 +507,19 @@ function AlertHistorySection() {
                 <tr key={i} className="hover:bg-gray-50 transition-colors">
                   <td className="py-3 pl-4 pr-4 text-gray-700 whitespace-nowrap">
                     <span>{row.date}</span>
-                    <span className="text-gray-400 text-xs"> · {row.timeAgo}</span>
+                    <span className="text-gray-400 text-xs">
+                      {" "}
+                      · {row.timeAgo}
+                    </span>
                   </td>
                   <td className="py-3 pr-4 text-gray-700">{row.name}</td>
-                  <td className="py-3 pr-4 text-gray-500 font-mono text-xs">{row.id}</td>
+                  <td className="py-3 pr-4 text-gray-500 font-mono text-xs">
+                    {row.id}
+                  </td>
                   <td className="py-3 pr-4 text-gray-700">{row.description}</td>
-                  <td className="py-3 pr-4 text-gray-500 text-xs">{row.recipients}</td>
+                  <td className="py-3 pr-4 text-gray-500 text-xs">
+                    {row.recipients}
+                  </td>
                 </tr>
               ))
             )}
@@ -440,11 +553,11 @@ const TIME_RANGES: { key: TimeRange; label: string }[] = [
 export default function EmailAlertsPage() {
   const [collapsed, setCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState<"my" | "additional">("my");
-   const [timeRange, setTimeRange] = useState<TimeRange>("7d");
-  
-   const apiData = MOCK[timeRange];
-     const days = DAY_COUNTS[timeRange];
-     const interval = tickInterval(days);
+  const [timeRange, setTimeRange] = useState<TimeRange>("7d");
+
+  const apiData = MOCK[timeRange];
+  const days = DAY_COUNTS[timeRange];
+  const interval = tickInterval(days);
 
   const [myAlerts, setMyAlerts] = useState<AlertConfig>({
     unreachable: true,
@@ -463,7 +576,11 @@ export default function EmailAlertsPage() {
     if (recipients.length >= MAX_RECIPIENTS) return;
     setRecipients([
       ...recipients,
-      { id: Math.random().toString(36).slice(2), email: "", alerts: { ...DEFAULT_ALERT_CONFIG } },
+      {
+        id: Math.random().toString(36).slice(2),
+        email: "",
+        alerts: { ...DEFAULT_ALERT_CONFIG },
+      },
     ]);
   };
 
@@ -487,36 +604,46 @@ export default function EmailAlertsPage() {
     const errs: Record<string, string> = {};
     recipients.forEach((r) => {
       if (!r.email) errs[r.id] = "Email is required.";
-      else if (!isValidEmail(r.email)) errs[r.id] = "Please enter a valid email address.";
+      else if (!isValidEmail(r.email))
+        errs[r.id] = "Please enter a valid email address.";
     });
     setEmailErrors(errs);
     if (Object.keys(errs).length === 0) alert("Settings saved!");
   };
 
   return (
-    <div className="px-8 text-[#090814]">
-
+    <div className="text-[#090814]">
       {/* ── Alert Settings section ── */}
       <div className="flex items-start justify-between mb-4">
-        <div>
-          <h2 className="text-sm font-semibold text-gray-900">Alert Settings</h2>
-          <p className="text-xs text-gray-500 mt-0.5 max-w-md">
-            Control which type of alerts to receive and add additional recipients when an event occurs within your fleet
+        <div className="flex flex-col gap-2">
+          <h2 className="text-[20px] font-medium text-gray-900 leading-[120%]">
+            Alert Settings
+          </h2>
+          <p className="text-[13px] text-gray-500">
+            Control which type of alerts to receive and add additional
+            recipients when an event occurs within your fleet
           </p>
         </div>
         <button
           type="button"
           onClick={() => setCollapsed((c) => !c)}
-          className="p-1.5 border border-gray-200 rounded bg-white hover:bg-gray-50 transition-colors ml-4 shrink-0"
+          className="p-1.5 border border-[#E5E7EB] rounded bg-white hover:bg-gray-50 transition-colors ml-4 shrink-0"
           aria-label={collapsed ? "Expand" : "Collapse"}
         >
           <svg
-            className={`w-4 h-4 text-gray-500 transition-transform ${collapsed ? "rotate-180" : ""}`}
+            className={`w-4 h-4 text-gray-500 transition-transform ${
+              collapsed ? "rotate-180" : ""
+            }`}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M5 15l7-7 7 7"
+            />
           </svg>
         </button>
       </div>
@@ -524,12 +651,14 @@ export default function EmailAlertsPage() {
       {!collapsed && (
         <>
           {/* Tabs */}
-          <div className="flex mb-5 bg-gray-100 rounded-lg p-1 w-fit">
+          <div className="inline-flex mb-5 h-8 rounded-lg border border-gray-300 overflow-hidden">
             <button
               type="button"
               onClick={() => setActiveTab("my")}
-              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                activeTab === "my" ? "bg-indigo-600 text-white shadow-sm" : "text-gray-600 hover:text-gray-800"
+              className={`w-[170px] flex items-center justify-center text-[13px] font-medium border-r transition ${
+                activeTab === "my"
+                  ? "bg-[#6860C8] text-white border-[#6860C8]"
+                  : "bg-white text-gray-600 border-gray-300"
               }`}
             >
               My Alerts
@@ -537,8 +666,10 @@ export default function EmailAlertsPage() {
             <button
               type="button"
               onClick={() => setActiveTab("additional")}
-              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                activeTab === "additional" ? "bg-indigo-600 text-white shadow-sm" : "text-gray-600 hover:text-gray-800"
+              className={`px-4 flex items-center text-[13px] font-medium transition ${
+                activeTab === "additional"
+                  ? "bg-[#6860C8] text-white"
+                  : "bg-white text-gray-600"
               }`}
             >
               Additional Recipients
@@ -552,7 +683,7 @@ export default function EmailAlertsPage() {
                 config={myAlerts}
                 onChange={(patch) => setMyAlerts({ ...myAlerts, ...patch })}
               />
-              <div className="mt-4 pt-4 border-t border-gray-100">
+              {/* <div className="mt-4 pt-4 border-t border-gray-100">
                 <button
                   type="button"
                   onClick={() => alert("Settings saved!")}
@@ -560,7 +691,7 @@ export default function EmailAlertsPage() {
                 >
                   Save Changes
                 </button>
-              </div>
+              </div> */}
             </div>
           )}
 
@@ -568,7 +699,8 @@ export default function EmailAlertsPage() {
           {activeTab === "additional" && (
             <div className="max-w-lg">
               <p className="text-sm text-gray-500 mb-4">
-                Add up to {MAX_RECIPIENTS} additional recipients and configure alerts for each user
+                Add up to {MAX_RECIPIENTS} additional recipients and configure
+                alerts for each user
               </p>
 
               {recipients.map((r) => (
@@ -583,8 +715,18 @@ export default function EmailAlertsPage() {
 
               {recipients.length >= MAX_RECIPIENTS ? (
                 <p className="text-xs text-amber-700 mb-4 py-1.5 px-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-1.5">
-                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                  <svg
+                    className="w-4 h-4 shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+                    />
                   </svg>
                   Max number of recipients reached
                 </p>
@@ -594,8 +736,18 @@ export default function EmailAlertsPage() {
                   onClick={addRecipient}
                   className="text-sm text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1 mb-4 transition-colors"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 4v16m8-8H4"
+                    />
                   </svg>
                   Add recipient
                 </button>
@@ -618,9 +770,9 @@ export default function EmailAlertsPage() {
       )}
 
       {/* ── Divider ── */}
-      <hr className="my-8 border-gray-200" />
+      <div className="my-6 h-px bg-[#E5E7EB]" />
 
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         {/* <span className="text-xl font-bold text-black">Usage</span> */}
 
         {/* <div className="flex flex-wrap gap-2">
@@ -640,14 +792,12 @@ export default function EmailAlertsPage() {
         </div> */}
       </div>
 
-       <AlertGraph data={apiData.userConnections} interval={interval} />
+      <AlertGraph data={apiData.userConnections} interval={interval} />
+
+      <div className="my-6 h-px bg-[#E5E7EB]" />
 
       {/* ── Alert History ── */}
       <div>
-        <h2 className="text-sm font-semibold text-gray-900">Alert History</h2>
-        <p className="text-xs text-gray-500 mt-0.5 mb-4">
-          View the quantity and which types of alerts were emailed to users
-        </p>
         <AlertHistorySection />
       </div>
     </div>

@@ -92,17 +92,21 @@ interface SeriesItem {
 }
 
 const SERIES: SeriesItem[] = [
-  { key: "unreachable",            label: "Unreachable",             color: "#6860C8" },
-  { key: "rebooted",               label: "Rebooted",                color: "#D44E80" },
-  { key: "unassignedFromTemplate", label: "Unassigned from template", color: "#4D9EC4" },
-  { key: "updateAvailable",        label: "Update available",         color: "#7E9E2E" },
-  { key: "updateCompleted",        label: "Update completed",         color: "#E8902A" },
+  { key: "unreachable", label: "Unreachable", color: "#6860C8" },
+  { key: "rebooted", label: "Rebooted", color: "#D44E80" },
+  {
+    key: "unassignedFromTemplate",
+    label: "Unassigned from template",
+    color: "#4D9EC4",
+  },
+  { key: "updateAvailable", label: "Update available", color: "#7E9E2E" },
+  { key: "updateCompleted", label: "Update completed", color: "#E8902A" },
 ];
 
 // ── Time ranges ───────────────────────────────────────────────────────────────
 
 const TIME_RANGES = [
-  { id: "7d",  label: "Last 7 days" },
+  { id: "7d", label: "Last 7 days" },
   { id: "30d", label: "Last 30 days" },
   { id: "60d", label: "Last 60 days" },
   { id: "90d", label: "Last 90 days" },
@@ -164,8 +168,8 @@ export default function AlerthistoryGraph() {
   const [selectedRange, setSelectedRange] = useState("7d");
   const [data, setData] = useState<AlertHistoryPoint[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeKeys, setActiveKeys] = useState<Record<string, boolean>>(
-    () => Object.fromEntries(SERIES.map((s) => [s.key, true]))
+  const [activeKeys, setActiveKeys] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(SERIES.map((s) => [s.key, true]))
   );
 
   // Fetch data whenever range changes
@@ -178,7 +182,9 @@ export default function AlerthistoryGraph() {
         setLoading(false);
       }
     });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [selectedRange]);
 
   const toggleKey = (key: string) =>
@@ -186,7 +192,7 @@ export default function AlerthistoryGraph() {
 
   // x-axis tick interval — show fewer ticks for larger datasets
   const tickInterval = useMemo(() => {
-    if (data.length <= 7)  return 0;
+    if (data.length <= 7) return 0;
     if (data.length <= 30) return 4;
     if (data.length <= 60) return 9;
     return 14;
@@ -195,7 +201,9 @@ export default function AlerthistoryGraph() {
   const chartData = useMemo(
     () =>
       data.map((d) => {
-        const point: Record<string, string | number> = { label: fmtDate(d.date) };
+        const point: Record<string, string | number> = {
+          label: fmtDate(d.date),
+        };
         SERIES.forEach((s) => {
           point[s.key] = activeKeys[s.key] ? (d[s.key] as number) : 0;
         });
@@ -204,14 +212,16 @@ export default function AlerthistoryGraph() {
     [data, activeKeys]
   );
 
-  const legendItems = [...SERIES].reverse();
+  const legendItems = SERIES;
 
   return (
     <div className="mb-8">
       {/* Header row */}
       <div className="flex items-start justify-between mb-4 gap-4 flex-wrap">
         <div>
-          <div className="font-bold text-[18px] text-gray-900">Alert History</div>
+          <div className="font-bold text-[18px] text-gray-900">
+            Alert History
+          </div>
           <div className="text-[13px] text-gray-500 mt-0.5">
             View the quantity and which types of alerts were emailed to users
           </div>
@@ -287,14 +297,19 @@ export default function AlerthistoryGraph() {
         </ResponsiveContainer>
 
         {/* Legend / toggles */}
-        <div className="flex items-center gap-3 mt-3.5 flex-wrap">
-          {legendItems.map((item) => (
-            <SeriesToggle
-              key={item.key}
-              item={item}
-              checked={activeKeys[item.key]}
-              onToggle={() => toggleKey(item.key)}
-            />
+        <div className="flex items-center mt-3.5 flex-wrap">
+          {legendItems.map((item, index) => (
+            <div key={item.key} className="flex items-center">
+              <SeriesToggle
+                item={item}
+                checked={activeKeys[item.key]}
+                onToggle={() => toggleKey(item.key)}
+              />
+
+              {index !== legendItems.length - 1 && (
+                <div className="mx-3 h-4 w-px bg-[#E2E1E8]" />
+              )}
+            </div>
           ))}
         </div>
       </div>
