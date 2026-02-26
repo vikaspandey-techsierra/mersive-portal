@@ -76,12 +76,12 @@ function Toggle({
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 ${
-        checked ? "bg-[#6860C8]" : "bg-gray-300"
+      className={`relative inline-flex h-[20px] w-[36px] shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 ${
+        checked ? "bg-[#5E54C5]" : "bg-gray-300"
       }`}
     >
       <span
-        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
+        className={`pointer-events-none inline-block h-[16px] w-[16px] transform rounded-full bg-white shadow ring-0 transition duration-200 ${
           checked ? "translate-x-4" : "translate-x-0"
         }`}
       />
@@ -107,44 +107,74 @@ function AlertRow({
   showMinutes?: boolean;
 }) {
   return (
-    <div className="flex items-center h-[44px] gap-3 px-3 border-[#E5E7EB] last:border-b-0">
+    <div className="flex items-center h-[44px] gap-[12px] px-3">
       <Toggle checked={checked} onChange={onChange} />
-      <span className="text-[14px] text-[#374151] flex items-center gap-2 leading-none">
+      <span className="text-[14px] font-normal text-[#374151] flex items-center gap-[8px] leading-[20px]">
         {showMinutes ? (
           <>
             <span>Email when a Pod is unreachable for</span>
-            <div className="flex items-center h-[44px] border border-[#E5E7EB] rounded-lg overflow-hidden px-2">
+            <div className="flex items-center h-[32px] border border-[#D1D5DB] rounded-[8px] px-2 bg-white">
               <input
                 type="number"
                 min={1}
                 max={60}
                 value={minutes ?? 5}
                 onChange={(e) => onMinutesChange?.(Number(e.target.value))}
-                className="w-12 text-[13px] text-center focus:outline-none bg-transparent"
+                className="w-[32px] text-[14px] text-[#111827] text-center focus:outline-none bg-transparent"
               />
-              <div className="flex flex-col ml-2">
+              <div className="flex flex-col ml-[6px] justify-center">
+                {/* UP */}
                 <button
                   type="button"
                   onClick={() =>
                     onMinutesChange?.(Math.min(60, (minutes ?? 5) + 1))
                   }
-                  className="text-gray-400 hover:text-gray-700 text-[10px] leading-none"
+                  className="flex items-center justify-center h-[10px]"
                 >
-                  ▲
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    className="text-[#6B7280]"
+                  >
+                    <path
+                      d="M4 10L8 6L12 10"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
                 </button>
 
+                {/* DOWN */}
                 <button
                   type="button"
                   onClick={() =>
                     onMinutesChange?.(Math.max(1, (minutes ?? 5) - 1))
                   }
-                  className="text-gray-400 hover:text-gray-700 text-[10px] leading-none"
+                  className="flex items-center justify-center h-[10px]"
                 >
-                  ▼
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    className="text-[#6B7280]"
+                  >
+                    <path
+                      d="M4 6L8 10L12 6"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
                 </button>
               </div>
             </div>
-            <span>minutes</span>
+            <span className="text-[14px] text-[#374151] ml-[8px]">minutes</span>
           </>
         ) : (
           label
@@ -296,24 +326,43 @@ type SortDir = "asc" | "desc";
 
 function SortArrows({ active, dir }: { active: boolean; dir: SortDir }) {
   return (
-    <span className="inline-flex flex-col ml-1 align-middle">
+    <span className="flex flex-col ml-1 justify-center">
+      {/* UP */}
       <svg
-        className={`w-2.5 h-2.5 -mb-0.5 ${
-          active && dir === "asc" ? "text-indigo-600" : "text-gray-300"
+        width="16"
+        height="16"
+        viewBox="0 0 16 16"
+        fill="none"
+        className={`-mb-[2px] ${
+          active && dir === "asc" ? "text-[#5E54C5]" : "text-[#9CA3AF]"
         }`}
-        viewBox="0 0 10 6"
-        fill="currentColor"
       >
-        <path d="M5 0L10 6H0L5 0Z" />
+        <path
+          d="M4 10L8 6L12 10"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </svg>
+
+      {/* DOWN */}
       <svg
-        className={`w-2.5 h-2.5 ${
-          active && dir === "desc" ? "text-indigo-600" : "text-gray-300"
+        width="16"
+        height="16"
+        viewBox="0 0 16 16"
+        fill="none"
+        className={`-mt-[2px] ${
+          active && dir === "desc" ? "text-[#5E54C5]" : "text-[#9CA3AF]"
         }`}
-        viewBox="0 0 10 6"
-        fill="currentColor"
       >
-        <path d="M5 6L0 0H10L5 6Z" />
+        <path
+          d="M4 6L8 10L12 6"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </svg>
     </span>
   );
@@ -334,11 +383,13 @@ function Th({
 }) {
   return (
     <th
-      className="text-left text-xs font-medium text-gray-500 py-3 pr-4 first:pl-4 cursor-pointer select-none whitespace-nowrap"
+      className="text-left text-[12px] font-medium text-[#6B7280] py-[12px] pr-4 first:pl-4 cursor-pointer select-none whitespace-nowrap"
       onClick={() => handleSort(field)}
     >
-      {label}
-      <SortArrows active={sortField === field} dir={sortDir} />
+      <span className="inline-flex items-center">
+        {label}
+        <SortArrows active={sortField === field} dir={sortDir} />
+      </span>
     </th>
   );
 }
@@ -375,8 +426,8 @@ function AlertHistorySection() {
   });
 
   return (
-    <div>
-      {/* Controls row */}
+    <div className="flex flex-col gap-6">
+      {/* Controls */}
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <div className="flex items-center gap-5">
           {/* Search */}
@@ -399,19 +450,19 @@ function AlertHistorySection() {
               placeholder="Search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-[300px] h-[44px] pl-9 pr-3 text-[13px] border border-[#E5E7EB] rounded-lg focus:outline-none"
+              className="w-[300px] h-[40px] pl-9 pr-3 text-[13px] text-[#111827] border border-[#D1D5DB] rounded-[8px] focus:outline-none"
             />
           </div>
 
-          {/* Filter toggle */}
-          <div className="flex h-[32px] border border-[#E5E7EB] rounded-lg overflow-hidden">
+          {/* Filter */}
+          <div className="flex h-[32px] border border-[#D1D5DB] rounded-[8px] overflow-hidden">
             <button
               type="button"
               onClick={() => setFilter("my")}
               className={`w-[120px] text-[13px] font-medium flex items-center justify-center transition-colors ${
                 filter === "my"
-                  ? "bg-[#5E54C5] text-white border-[#5E54C5]"
-                  : "bg-white text-[#6B7280]"
+                  ? "bg-[#5E54C5] text-white"
+                  : "bg-white text-[#374151]"
               }`}
             >
               My alerts
@@ -422,8 +473,8 @@ function AlertHistorySection() {
               onClick={() => setFilter("all")}
               className={`w-[120px] text-[13px] font-medium flex items-center justify-center transition-colors border-l border-[#E5E7EB] ${
                 filter === "all"
-                  ? "bg-[#5E54C5] text-white border-[#5E54C5]"
-                  : "bg-white text-[#6B7280]"
+                  ? "bg-[#5E54C5] text-white"
+                  : "bg-white text-[#374151]"
               }`}
             >
               All alerts
@@ -434,19 +485,28 @@ function AlertHistorySection() {
         {/* Export */}
         <button
           type="button"
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border border-gray-300 rounded-lg bg-white hover:bg-gray-50 transition-colors"
+          className="flex items-center gap-[6px] px-[12px] h-[32px] text-[13px] font-medium border border-[#D1D5DB] rounded-[8px] bg-white hover:bg-gray-50 transition-colors"
         >
+          {/* Download Icon */}
           <svg
-            className="w-4 h-4"
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
             fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+            className="text-[#374151]"
           >
             <path
+              d="M8 2V10M8 10L5.5 7.5M8 10L10.5 7.5"
+              stroke="currentColor"
+              strokeWidth="1.5"
               strokeLinecap="round"
               strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 12v6m0 0l-3-3m3 3l3-3M12 3v9"
+            />
+            <path
+              d="M3 12.5H13"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
             />
           </svg>
           Export to CSV
@@ -454,9 +514,17 @@ function AlertHistorySection() {
       </div>
 
       {/* Table */}
-      <div className="border border-[#E5E7EB] rounded-lg overflow-x-auto bg-white">
-        <table className="w-full text-sm min-w-160">
-          <thead className="border-b border-gray-200">
+      <div className="border border-[#E5E7EB] rounded-[8px] overflow-x-auto bg-white">
+        <table className="w-full table-fixed border-collapse text-sm">
+          <colgroup>
+            <col className="w-[370px]" />
+            <col className="w-[350px]" />
+            <col className="w-[140px]" />
+            <col className="w-[410px]" />
+            <col className="w-[400px]" />
+          </colgroup>
+
+          <thead className="border-b border-[#E5E7EB]">
             <tr>
               <Th
                 label="Date"
@@ -495,7 +563,8 @@ function AlertHistorySection() {
               />
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+
+          <tbody>
             {rows.length === 0 ? (
               <tr>
                 <td colSpan={5} className="text-center text-gray-400 py-8">
@@ -504,20 +573,29 @@ function AlertHistorySection() {
               </tr>
             ) : (
               rows.map((row, i) => (
-                <tr key={i} className="hover:bg-gray-50 transition-colors">
-                  <td className="py-3 pl-4 pr-4 text-gray-700 whitespace-nowrap">
-                    <span>{row.date}</span>
-                    <span className="text-gray-400 text-xs">
-                      {" "}
-                      · {row.timeAgo}
+                <tr
+                  key={i}
+                  className="h-[43px] border-b border-[#F1F2F4] hover:bg-[#F9FAFB] transition-colors"
+                >
+                  <td className="py-[12px] px-[8px] whitespace-nowrap">
+                    <span className="text-[14px] font-[500] text-[#090814]">
+                      {row.date} – {row.timeAgo}
                     </span>
                   </td>
-                  <td className="py-3 pr-4 text-gray-700">{row.name}</td>
-                  <td className="py-3 pr-4 text-gray-500 font-mono text-xs">
+
+                  <td className="py-[12px] px-[8px] text-[14px] font-[500] text-[#090814]">
+                    {row.name}
+                  </td>
+
+                  <td className="py-[12px] px-[8px] text-[12px] font-mono text-[#6B7280]">
                     {row.id}
                   </td>
-                  <td className="py-3 pr-4 text-gray-700">{row.description}</td>
-                  <td className="py-3 pr-4 text-gray-500 text-xs">
+
+                  <td className="py-[12px] px-[8px] text-[14px] text-[#374151]">
+                    {row.description}
+                  </td>
+
+                  <td className="py-[12px] px-[8px] text-[13px] text-[#6B7280] truncate">
                     {row.recipients}
                   </td>
                 </tr>
@@ -615,11 +693,11 @@ export default function EmailAlertsPage() {
     <div className="text-[#090814]">
       {/* ── Alert Settings section ── */}
       <div className="flex items-start justify-between mb-4">
-        <div className="flex flex-col gap-2">
-          <h2 className="text-[20px] font-medium text-gray-900 leading-[120%]">
+        <div className="flex flex-col gap-[8px]">
+          <h2 className="text-[20px] font-[500] text-[#090814] leading-[24px]">
             Alert Settings
           </h2>
-          <p className="text-[13px] text-gray-500">
+          <p className="text-[13px] font-normal text-[#6B7280] leading-[16px]">
             Control which type of alerts to receive and add additional
             recipients when an event occurs within your fleet
           </p>
@@ -627,22 +705,22 @@ export default function EmailAlertsPage() {
         <button
           type="button"
           onClick={() => setCollapsed((c) => !c)}
-          className="p-1.5 border border-[#E5E7EB] rounded bg-white hover:bg-gray-50 transition-colors ml-4 shrink-0"
           aria-label={collapsed ? "Expand" : "Collapse"}
+          className="w-[44px] h-[44px] flex items-center justify-center rounded-[8px] bg-white hover:bg-[#F9FAFB] transition-colors shrink-0"
         >
           <svg
-            className={`w-4 h-4 text-gray-500 transition-transform ${
+            className={`w-[24px] h-[24px] text-[#5E54C5] transition-transform duration-200 ${
               collapsed ? "rotate-180" : ""
             }`}
             fill="none"
             stroke="currentColor"
+            strokeWidth={2}
             viewBox="0 0 24 24"
           >
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
-              strokeWidth={2}
-              d="M5 15l7-7 7 7"
+              d="M6 15l6-6 6 6"
             />
           </svg>
         </button>
@@ -657,7 +735,7 @@ export default function EmailAlertsPage() {
               onClick={() => setActiveTab("my")}
               className={`w-[170px] flex items-center justify-center text-[13px] font-medium border-r transition ${
                 activeTab === "my"
-                  ? "bg-[#6860C8] text-white border-[#6860C8]"
+                  ? "bg-[#5E54C5] text-white border-[#6860C8]"
                   : "bg-white text-gray-600 border-gray-300"
               }`}
             >
@@ -668,7 +746,7 @@ export default function EmailAlertsPage() {
               onClick={() => setActiveTab("additional")}
               className={`px-4 flex items-center text-[13px] font-medium transition ${
                 activeTab === "additional"
-                  ? "bg-[#6860C8] text-white"
+                  ? "bg-[#5E54C5] text-white"
                   : "bg-white text-gray-600"
               }`}
             >
@@ -782,7 +860,7 @@ export default function EmailAlertsPage() {
               onClick={() => setTimeRange(key)}
               className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition ${
                 timeRange === key
-                  ? "bg-[#6860C8] text-white border-[#6860C8]"
+                  ? "bg-[#5E54C5] text-white border-[#6860C8]"
                   : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
               }`}
             >

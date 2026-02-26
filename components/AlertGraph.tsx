@@ -132,7 +132,7 @@ const SeriesToggle = ({
       className="w-4 h-4 rounded border-2 flex items-center justify-center transition-all flex-shrink-0"
       style={
         checked
-          ? { borderColor: item.color, background: item.color }
+          ? { borderColor: "#6860C8", background: "#6860C8" }
           : { borderColor: "#d1d5db", background: "#fff" }
       }
     >
@@ -217,12 +217,12 @@ export default function AlerthistoryGraph() {
   return (
     <div className="mb-8">
       {/* Header row */}
-      <div className="flex items-start justify-between mb-4 gap-4 flex-wrap">
+      <div className="flex items-start justify-between mb-[16px] gap-[16px] flex-wrap">
         <div>
-          <div className="font-bold text-[18px] text-gray-900">
+          <div className="text-[20px] font-[500] text-[#090814] leading-[24px]">
             Alert History
           </div>
-          <div className="text-[13px] text-gray-500 mt-0.5">
+          <div className="text-[13px] font-normal text-[#6B7280] leading-[16px] mt-[4px]">
             View the quantity and which types of alerts were emailed to users
           </div>
         </div>
