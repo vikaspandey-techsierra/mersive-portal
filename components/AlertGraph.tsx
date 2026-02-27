@@ -129,7 +129,7 @@ const SeriesToggle = ({
     onClick={onToggle}
   >
     <span
-      className="w-4 h-4 rounded border-2 flex items-center justify-center transition-all flex-shrink-0"
+      className="w-4 h-4 rounded border-2 flex items-center justify-center transition-all shrink-0"
       style={
         checked
           ? { borderColor: "#6860C8", background: "#6860C8" }
@@ -169,7 +169,7 @@ export default function AlerthistoryGraph() {
   const [data, setData] = useState<AlertHistoryPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeKeys, setActiveKeys] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(SERIES.map((s) => [s.key, true]))
+    Object.fromEntries(SERIES.map((s) => [s.key, true])),
   );
 
   // Fetch data whenever range changes
@@ -209,7 +209,7 @@ export default function AlerthistoryGraph() {
         });
         return point;
       }),
-    [data, activeKeys]
+    [data, activeKeys],
   );
 
   const legendItems = SERIES;
@@ -217,12 +217,12 @@ export default function AlerthistoryGraph() {
   return (
     <div className="mb-8">
       {/* Header row */}
-      <div className="flex items-start justify-between mb-[16px] gap-[16px] flex-wrap">
+      <div className="flex items-start justify-between mb-4 gap-4 flex-wrap">
         <div>
-          <div className="text-[20px] font-[500] text-[#090814] leading-[24px]">
+          <div className="text-[20px] font-medium text-[#090814] leading-6">
             Alert History
           </div>
-          <div className="text-[13px] font-normal text-[#6B7280] leading-[16px] mt-[4px]">
+          <div className="text-[13px] font-normal text-[#6B7280] leading-4 mt-1">
             View the quantity and which types of alerts were emailed to users
           </div>
         </div>

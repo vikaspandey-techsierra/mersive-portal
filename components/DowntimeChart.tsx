@@ -11,7 +11,7 @@ import {
 } from "recharts";
 
 export interface DowntimePoint {
-  date: string; 
+  date: string;
   devices: number;
   hours: number;
 }
@@ -21,8 +21,8 @@ interface Props {
   interval: number;
 }
 
-const PURPLE = "#6860C8";
-const PINK   = "#D05A8A";
+const PURPLE = "#5E54C5";
+const PINK = "#C55483";
 
 const LeftAxisLabel = ({
   viewBox,
@@ -34,8 +34,11 @@ const LeftAxisLabel = ({
   const cy = viewBox.y + viewBox.height / 2;
   return (
     <text
-      x={cx} y={cy}
-      fill={PURPLE} fontSize={12} fontWeight={500}
+      x={cx}
+      y={cy}
+      fill={PURPLE}
+      fontSize={16}
+      fontWeight={500}
       textAnchor="middle"
       transform={`rotate(-90, ${cx}, ${cy})`}
     >
@@ -54,8 +57,11 @@ const RightAxisLabel = ({
   const cy = viewBox.y + viewBox.height / 2;
   return (
     <text
-      x={cx} y={cy}
-      fill={PINK} fontSize={12} fontWeight={500}
+      x={cx}
+      y={cy}
+      fill={PINK}
+      fontSize={16}
+      fontWeight={500}
       textAnchor="middle"
       transform={`rotate(90, ${cx}, ${cy})`}
     >
@@ -75,15 +81,24 @@ const CustomTooltip = ({
 }) => {
   if (!active || !payload?.length) return null;
   return (
-    <div style={{
-      background: "white", border: "1px solid #E5E7EB",
-      borderRadius: 10, padding: "10px 14px",
-      boxShadow: "0 4px 16px rgba(0,0,0,0.10)", fontSize: 13,
-    }}>
-      <p style={{ fontWeight: 600, color: "#111", margin: "0 0 6px" }}>{label}</p>
+    <div
+      style={{
+        background: "white",
+        border: "1px solid #E5E7EB",
+        borderRadius: 10,
+        padding: "10px 14px",
+        boxShadow: "0 4px 16px rgba(0,0,0,0.10)",
+        fontSize: 13,
+      }}
+    >
+      <p style={{ fontWeight: 600, color: "#111", margin: "0 0 6px" }}>
+        {label}
+      </p>
       {payload.map((p) => (
         <p key={p.dataKey} style={{ color: p.stroke, margin: "3px 0" }}>
-          {p.dataKey === "devices" ? `Devices: ${p.value}` : `Hours: ${p.value} hr`}
+          {p.dataKey === "devices"
+            ? `Devices: ${p.value}`
+            : `Hours: ${p.value} hr`}
         </p>
       ))}
     </div>
@@ -95,7 +110,6 @@ export default function DowntimeChart({ data, interval }: Props) {
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 pt-5 pb-5">
-
       <div className="px-6 mb-2">
         <h2 className="text-base font-bold text-black">Downtime</h2>
         <p className="text-sm text-gray-400 mt-0.5">
@@ -142,7 +156,6 @@ export default function DowntimeChart({ data, interval }: Props) {
               width={52}
               label={<RightAxisLabel />}
             />
-
 
             {deviceTicks.map((tick) => (
               <ReferenceLine
