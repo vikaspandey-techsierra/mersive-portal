@@ -154,51 +154,60 @@ export default function DashboardPage() {
   // ▼ Replace this with your API call when backend is ready
   const data: DashboardData = DUMMY_DATA;
 
-return (
-  <div className="flex min-h-screen bg-white text-[#090814] ">
-    
-    {/* LEFT SIDEBAR */}
-    <Sidebar />
+  return (
+    <div className="flex min-h-screen bg-white text-[#090814] ">
+      {/* LEFT SIDEBAR */}
+      <Sidebar />
 
-    {/* RIGHT CONTENT */}
-    <div className="flex-1 ">
+      {/* RIGHT CONTENT */}
+      <div className="flex-1 ">
         <AlertBanner alert={data.alert} />
-      <div className="mx-auto space-y-4 max-w-350 mt-4">
-        <StatCards stats={data.stats} />
-        <UpdatesSection release={data.latestRelease} faqs={data.faqs} />
+        <div className="mx-auto space-y-4 max-w-350 mt-4">
+          <StatCards stats={data.stats} />
+          <UpdatesSection release={data.latestRelease} faqs={data.faqs} />
 
-        <div className="p-8 bg-white text-black">
-          <div className="text-2xl font-semibold mb-6 flex gap-2 items-baseline">
-            Device Breakdown
-            <span className="text-[16px] font-normal text-[#93949C]">
-              as of Dec 23, 2025 at 3:40 PM
-            </span>
-            <span>
-              <Image src={Replay} alt="Replay icon" width={24} height={24} />
-            </span>
-          </div>
+          <div className="p-8 bg-white text-black">
+            <div className="text-2xl font-semibold mb-6 flex gap-2 items-baseline">
+              Device Breakdown
+              <span className="text-[16px] font-normal text-[#93949C]">
+as of {data.deviceBreakdown.asOf}
+              </span>
+              <span>
+                <Image src={Replay} alt="Replay icon" width={24} height={24} />
+              </span>
+            </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card title="Device Type" icon={DeviceType}>
-              <DeviceTypeDonut />
-            </Card>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card title="Device Type" icon={DeviceType}>
+                <DeviceTypeDonut
+                  data={{
+                    asOf: data.deviceBreakdown.asOf,
+                    totalDevices: data.deviceBreakdown.totalDevices,
+                    deviceTypes: data.deviceBreakdown.byType.map(
+                      ({ name, value }) => ({
+                        name,
+                        value,
+                      })
+                    ),
+                  }}
+                />{" "}
+              </Card>
 
-            <Card title="Device Status"icon={DeviceStatus}>
-              <DeviceStatusPie />
-            </Card>
+              <Card title="Device Status" icon={DeviceStatus}>
+                <DeviceStatusPie />
+              </Card>
 
-            <Card title="Plan Type"icon={PlanType}>
-              <PlanTypePie />
-            </Card>
+              <Card title="Plan Type" icon={PlanType}>
+                <PlanTypePie />
+              </Card>
 
-            <Card title="Overall Fleet Health" icon={OverallFleetHealth}>
-              <FleetHealthGauge />
-            </Card>
+              <Card title="Overall Fleet Health" icon={OverallFleetHealth}>
+                <FleetHealthGauge />
+              </Card>
+            </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
-
   );
 }
