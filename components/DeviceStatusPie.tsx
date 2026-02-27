@@ -9,8 +9,8 @@ export default function DeviceStatusPie() {
   const total = deviceStatusData.reduce((a, b) => a + b.value, 0);
 
   return (
-    <div className="flex">
-      <div className="w-64 h-64">
+      <div className="flex items-center justify-between text-[#090814] w-[90%] max-md:flex-col ">
+      <div className="w-57 h-57 ">
         <ResponsiveContainer>
           <PieChart>
             <Pie data={deviceStatusData} dataKey="value" outerRadius={100}>
@@ -22,17 +22,15 @@ export default function DeviceStatusPie() {
         </ResponsiveContainer>
       </div>
 
-      <div className="ml-6 space-y-3">
+      <div className="ml-6 space-y-4 flex flex-col justify-between w-[50%] max-md:w-full">
         {deviceStatusData.map((d, i) => (
-          <div key={d.name} className="flex items-center gap-3">
+          <div key={d.name} className="flex items-center justify-between gap-6 ">
             <span
               className="w-3 h-3 rounded-full"
               style={{ background: COLORS[i] }}
             />
-            <span className="flex-1">{d.name}</span>
-            <span className="font-semibold">
-              {d.value} ({Math.round((d.value / total) * 100)}%)
-            </span>
+             <span className="flex-1 text-[16px] ">{d.name}</span>
+            <span className="text-[20px] font-semibold ">  {d.value} ({Math.round((d.value / total) * 100)}%)</span>
           </div>
         ))}
       </div>

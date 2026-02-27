@@ -1,6 +1,6 @@
 "use client";
 
-import { UserConnectionPoint } from "@/components/analytics/usage/page";
+import { UserConnectionPoint } from "@/lib/types/homepage";
 import { useState, useMemo } from "react";
 import {
   AreaChart,
@@ -158,11 +158,15 @@ const SeriesToggle = ({
 interface UserConnectionsProps {
   data: UserConnectionPoint[];
   interval: number;
+  title: string;
+  subtitle?: string;
 }
 
 export default function UserConnections({
   data,
   interval,
+  title,
+  subtitle,
 }: UserConnectionsProps) {
   const [selectedGroupId, setSelectedGroupId] = useState("protocol");
 
@@ -201,12 +205,11 @@ export default function UserConnections({
   return (
     <div className="mb-8">
       <div className="font-semibold text-[15px] text-black mb-0.5">
-        User Connections
+        {title}
       </div>
 
       <div className="text-[13px] text-gray-400 mb-3">
-        Compare connection modes, sharing protocols, user operating systems, and
-        types of conferencing solutions used
+        {subtitle}
       </div>
 
       <div className="bg-white rounded-xl p-5 pb-4 border border-gray-200">

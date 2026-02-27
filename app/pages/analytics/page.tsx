@@ -27,13 +27,13 @@ export default function AnalyticsLayout() {
   };
 
   return (
-    <div className="flex min-h-screen w-full bg-white overflow-x-hidden">
+    <div className="flex min-h-screen w-full bg-white overflow-x-hidden ">
       {/* Sidebar */}
       <Sidebar />
 
       {/* Main Content */}
-      <div className="flex-1 min-w-0 bg-white">
-        <div className="px-4 sm:px-6 pt-5">
+      <div className="flex-1 min-w-0 bg-white p-8">
+        <div className="">
           {/* Header */}
           <div className="flex items-center gap-2 mb-3">
             <div className="w-7 h-7 rounded-md bg-[#6860C8] flex items-center justify-center">
@@ -46,7 +46,7 @@ export default function AnalyticsLayout() {
             <span className="text-lg font-bold text-black">Analytics</span>
           </div>
 
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 py-5">
             <div className="flex flex-wrap">
               {TABS.map((tab) => {
                 const isActive = activeTab === tab;
@@ -77,7 +77,7 @@ export default function AnalyticsLayout() {
         </div>
 
         {/* Page Content */}
-        <div className="px-4 sm:px-6 py-6 w-full min-w-0">
+        <div className=" w-full min-w-0">
           {renderContent()}
         </div>
       </div>
