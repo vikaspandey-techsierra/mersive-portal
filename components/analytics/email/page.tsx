@@ -133,29 +133,28 @@ function AlertRow({
   showMinutes?: boolean;
 }) {
   return (
-    <div className="flex items-center h-[44px] gap-[12px] px-3">
+    <div className="flex items-center h-11 gap-3 px-3">
       <Toggle checked={checked} onChange={onChange} />
-      <span className="text-[14px] font-normal text-[#374151] flex items-center gap-[8px] leading-[20px]">
+      <span className="text-[14px] font-normal text-[#374151] flex items-center gap-2 leading-5">
         {showMinutes ? (
           <>
             <span>Email when a Pod is unreachable for</span>
-            <div className="flex items-center h-[32px] border border-[#D1D5DB] rounded-[8px] px-2 bg-white">
+            <div className="flex items-center h-8 border border-[#D1D5DB] rounded-lg px-2 bg-white">
               <input
                 type="number"
                 min={1}
                 max={60}
                 value={minutes ?? 5}
                 onChange={(e) => onMinutesChange?.(Number(e.target.value))}
-                className="w-[32px] text-[14px] text-[#111827] text-center focus:outline-none bg-transparent"
+                className="w-8 text-[14px] text-[#111827] text-center focus:outline-none bg-transparent"
               />
-              <div className="flex flex-col ml-[6px] justify-center">
-                {/* UP */}
+              <div className="flex flex-col ml-1.5 justify-center">
                 <button
                   type="button"
                   onClick={() =>
                     onMinutesChange?.(Math.min(60, (minutes ?? 5) + 1))
                   }
-                  className="flex items-center justify-center h-[10px]"
+                  className="flex items-center justify-center h-2.5"
                 >
                   <svg
                     width="12"
@@ -173,13 +172,12 @@ function AlertRow({
                     />
                   </svg>
                 </button>
-                {/* DOWN */}
                 <button
                   type="button"
                   onClick={() =>
                     onMinutesChange?.(Math.max(1, (minutes ?? 5) - 1))
                   }
-                  className="flex items-center justify-center h-[10px]"
+                  className="flex items-center justify-center h-2.5"
                 >
                   <svg
                     width="12"
@@ -256,9 +254,9 @@ function AlertConfigSection({
   );
 }
 
-// ─── Recipient Card ───────────────────────────────────────────────────────────
+// ─── Animated Recipient Card Wrapper ──────────────────────────────────────────
 
-function RecipientCard({
+function AnimatedRecipientCard({
   recipient,
   onChange,
   onRemove,
@@ -269,75 +267,115 @@ function RecipientCard({
   onRemove: () => void;
   emailError?: string;
 }) {
+  const [isVisible, setIsVisible] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
+
+  useEffect(() => {
+    // Delay to allow the initial collapsed state to render first,
+    // then trigger the transition to visible
+    const timer = setTimeout(() => setIsVisible(true), 30);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleRemove = () => {
+    setIsRemoving(true);
+    // Wait for exit animation to finish, then actually remove
+    setTimeout(onRemove, 350);
+  };
+
+  const show = isVisible && !isRemoving;
+
   return (
-    <div className="border border-[#E5E7EB] rounded-lg p-4 mb-3 bg-white">
-      <div className="flex items-start justify-between mb-1">
-        <label className="text-sm font-medium text-gray-700">
-          Recipient Email<span className="text-red-500">*</span>
-        </label>
-        <button
-          type="button"
-          onClick={onRemove}
-          className="text-gray-400 hover:text-gray-600 transition-colors"
-          aria-label="Remove recipient"
-        >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </button>
-      </div>
-
-      <input
-        type="text"
-        value={recipient.email}
-        onChange={(e) => onChange({ ...recipient, email: e.target.value })}
-        placeholder="user1@example.org"
-        className={`w-full rounded border px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 ${
-          emailError ? "border-red-400 bg-red-50" : "border-gray-300"
+    <div
+      className={`grid transition-all ease-out ${
+        show
+          ? "grid-rows-[1fr] opacity-100 duration-400"
+          : "grid-rows-[0fr] opacity-0 duration-300"
+      }`}
+    >
+      <div
+        className={`overflow-hidden transition-transform ease-out ${
+          show
+            ? "translate-y-0 duration-400"
+            : isRemoving
+              ? "-translate-y-2 duration-300"
+              : "translate-y-4 duration-400"
         }`}
-      />
+      >
+        <div className="pb-3">
+          <div className="border border-[#E5E7EB] rounded-lg p-4 bg-white">
+            <div className="flex items-start justify-between mb-1">
+              <label className="text-sm font-medium text-gray-700">
+                Recipient Email<span className="text-red-500">*</span>
+              </label>
+              <button
+                type="button"
+                onClick={handleRemove}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="Remove recipient"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
 
-      {emailError ? (
-        <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
-          <svg
-            className="w-3 h-3 shrink-0"
-            fill="currentColor"
-            viewBox="0 0 20 20"
-          >
-            <path
-              fillRule="evenodd"
-              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-              clipRule="evenodd"
+            <input
+              type="text"
+              value={recipient.email}
+              onChange={(e) =>
+                onChange({ ...recipient, email: e.target.value })
+              }
+              placeholder="user1@example.org"
+              className={`w-full rounded border px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 ${
+                emailError ? "border-red-400 bg-red-50" : "border-gray-300"
+              }`}
             />
-          </svg>
-          {emailError}
-        </p>
-      ) : (
-        <p className="text-xs text-gray-400 mt-1">
-          Separate multiple email addresses with a comma
-        </p>
-      )}
 
-      <div className="mt-2">
-        <AlertConfigSection
-          config={recipient.alerts}
-          onChange={(patch) =>
-            onChange({
-              ...recipient,
-              alerts: { ...recipient.alerts, ...patch },
-            })
-          }
-        />
+            {emailError ? (
+              <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                <svg
+                  className="w-3 h-3 shrink-0"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                {emailError}
+              </p>
+            ) : (
+              <p className="text-xs text-gray-400 mt-1">
+                Separate multiple email addresses with a comma
+              </p>
+            )}
+
+            <div className="mt-2">
+              <AlertConfigSection
+                config={recipient.alerts}
+                onChange={(patch) =>
+                  onChange({
+                    ...recipient,
+                    alerts: { ...recipient.alerts, ...patch },
+                  })
+                }
+              />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -352,7 +390,6 @@ type SortDir = "asc" | "desc";
 function SortArrows({ active, dir }: { active: boolean; dir: SortDir }) {
   return (
     <span className="flex flex-col ml-1 justify-center">
-      {/* UP */}
       <svg
         width="16"
         height="16"
@@ -370,7 +407,6 @@ function SortArrows({ active, dir }: { active: boolean; dir: SortDir }) {
           strokeLinejoin="round"
         />
       </svg>
-      {/* DOWN */}
       <svg
         width="16"
         height="16"
@@ -407,7 +443,7 @@ function Th({
 }) {
   return (
     <th
-      className="text-left text-[12px] font-medium text-[#6B7280] py-[12px] pr-4 first:pl-4 cursor-pointer select-none whitespace-nowrap"
+      className="text-left text-[12px] font-medium text-[#6B7280] py-3 pr-4 first:pl-4 cursor-pointer select-none whitespace-nowrap"
       onClick={() => handleSort(field)}
     >
       <span className="inline-flex items-center">
@@ -425,7 +461,6 @@ function AlertHistorySection() {
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [isLoading, setIsLoading] = useState(true);
 
-  // Simulate initial data fetch — replace setTimeout body with your actual API call
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 2000);
     return () => clearTimeout(timer);
@@ -458,10 +493,8 @@ function AlertHistorySection() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Controls */}
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <div className="flex items-center gap-5">
-          {/* Search */}
           <div className="relative">
             <svg
               className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
@@ -481,16 +514,15 @@ function AlertHistorySection() {
               placeholder="Search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-[300px] h-[40px] pl-9 pr-3 text-[13px] text-[#111827] border border-[#D1D5DB] rounded-[8px] focus:outline-none"
+              className="w-75 h-10 pl-9 pr-3 text-[13px] text-[#111827] border border-[#D1D5DB] rounded-lg focus:outline-none"
             />
           </div>
 
-          {/* Filter */}
-          <div className="flex h-[32px] border border-[#D1D5DB] rounded-[8px] overflow-hidden">
+          <div className="flex h- border border-[#D1D5DB] rounded-lg overflow-hidden">
             <button
               type="button"
               onClick={() => setFilter("my")}
-              className={`w-[120px] text-[13px] font-medium flex items-center justify-center transition-colors ${
+              className={`w-30 text-[13px] font-medium flex items-center justify-center transition-colors ${
                 filter === "my"
                   ? "bg-[#5E54C5] text-white"
                   : "bg-white text-[#374151]"
@@ -501,7 +533,7 @@ function AlertHistorySection() {
             <button
               type="button"
               onClick={() => setFilter("all")}
-              className={`w-[120px] text-[13px] font-medium flex items-center justify-center transition-colors border-l border-[#E5E7EB] ${
+              className={`w-30 text-[13px] font-medium flex items-center justify-center transition-colors border-l border-[#E5E7EB] ${
                 filter === "all"
                   ? "bg-[#5E54C5] text-white"
                   : "bg-white text-[#374151]"
@@ -512,10 +544,9 @@ function AlertHistorySection() {
           </div>
         </div>
 
-        {/* Export */}
         <button
           type="button"
-          className="flex items-center gap-[6px] px-[12px] h-[32px] text-[13px] font-medium border border-[#D1D5DB] rounded-[8px] bg-white hover:bg-gray-50 transition-colors"
+          className="flex items-center gap-1.5 px-3 h-8 text-[13px] font-medium border border-[#D1D5DB] rounded-lg bg-white hover:bg-gray-50 transition-colors"
         >
           <svg
             width="16"
@@ -542,15 +573,14 @@ function AlertHistorySection() {
         </button>
       </div>
 
-      {/* Table */}
-      <div className="border border-[#E5E7EB] rounded-[8px] overflow-x-auto bg-white">
+      <div className="border border-[#E5E7EB] rounded-lg overflow-x-auto bg-white">
         <table className="w-full table-fixed border-collapse text-sm">
           <colgroup>
-            <col className="w-[370px]" />
-            <col className="w-[350px]" />
-            <col className="w-[140px]" />
-            <col className="w-[410px]" />
-            <col className="w-[400px]" />
+            <col className="w-92.5" />
+            <col className="w-87.5" />
+            <col className="w-35" />
+            <col className="w-102.5" />
+            <col className="w-100" />
           </colgroup>
 
           <thead className="border-b border-[#E5E7EB]">
@@ -612,27 +642,23 @@ function AlertHistorySection() {
               rows.map((row, i) => (
                 <tr
                   key={i}
-                  className="h-[43px] border-b border-[#F1F2F4] hover:bg-[#F9FAFB] transition-colors"
+                  className="h-10.75 border-b border-[#F1F2F4] hover:bg-[#F9FAFB] transition-colors"
                 >
-                  <td className="py-[12px] px-[8px] whitespace-nowrap">
-                    <span className="text-[14px] font-[500] text-[#090814]">
+                  <td className="py-3 px-2 whitespace-nowrap">
+                    <span className="text-[14px] font-medium text-[#090814]">
                       {row.date} – {row.timeAgo}
                     </span>
                   </td>
-
-                  <td className="py-[12px] px-[8px] text-[14px] font-[500] text-[#090814]">
+                  <td className="py-3 px-2 text-[14px] font-medium text-[#090814]">
                     {row.name}
                   </td>
-
-                  <td className="py-[12px] px-[8px] text-[12px] font-mono text-[#6B7280]">
+                  <td className="py-3 px-2 text-[12px] font-mono text-[#6B7280]">
                     {row.id}
                   </td>
-
-                  <td className="py-[12px] px-[8px] text-[14px] text-[#374151]">
+                  <td className="py-3 px-2 text-[14px] text-[#374151]">
                     {row.description}
                   </td>
-
-                  <td className="py-[12px] px-[8px] text-[13px] text-[#6B7280] truncate">
+                  <td className="py-3 px-2 text-[13px] text-[#6B7280] truncate">
                     {row.recipients}
                   </td>
                 </tr>
@@ -739,11 +765,11 @@ export default function EmailAlertsPage() {
     <div className="text-[#090814]">
       {/* ── Alert Settings section ── */}
       <div className="flex items-start justify-between mb-4">
-        <div className="flex flex-col gap-[8px]">
-          <h2 className="text-[20px] font-[500] text-[#090814] leading-[24px]">
+        <div className="flex flex-col gap-2">
+          <h2 className="text-[20px] font-medium text-[#090814] leading-6">
             Alert Settings
           </h2>
-          <p className="text-[13px] font-normal text-[#6B7280] leading-[16px]">
+          <p className="text-[13px] font-normal text-[#6B7280] leading-4">
             Control which type of alerts to receive and add additional
             recipients when an event occurs within your fleet
           </p>
@@ -752,10 +778,10 @@ export default function EmailAlertsPage() {
           type="button"
           onClick={() => setCollapsed((c) => !c)}
           aria-label={collapsed ? "Expand" : "Collapse"}
-          className="w-[44px] h-[44px] flex items-center justify-center rounded-[8px] bg-white hover:bg-[#F9FAFB] transition-colors shrink-0"
+          className="w-11 h-11 flex items-center justify-center rounded-lg bg-white hover:bg-[#F9FAFB] transition-colors shrink-0"
         >
           <svg
-            className={`w-[24px] h-[24px] text-[#5E54C5] transition-transform duration-200 ${
+            className={`w-6 h-6 text-[#5E54C5] transition-transform duration-200 ${
               collapsed ? "rotate-180" : ""
             }`}
             fill="none"
@@ -779,7 +805,7 @@ export default function EmailAlertsPage() {
             <button
               type="button"
               onClick={() => setActiveTab("my")}
-              className={`w-[170px] flex items-center justify-center text-[13px] font-medium border-r transition ${
+              className={`w-42.5 flex items-center justify-center text-[13px] font-medium border-r transition ${
                 activeTab === "my"
                   ? "bg-[#5E54C5] text-white border-[#6860C8]"
                   : "bg-white text-gray-600 border-gray-300"
@@ -819,7 +845,7 @@ export default function EmailAlertsPage() {
               </p>
 
               {recipients.map((r) => (
-                <RecipientCard
+                <AnimatedRecipientCard
                   key={r.id}
                   recipient={r}
                   onChange={(updated) => updateRecipient(r.id, updated)}
@@ -829,22 +855,24 @@ export default function EmailAlertsPage() {
               ))}
 
               {recipients.length >= MAX_RECIPIENTS ? (
-                <p className="text-xs text-amber-700 mb-4 py-1.5 px-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-1.5">
-                  <svg
-                    className="w-4 h-4 shrink-0"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
-                    />
-                  </svg>
-                  Max number of recipients reached
-                </p>
+                <div className="transition-all duration-300 ease-out">
+                  <p className="text-xs text-amber-700 mb-4 py-1.5 px-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-1.5">
+                    <svg
+                      className="w-4 h-4 shrink-0"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+                      />
+                    </svg>
+                    Max number of recipients reached
+                  </p>
+                </div>
               ) : (
                 <button
                   type="button"
