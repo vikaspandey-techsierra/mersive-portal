@@ -4,7 +4,9 @@ import { useState } from "react";
 import DowntimeChart, { type DowntimePoint } from "@/components/DowntimeChart";
 import AlertsChart, { type AlertPoint } from "@/components/AlertChart";
 import SelectedDevices from "@/components/SelectedDevices";
-
+import React from "react";
+import LineChartSkeleton from "@/components/skeleton/LineChartSkeleton";
+import AreaChartSkeleton from "@/components/skeleton/AreaChartSkeleton";
 
 interface Device {
   id: string;
@@ -18,14 +20,12 @@ interface Device {
   contentTypes: number | null;
 }
 
-
 export interface MonitoringApiResponse {
   range: "7d" | "30d" | "60d" | "90d" | "all";
   downtime: DowntimePoint[];
   alerts: AlertPoint[];
   selectedDevices: Device[];
 }
-
 
 const MOCK_DEVICES: Device[] = [
   {
@@ -85,7 +85,6 @@ const MOCK_DEVICES: Device[] = [
   },
 ];
 
-
 function generateDowntime(days: number): DowntimePoint[] {
   const baseDate = new Date("2024-12-16");
   const wave = [9, 13, 3, 11, 19, 0, 0];
@@ -108,7 +107,6 @@ function generateDowntime(days: number): DowntimePoint[] {
     };
   });
 }
-
 
 function generateAlerts(days: number): AlertPoint[] {
   const baseDate = new Date("2024-12-16");
@@ -134,7 +132,6 @@ function generateAlerts(days: number): AlertPoint[] {
   });
 }
 
-
 function buildMock(days: number): MonitoringApiResponse {
   const rangeKey: Record<number, string> = {
     7: "7d",
@@ -158,7 +155,6 @@ const MOCK: Record<string, MonitoringApiResponse> = {
   "90d": buildMock(90),
   all: buildMock(120),
 };
-
 
 type TimeRange = "7d" | "30d" | "60d" | "90d" | "all";
 
@@ -185,13 +181,22 @@ function tickInterval(days: number): number {
   return 13;
 }
 
-
 export default function MonitoringPage() {
   const [timeRange, setTimeRange] = useState<TimeRange>("7d");
 
   const apiData = MOCK[timeRange];
   const days = DAY_COUNTS[timeRange];
   const interval = tickInterval(days);
+
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
     <div className="w-full">
@@ -215,9 +220,25 @@ export default function MonitoringPage() {
         </div>
       </div>
 
-      <DowntimeChart data={apiData.downtime} interval={interval} />
+      {isLoading ? (
+        <LineChartSkeleton
+          title={"Downtime"}
+          description={"Monitor how many devices are down and for long the downtime lasted"}
+        />
+      ) : (
+        <DowntimeChart data={apiData.downtime} interval={interval} />
+      )}
       <hr className="my-10 border-t border-gray-200" />
-      <AlertsChart data={apiData.alerts} interval={interval} />
+      {isLoading ? (
+        <AreaChartSkeleton
+          title={"Alerts"}
+          description={
+            "Monitor the quantity and which types of alerts occurred in your fleet"
+          }
+        />
+      ) : (
+        <AlertsChart data={apiData.alerts} interval={interval} />
+      )}
       <hr className="my-10 border-t border-gray-200" />
       <SelectedDevices />
     </div>

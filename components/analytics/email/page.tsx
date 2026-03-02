@@ -10,6 +10,8 @@ import {
 } from "@/lib/homePage";
 import { AlertConfig, AlertHistoryRow, Recipient } from "@/lib/types/homepage";
 import AlertGraph from "@/components/AlertGraph";
+import React from "react";
+import AreaChartSkeleton from "@/components/skeleton/AreaChartSkeleton";
 
 // ─── Mock Data ───────────────────────────────────────────────────────────────
 
@@ -667,6 +669,7 @@ export default function EmailAlertsPage() {
   const [collapsed, setCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState<"my" | "additional">("my");
   const [timeRange, setTimeRange] = useState<TimeRange>("7d");
+  const [isLoading, setIsLoading] = React.useState(true);
 
   const apiData = MOCK[timeRange];
   const days = DAY_COUNTS[timeRange];
@@ -723,6 +726,14 @@ export default function EmailAlertsPage() {
     setEmailErrors(errs);
     if (Object.keys(errs).length === 0) alert("Settings saved!");
   };
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
     <div className="text-[#090814]">
@@ -878,7 +889,16 @@ export default function EmailAlertsPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4" />
 
-      <AlertGraph data={apiData.userConnections} interval={interval} />
+      {isLoading ? (
+        <AreaChartSkeleton
+          title={"Alert History"}
+          description={
+            "View the quantity and which types of alerts were emailed to users"
+          }
+        />
+      ) : (
+        <AlertGraph data={apiData.userConnections} interval={interval} />
+      )}
 
       <div className="my-6 h-px bg-[#E5E7EB]" />
 

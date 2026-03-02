@@ -5,7 +5,15 @@ import DeviceUtilization from "@/components/DeviceUtilizationChart";
 import SelectedDevices from "@/components/SelectedDevices";
 import UserConnections from "@/components/UserConnectionsChart";
 import { useState } from "react";
-import { AnalyticsApiResponse, DAY_COUNTS, generateMockData, tickInterval } from "@/lib/homePage";
+import {
+  AnalyticsApiResponse,
+  DAY_COUNTS,
+  generateMockData,
+  tickInterval,
+} from "@/lib/homePage";
+import React from "react";
+import LineChartSkeleton from "@/components/skeleton/LineChartSkeleton";
+import AreaChartSkeleton from "@/components/skeleton/AreaChartSkeleton";
 
 const MOCK: Record<string, AnalyticsApiResponse> = {
   "7d": generateMockData(7),
@@ -33,6 +41,16 @@ export default function UsagePage() {
   const days = DAY_COUNTS[timeRange];
   const interval = tickInterval(days);
 
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
@@ -55,13 +73,51 @@ export default function UsagePage() {
         </div>
       </div>
 
-      <DeviceUtilization data={apiData.deviceUtilization} interval={interval} />
-      <hr className="pb-5"/>
-      <UserConnections data={apiData.userConnections} interval={interval}  title="User Connections" subtitle=" Compare connection modes, sharing protocols, user operating systems, and
-        types of conferencing solutions used" />
-      <hr className="pb-5"/>
-      <CollaborationUsage data={apiData.deviceUtilization} interval={interval} />
-      <hr className="pb-5"/>
+      {isLoading ? (
+        <LineChartSkeleton
+          title={"Device Utilization"}
+          description={
+            "Compare up to two types of usage data for devices in your organization"
+          }
+        />
+      ) : (
+        <DeviceUtilization
+          data={apiData.deviceUtilization}
+          interval={interval}
+        />
+      )}
+      <hr className="pb-5" />
+      {isLoading ? (
+        <AreaChartSkeleton
+          title={"User Connections"}
+          description={
+            "Compare connection modes, sharing protocols, user operating systems, and types of conferencing solutions used"
+          }
+        />
+      ) : (
+        <UserConnections
+          data={apiData.userConnections}
+          interval={interval}
+          title="User Connections"
+          subtitle=" Compare connection modes, sharing protocols, user operating systems, and
+        types of conferencing solutions used"
+        />
+      )}
+      <hr className="pb-5" />
+      {isLoading ? (
+        <LineChartSkeleton
+          title={"Collaboration Usage"}
+          description={
+            "Compare how many users connect versus how often they share a post within a meeting on average"
+          }
+        />
+      ) : (
+        <CollaborationUsage
+          data={apiData.deviceUtilization}
+          interval={interval}
+        />
+      )}
+      <hr className="pb-5" />
       <SelectedDevices />
     </>
   );
