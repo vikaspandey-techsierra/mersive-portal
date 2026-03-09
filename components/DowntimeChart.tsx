@@ -1,28 +1,67 @@
 "use client";
 
+/**
+ * DowntimeChart.tsx
+ *
+ * Dual-axis line chart for the Monitoring > Downtime section.
+ *
+ * Data fields (canonical names from analytics.ts):
+ *   ts_downtime_duration_tot     — total downtime hours (left axis)
+ *   ts_downtime_devices_num_tot  — number of devices down (right axis, FE-derived)
+ */
+
 import {
   LineChart,
   Line,
   XAxis,
   YAxis,
+  CartesianGrid,
   Tooltip,
-  ReferenceLine,
   ResponsiveContainer,
 } from "recharts";
+import { DowntimePoint } from "@/lib/analytics";
 
-export interface DowntimePoint {
-  date: string;
-  devices: number;
-  hours: number;
+function fmtDate(dateStr: string): string {
+  const d = new Date(dateStr + "T00:00:00");
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-interface Props {
-  data: DowntimePoint[];
-  interval: number;
+// ─── Tooltip ─────────────────────────────────────────────────────────────────
+
+interface TEntry {
+  name: string;
+  value: number;
+  color: string;
 }
 
-const PURPLE = "#5E54C5";
-const PINK = "#C55483";
+const ChartTooltip = ({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: TEntry[];
+  label?: string;
+}) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-[13px] shadow-md">
+      <div className="font-semibold mb-1 text-black">{label}</div>
+      {payload
+        .filter((e) => e.value > 0)
+        .map((e) => (
+          <div key={e.name} className="mt-1" style={{ color: e.color }}>
+            {e.name}: {e.value}
+          </div>
+        ))}
+    </div>
+  );
+};
+
+// ─── Axis labels ──────────────────────────────────────────────────────────────
+
+const PURPLE = "#6860C8";
+const PINK = "#D44E80";
 
 const LeftAxisLabel = ({
   viewBox,
@@ -30,14 +69,14 @@ const LeftAxisLabel = ({
   viewBox?: { x: number; y: number; width: number; height: number };
 }) => {
   if (!viewBox) return null;
-  const cx = viewBox.x - 34;
+  const cx = viewBox.x - 1;
   const cy = viewBox.y + viewBox.height / 2;
   return (
     <text
       x={cx}
       y={cy}
       fill={PURPLE}
-      fontSize={16}
+      fontSize={11}
       fontWeight={500}
       textAnchor="middle"
       transform={`rotate(-90, ${cx}, ${cy})`}
@@ -53,14 +92,14 @@ const RightAxisLabel = ({
   viewBox?: { x: number; y: number; width: number; height: number };
 }) => {
   if (!viewBox) return null;
-  const cx = viewBox.x + viewBox.width + 44;
+  const cx = viewBox.x + viewBox.width + 10;
   const cy = viewBox.y + viewBox.height / 2;
   return (
     <text
       x={cx}
       y={cy}
       fill={PINK}
-      fontSize={16}
+      fontSize={11}
       fontWeight={500}
       textAnchor="middle"
       transform={`rotate(90, ${cx}, ${cy})`}
@@ -70,142 +109,109 @@ const RightAxisLabel = ({
   );
 };
 
-const CustomTooltip = ({
-  active,
-  payload,
-  label,
-}: {
-  active?: boolean;
-  payload?: Array<{ dataKey: string; value: number; stroke: string }>;
-  label?: string;
-}) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div
-      style={{
-        background: "white",
-        border: "1px solid #E5E7EB",
-        borderRadius: 10,
-        padding: "10px 14px",
-        boxShadow: "0 4px 16px rgba(0,0,0,0.10)",
-        fontSize: 13,
-      }}
-    >
-      <p style={{ fontWeight: 600, color: "#111", margin: "0 0 6px" }}>
-        {label}
-      </p>
-      {payload.map((p) => (
-        <p key={p.dataKey} style={{ color: p.stroke, margin: "3px 0" }}>
-          {p.dataKey === "devices"
-            ? `Devices: ${p.value}`
-            : `Hours: ${p.value} hr`}
-        </p>
-      ))}
-    </div>
-  );
-};
+// ─── Legend pill ─────────────────────────────────────────────────────────────
 
-export default function DowntimeChart({ data, interval }: Props) {
-  const deviceTicks = [0, 6, 12, 18, 24];
+const LegendPill = ({ color, label }: { color: string; label: string }) => (
+  <span
+    className="inline-flex items-center gap-1.5 text-[13px] font-medium text-white rounded-md px-3 py-1"
+    style={{ background: color }}
+  >
+    {label}
+  </span>
+);
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
+interface DowntimeChartProps {
+  data: DowntimePoint[];
+  interval: number;
+}
+
+export default function DowntimeChart({ data, interval }: DowntimeChartProps) {
+  const chartData = data.map((d) => ({
+    label: fmtDate(d.date),
+    // canonical field → chart dataKey
+    ts_downtime_devices_num_tot: d.ts_downtime_devices_num_tot,
+    ts_downtime_duration_tot: parseFloat(d.ts_downtime_duration_tot.toFixed(2)),
+  }));
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 pt-5 pb-5">
-      <div className="px-6 mb-2">
-        <h2 className="text-base font-bold text-black">Downtime</h2>
-        <p className="text-sm text-gray-400 mt-0.5">
-          Monitor how many devices are down and for long the downtime lasted
-        </p>
+    <div className="mb-8">
+      <div className="font-semibold text-[15px] text-black mb-0.5">
+        Downtime
+      </div>
+      <div className="text-[13px] text-gray-400 mb-3">
+        Monitor how many devices are down and for how long the downtime lasted
       </div>
 
-      <div className="w-full h-80">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="bg-white rounded-xl py-5 pb-4 border border-gray-200">
+        <ResponsiveContainer width="100%" height={280}>
           <LineChart
-            data={data}
-            margin={{ top: 10, right: 68, left: 52, bottom: 4 }}
+            data={chartData}
+            margin={{ top: 8, right: 40, left: 24, bottom: 0 }}
           >
+            <CartesianGrid stroke="#f0f0f0" vertical={false} />
             <XAxis
-              dataKey="date"
+              dataKey="label"
+              tick={{ fontSize: 11, fill: "#000" }}
               interval={interval}
-              tick={{ fontSize: 12, fill: "#9CA3AF" }}
               axisLine={false}
               tickLine={false}
-              dy={8}
             />
-
+            {/* Left axis — ts_downtime_devices_num_tot */}
             <YAxis
               yAxisId="left"
               orientation="left"
-              domain={[0, 24]}
-              ticks={deviceTicks}
-              tick={{ fontSize: 12, fill: "#9CA3AF" }}
+              tick={{ fontSize: 11, fill: "#9CA3AF" }}
               axisLine={false}
               tickLine={false}
-              width={36}
+              width={32}
               label={<LeftAxisLabel />}
             />
-
+            {/* Right axis — ts_downtime_duration_tot (hours) */}
             <YAxis
               yAxisId="right"
               orientation="right"
-              domain={[1, 2]}
-              ticks={[1, 1.25, 1.5, 1.75, 2]}
-              tickFormatter={(v: number) => `${v} hr`}
-              tick={{ fontSize: 12, fill: "#9CA3AF" }}
+              tick={{ fontSize: 11, fill: "#9CA3AF" }}
               axisLine={false}
               tickLine={false}
-              width={52}
+              width={36}
+              tickFormatter={(v: number) =>
+                `${v % 1 === 0 ? v : v.toFixed(1)}hr`
+              }
               label={<RightAxisLabel />}
             />
+            <Tooltip content={<ChartTooltip />} />
 
-            {deviceTicks.map((tick) => (
-              <ReferenceLine
-                key={tick}
-                yAxisId="left"
-                y={tick}
-                stroke="#E5E7EB"
-                strokeWidth={1}
-              />
-            ))}
-
-            <Tooltip content={<CustomTooltip />} />
-
+            {/* ts_downtime_devices_num_tot — Number of devices */}
             <Line
               yAxisId="left"
               type="linear"
-              dataKey="devices"
+              dataKey="ts_downtime_devices_num_tot"
+              name="Number of devices"
               stroke={PURPLE}
-              strokeWidth={2.5}
-              dot={{ r: 5, fill: PURPLE, strokeWidth: 0 }}
-              activeDot={{ r: 7, fill: PURPLE }}
+              strokeWidth={2}
+              dot={{ r: 4, fill: PURPLE, strokeWidth: 0 }}
+              activeDot={{ r: 5 }}
             />
-
+            {/* ts_downtime_duration_tot — Number of hours */}
             <Line
               yAxisId="right"
               type="linear"
-              dataKey="hours"
+              dataKey="ts_downtime_duration_tot"
+              name="Number of hours"
               stroke={PINK}
-              strokeWidth={2.5}
-              dot={{ r: 5, fill: PINK, strokeWidth: 0 }}
-              activeDot={{ r: 7, fill: PINK }}
+              strokeWidth={2}
+              dot={{ r: 4, fill: PINK, strokeWidth: 0 }}
+              activeDot={{ r: 5 }}
             />
           </LineChart>
         </ResponsiveContainer>
-      </div>
 
-      {/* Legend */}
-      <div className="flex gap-2.5 px-6 mt-4">
-        <span
-          className="inline-flex items-center text-white text-sm font-medium rounded-full px-4 py-1.5"
-          style={{ background: PURPLE }}
-        >
-          Number of devices
-        </span>
-        <span
-          className="inline-flex items-center text-white text-sm font-medium rounded-full px-4 py-1.5"
-          style={{ background: PINK }}
-        >
-          Number of hours
-        </span>
+        <div className="flex gap-2.5 mt-3.5 flex-wrap items-center px-6">
+          <LegendPill color={PURPLE} label="Number of devices" />
+          <LegendPill color={PINK} label="Number of hours" />
+        </div>
       </div>
     </div>
   );

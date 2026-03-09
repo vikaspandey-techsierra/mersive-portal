@@ -1,6 +1,5 @@
 "use client";
 
-import { UserConnectionPoint } from "@/lib/types/homepage";
 import { useState, useMemo } from "react";
 import {
   AreaChart,
@@ -11,43 +10,51 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { UserConnectionPoint } from "@/lib/analytics";
+
+// ─── Date formatter ───────────────────────────────────────────────────────────
 
 function fmtDate(dateStr: string): string {
-  const d = new Date(dateStr);
+  const d = new Date(dateStr + "T00:00:00");
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-interface TEntry {
+// ─── Tooltip ──────────────────────────────────────────────────────────────────
+
+interface TooltipEntry {
   name: string;
   value: number;
   color: string;
 }
 
-const ChartTooltip = ({
+function ChartTooltip({
   active,
   payload,
   label,
 }: {
   active?: boolean;
-  payload?: TEntry[];
+  payload?: TooltipEntry[];
   label?: string;
-}) => {
+}) {
   if (!active || !payload?.length) return null;
-  const items = [...payload].reverse();
+  const visible = [...payload].reverse().filter((e) => e.value > 0);
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-[13px] shadow-md">
       <div className="font-semibold mb-1 text-gray-800">{label}</div>
-      {items
-        .filter((e) => e.value > 0)
-        .map((e) => (
-          <div key={e.name} className="mt-1" style={{ color: e.color }}>
-            {e.name}: {e.value}
-          </div>
-        ))}
+      {visible.map((e) => (
+        <div key={e.name} className="mt-1" style={{ color: e.color }}>
+          {e.name}: {e.value}
+        </div>
+      ))}
     </div>
   );
-};
+}
+
+// ─── Series definitions ───────────────────────────────────────────────────────
+//
+// key = field on UserConnectionPoint (canonical name from analytics.ts)
+// All segment groups are defined here; the active group drives the chart.
 
 interface SeriesItem {
   key: keyof Omit<UserConnectionPoint, "date">;
@@ -56,8 +63,10 @@ interface SeriesItem {
 }
 
 interface FilterGroup {
-  id: string;
+  id: "mode" | "protocol" | "os" | "conference";
   label: string;
+  // canonical metric name that produces this group's data (for reference)
+  canonicalMetric: string;
   items: SeriesItem[];
 }
 
@@ -65,6 +74,7 @@ const FILTER_GROUPS: FilterGroup[] = [
   {
     id: "mode",
     label: "Mode",
+    canonicalMetric: "ts_connections_num_by_mode",
     items: [
       { key: "wired", label: "Wired", color: "#D44E80" },
       { key: "wireless", label: "Wireless", color: "#6860C8" },
@@ -73,6 +83,7 @@ const FILTER_GROUPS: FilterGroup[] = [
   {
     id: "protocol",
     label: "Protocol",
+    canonicalMetric: "ts_conections_num_by_protocol", // intentional typo matches backend
     items: [
       { key: "hdmiIn", label: "HDMI in", color: "#E8902A" },
       { key: "googleCast", label: "Google Cast", color: "#7E9E2E" },
@@ -84,8 +95,10 @@ const FILTER_GROUPS: FilterGroup[] = [
   {
     id: "os",
     label: "OS",
+    canonicalMetric: "ts_connections_num_by_os",
     items: [
       { key: "otherOs", label: "Other", color: "#E8902A" },
+      { key: "linux", label: "Linux", color: "#A855F7" },
       { key: "android", label: "Android", color: "#7E9E2E" },
       { key: "ios", label: "iOS", color: "#4D9EC4" },
       { key: "windows", label: "Windows", color: "#D44E80" },
@@ -95,6 +108,7 @@ const FILTER_GROUPS: FilterGroup[] = [
   {
     id: "conference",
     label: "Conference",
+    canonicalMetric: "ts_connections_num_by_conference",
     items: [
       { key: "presentationOnly", label: "Presentation only", color: "#4D9EC4" },
       { key: "zoom", label: "Zoom", color: "#D44E80" },
@@ -103,7 +117,9 @@ const FILTER_GROUPS: FilterGroup[] = [
   },
 ];
 
-const SeriesToggle = ({
+// ─── Series toggle checkbox ───────────────────────────────────────────────────
+
+function SeriesToggle({
   item,
   checked,
   onToggle,
@@ -111,51 +127,52 @@ const SeriesToggle = ({
   item: SeriesItem;
   checked: boolean;
   onToggle: () => void;
-}) => (
-  <div
-    className="inline-flex items-center gap-1.5 cursor-pointer"
-    onClick={onToggle}
-  >
-    <span
-      className={`w-4.5 h-4.5 rounded border-2 flex items-center justify-center transition-all ${
-        checked ? "" : "border-gray-300 bg-white"
-      }`}
-      style={
-        checked
-          ? {
-              borderColor: item.color,
-              background: item.color,
-            }
-          : undefined
-      }
+}) {
+  return (
+    <div
+      className="inline-flex items-center gap-1.5 cursor-pointer select-none"
+      onClick={onToggle}
     >
-      {checked && (
-        <svg width="10" height="8" viewBox="0 0 10 8">
-          <path
-            d="M1 4L3.5 6.5L9 1"
-            stroke="#fff"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      )}
-    </span>
+      {/* Checkbox */}
+      <span
+        className="w-4.5 h-4.5 rounded border-2 flex items-center justify-center shrink-0 transition-all"
+        style={
+          checked
+            ? { borderColor: item.color, background: item.color }
+            : { borderColor: "#D1D5DB", background: "#fff" }
+        }
+      >
+        {checked && (
+          <svg width="10" height="8" viewBox="0 0 10 8">
+            <path
+              d="M1 4L3.5 6.5L9 1"
+              stroke="#fff"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        )}
+      </span>
 
-    <span
-      className="rounded px-2.5 py-1 text-xs font-medium whitespace-nowrap transition-opacity"
-      style={{
-        background: item.color,
-        color: "#fff",
-        opacity: checked ? 1 : 0.45,
-      }}
-    >
-      {item.label}
-    </span>
-  </div>
-);
+      {/* Colour pill label */}
+      <span
+        className="rounded px-2.5 py-1 text-xs font-medium whitespace-nowrap transition-opacity"
+        style={{
+          background: item.color,
+          color: "#fff",
+          opacity: checked ? 1 : 0.4,
+        }}
+      >
+        {item.label}
+      </span>
+    </div>
+  );
+}
 
-interface UserConnectionsProps {
+// ─── Main component ───────────────────────────────────────────────────────────
+
+export interface UserConnectionsProps {
   data: UserConnectionPoint[];
   interval: number;
   title: string;
@@ -168,8 +185,10 @@ export default function UserConnections({
   title,
   subtitle,
 }: UserConnectionsProps) {
-  const [selectedGroupId, setSelectedGroupId] = useState("protocol");
+  const [selectedGroupId, setSelectedGroupId] =
+    useState<FilterGroup["id"]>("protocol");
 
+  // Per-group visibility state: all series start visible
   const [activeKeys, setActiveKeys] = useState<
     Record<string, Record<string, boolean>>
   >(() =>
@@ -177,8 +196,8 @@ export default function UserConnections({
       FILTER_GROUPS.map((g) => [
         g.id,
         Object.fromEntries(g.items.map((i) => [i.key, true])),
-      ])
-    )
+      ]),
+    ),
   );
 
   const toggleKey = (groupId: string, key: string) =>
@@ -190,32 +209,38 @@ export default function UserConnections({
   const currentGroup = FILTER_GROUPS.find((g) => g.id === selectedGroupId)!;
   const currentActive = activeKeys[selectedGroupId];
 
-  const connectionData = useMemo(() => {
-    return data.map((d) => {
-      const point: Record<string, string | number> = { label: fmtDate(d.date) };
-      currentGroup.items.forEach((item) => {
-        point[item.key] = currentActive[item.key] ? (d[item.key] as number) : 0;
-      });
-      return point;
-    });
-  }, [data, currentGroup, currentActive]);
+  // Build chart data from the canonical UserConnectionPoint fields
+  const chartData = useMemo(
+    () =>
+      data.map((d) => {
+        const point: Record<string, string | number> = {
+          label: fmtDate(d.date),
+        };
+        currentGroup.items.forEach((item) => {
+          // If toggle is off, render 0 so the area visually disappears
+          point[item.key] = currentActive[item.key]
+            ? ((d[item.key] as number) ?? 0)
+            : 0;
+        });
+        return point;
+      }),
+    [data, currentGroup, currentActive],
+  );
 
+  // Legend shown in reverse stack order (top area first)
   const legendItems = [...currentGroup.items].reverse();
 
   return (
     <div className="mb-8">
-      <div className="font-semibold text-[15px] text-black mb-0.5">
-        {title}
-      </div>
-
-      <div className="text-[13px] text-gray-400 mb-3">
-        {subtitle}
-      </div>
+      <div className="font-semibold text-[15px] text-black mb-0.5">{title}</div>
+      {subtitle && (
+        <div className="text-[13px] text-gray-400 mb-3">{subtitle}</div>
+      )}
 
       <div className="bg-white rounded-xl p-5 pb-4 border border-gray-200">
         <ResponsiveContainer width="100%" height={260}>
           <AreaChart
-            data={connectionData}
+            data={chartData}
             margin={{ top: 8, right: 16, left: -20, bottom: 0 }}
           >
             <CartesianGrid stroke="#f0f0f0" vertical={false} />
@@ -230,7 +255,7 @@ export default function UserConnections({
             />
 
             <YAxis
-              tick={{ fontSize: 11, fill: "#000" }}
+              tick={{ fontSize: 11, fill: "#9CA3AF" }}
               axisLine={false}
               tickLine={false}
             />
@@ -252,12 +277,16 @@ export default function UserConnections({
           </AreaChart>
         </ResponsiveContainer>
 
+        {/* Controls row: group selector + per-series toggles */}
         <div className="flex items-center gap-3 mt-3.5 flex-wrap">
+          {/* Group selector dropdown */}
           <div className="border border-gray-300 rounded-md inline-flex items-center bg-white">
             <select
               value={selectedGroupId}
-              onChange={(e) => setSelectedGroupId(e.target.value)}
-              className="appearance-none border-none px-2.5 py-1.5 text-[13px] text-gray-800 bg-transparent cursor-pointer outline-none font-medium"
+              onChange={(e) =>
+                setSelectedGroupId(e.target.value as FilterGroup["id"])
+              }
+              className="appearance-none border-none px-2.5 py-1.5 text-[13px] text-gray-800 bg-transparent cursor-pointer outline-none font-medium pr-5"
             >
               {FILTER_GROUPS.map((g) => (
                 <option key={g.id} value={g.id}>
@@ -265,12 +294,12 @@ export default function UserConnections({
                 </option>
               ))}
             </select>
-
             <span className="-ml-5 mr-1.5 text-[10px] text-gray-500 pointer-events-none">
               ▾
             </span>
           </div>
 
+          {/* Per-series checkboxes */}
           {legendItems.map((item) => (
             <SeriesToggle
               key={item.key}
