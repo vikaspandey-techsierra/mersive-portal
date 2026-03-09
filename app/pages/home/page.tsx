@@ -28,10 +28,18 @@ import {
   useDeviceStatusMetric,
   usePlanTypeMetric,
   useFleetHealthMetric,
+  useOfflineDevicesMetric,
+  useExpiredDevicesMetric,
+  useOutdatedFirmwareMetric,
+  useOtherIssuesMetric,
+  useMeetingsUnderwayMetric,
+  useUniqueUsersMetric,
+  useAvgMeetingLengthMetric,
+  useBusiestTimeMetric,
 } from "@/lib/analytics/hooks/useSnapshotMetric";
 
 export default function DashboardPage() {
-  // Chart hooks (Chart Functions)
+  // DEVICE BREAKDOWN METRICS
   const {
     data: deviceTypeData,
     createdAt,
@@ -43,21 +51,19 @@ export default function DashboardPage() {
   const { data: fleetHealthData, loading: fleetLoading } =
     useFleetHealthMetric();
 
-  // Static UI data (not snapshot metrics)
-  const stats = {
-    meetingsUnderway: 0,
-    uniqueUsers: 11,
-    avgMeetingLengthMin: 50,
-    busiestTimeLabel: "11 am",
-  };
+  // BANNER METRICS
+  const offlineDevices = useOfflineDevicesMetric();
+  const expiredDevices = useExpiredDevicesMetric();
+  const outdatedFirmware = useOutdatedFirmwareMetric();
+  const otherIssues = useOtherIssuesMetric();
 
-  const alert = {
-    offlineDevices: 78,
-    expiredOrExpiringSoon: 2,
-    outdatedFirmware: 14,
-    otherIssues: 120,
-  };
+  // STATS CARDS METRICS
+  const meetingsUnderway = useMeetingsUnderwayMetric();
+  const uniqueUsers = useUniqueUsersMetric();
+  const avgMeetingLength = useAvgMeetingLengthMetric();
+  const busiestTime = useBusiestTimeMetric();
 
+  // RELEASE + FAQ DATA
   const release = {
     version: "Mersive v1.0.1",
     date: "April 10, 2024",
@@ -79,24 +85,35 @@ export default function DashboardPage() {
   return (
     <div className="flex min-h-screen bg-white text-[#090814]">
       <Sidebar />
-
       <div className="flex-1">
-        <AlertBanner alert={alert} />
-
+        <AlertBanner
+          alert={{
+            offlineDevices,
+            expiredOrExpiringSoon: expiredDevices,
+            outdatedFirmware,
+            otherIssues,
+          }}
+        />
         <div className="mx-auto space-y-4 max-w-350 mt-4">
-          <StatCards stats={stats} />
-
+          <StatCards
+            stats={{
+              meetingsUnderway,
+              uniqueUsers,
+              avgMeetingLengthMin: avgMeetingLength,
+              busiestTimeLabel: busiestTime,
+            }}
+          />
+          {/* RELEASE + FAQ */}
           <UpdatesSection release={release} faqs={faqs} />
-
+          {/* DEVICE BREAKDOWN */}
           <div className="p-8 bg-white text-black">
             <div className="text-2xl font-semibold mb-6 flex gap-2 items-baseline">
               Device Breakdown
               <span className="text-[16px] font-normal text-[#93949C]">
-                {formatDate(createdAt)}
+                {createdAt ? formatDate(createdAt) : ""}
               </span>
               <Image src={Replay} alt="Replay icon" width={24} height={24} />
             </div>
-
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* DEVICE TYPE */}
               <Card title="Device Type" icon={DeviceType}>
@@ -106,7 +123,6 @@ export default function DashboardPage() {
                   <DeviceTypeDonut data={deviceTypeData} />
                 )}
               </Card>
-
               {/* DEVICE STATUS */}
               <Card title="Device Status" icon={DeviceStatus}>
                 {statusLoading ? (
@@ -115,7 +131,6 @@ export default function DashboardPage() {
                   <DeviceStatusPie data={deviceStatusData} />
                 )}
               </Card>
-
               {/* PLAN TYPE */}
               <Card title="Plan Type" icon={PlanType}>
                 {planLoading ? (
@@ -124,7 +139,6 @@ export default function DashboardPage() {
                   <PlanTypePie data={planTypeData} />
                 )}
               </Card>
-
               {/* FLEET HEALTH */}
               <Card title="Overall Fleet Health" icon={OverallFleetHealth}>
                 {fleetLoading ? (

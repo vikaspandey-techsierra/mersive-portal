@@ -7,7 +7,7 @@ export async function mockSnapshotCloudFunction(
 ): Promise<SnapshotRow[]> {
 
   const mockDB: Record<string, SnapshotRow[]> = {
-
+  
     cs_devices_num_by_type: [
       {
         org_id: "aVRMM99r6Q6KdR5Bu3gB-7m0i9",
@@ -16,7 +16,7 @@ export async function mockSnapshotCloudFunction(
         segment_1_value: "Gen 4 Smart",
         metric_value: "2",
         devices_list: null,
-        created_at: "2026-03-05 03:00:03"
+        created_at: "2026-03-05 03:00:03",
       },
       {
         org_id: "aVRMM99r6Q6KdR5Bu3gB-7m0i9",
@@ -25,7 +25,7 @@ export async function mockSnapshotCloudFunction(
         segment_1_value: "Gen 4 Pod",
         metric_value: "1",
         devices_list: null,
-        created_at: "2026-03-05 03:00:03"
+        created_at: "2026-03-05 03:00:03",
       },
       {
         org_id: "aVRMM99r6Q6KdR5Bu3gB-7m0i9",
@@ -34,8 +34,8 @@ export async function mockSnapshotCloudFunction(
         segment_1_value: "Gen 3 Pod",
         metric_value: "5",
         devices_list: null,
-        created_at: "2026-03-05 03:00:03"
-      }
+        created_at: "2026-03-05 03:00:03",
+      },
     ],
 
     cs_devices_num_by_status: [
@@ -46,7 +46,7 @@ export async function mockSnapshotCloudFunction(
         segment_1_value: "Offline",
         metric_value: "2",
         devices_list: null,
-        created_at: "2026-03-05 02:59:39"
+        created_at: "2026-03-05 02:59:39",
       },
       {
         org_id: "aVRMM99r6Q6KdR5Bu3gB-7m0i9",
@@ -55,8 +55,8 @@ export async function mockSnapshotCloudFunction(
         segment_1_value: "Online",
         metric_value: "1",
         devices_list: null,
-        created_at: "2026-03-05 02:59:39"
-      }
+        created_at: "2026-03-05 02:59:39",
+      },
     ],
 
     cs_devices_num_by_plan: [
@@ -67,7 +67,7 @@ export async function mockSnapshotCloudFunction(
         segment_1_value: "Dev Smart - 1 year",
         metric_value: "2",
         devices_list: null,
-        created_at: "2026-03-05 02:57:59"
+        created_at: "2026-03-05 02:57:59",
       },
       {
         org_id: "aVRMM99r6Q6KdR5Bu3gB-7m0i9",
@@ -76,11 +76,11 @@ export async function mockSnapshotCloudFunction(
         segment_1_value: "Dev Pro - 1 year",
         metric_value: "1",
         devices_list: null,
-        created_at: "2026-03-05 02:57:59"
-      }
-    ]
-
+        created_at: "2026-03-05 02:57:59",
+      },
+    ],
+    
   };
 
   return mockDB[metric] ?? [];
-} 
+}

@@ -11,7 +11,8 @@ import {
 } from "../snapshot/snapshotTypes";
 
 
-// DEVICE TYPE
+
+//  DEVICE TYPE 
 export function useDeviceTypeMetric() {
 
   const [data, setData] = useState<ChartData[]>([]);
@@ -156,5 +157,183 @@ export function useFleetHealthMetric() {
   }, []);
 
   return { data, loading };
+
+}
+
+// BANNER METRICS
+export function useOfflineDevicesMetric() {
+
+  const [value, setValue] = useState(0);
+
+  useEffect(() => {
+
+    async function load() {
+
+      const rows = await getSnapshotMetric("cs_offline_devices_num");
+
+      setValue(Number(rows?.[0]?.metric_value ?? 0));
+
+    }
+
+    load();
+
+  }, []);
+
+  return value;
+
+}
+
+export function useExpiredDevicesMetric() {
+
+  const [value, setValue] = useState(0);
+
+  useEffect(() => {
+
+    async function load() {
+
+      const rows = await getSnapshotMetric("cs_expired_and_soon_devices_num");
+
+      setValue(Number(rows?.[0]?.metric_value ?? 0));
+
+    }
+
+    load();
+
+  }, []);
+
+  return value;
+
+}
+
+export function useOutdatedFirmwareMetric() {
+
+  const [value, setValue] = useState(0);
+
+  useEffect(() => {
+
+    async function load() {
+
+      const rows = await getSnapshotMetric("cs_outdated_firmware_devices_num");
+
+      setValue(Number(rows?.[0]?.metric_value ?? 0));
+
+    }
+
+    load();
+
+  }, []);
+
+  return value;
+
+}
+
+export function useOtherIssuesMetric() {
+
+  const [value, setValue] = useState(0);
+
+  useEffect(() => {
+
+    async function load() {
+
+      const rows = await getSnapshotMetric("cs_other_issues_devices_num");
+
+      setValue(Number(rows?.[0]?.metric_value ?? 0));
+
+    }
+
+    load();
+
+  }, []);
+
+  return value;
+
+}
+
+// STATS CARDS
+export function useMeetingsUnderwayMetric() {
+
+  const [value, setValue] = useState(0);
+
+  useEffect(() => {
+
+    async function load() {
+
+      const rows = await getSnapshotMetric("cs_meetings_num");
+
+      setValue(Number(rows?.[0]?.metric_value ?? 0));
+
+    }
+
+    load();
+
+  }, []);
+
+  return value;
+
+}
+
+export function useUniqueUsersMetric() {
+
+  const [value, setValue] = useState(0);
+
+  useEffect(() => {
+
+    async function load() {
+
+      const rows = await getSnapshotMetric("agg_users_num");
+
+      setValue(Number(rows?.[0]?.metric_value ?? 0));
+
+    }
+
+    load();
+
+  }, []);
+
+  return value;
+
+}
+
+export function useAvgMeetingLengthMetric() {
+
+  const [value, setValue] = useState(0);
+
+  useEffect(() => {
+
+    async function load() {
+
+      const rows = await getSnapshotMetric("agg_meetings_duration_avg");
+
+      setValue(Number(rows?.[0]?.metric_value ?? 0));
+
+    }
+
+    load();
+
+  }, []);
+
+  return value;
+
+}
+
+export function useBusiestTimeMetric() {
+
+  const [value, setValue] = useState("");
+
+  useEffect(() => {
+
+    async function load() {
+
+      const rows = await getSnapshotMetric("agg_busiest_time");
+
+      setValue(rows?.[0]?.metric_value ?? "");
+
+    }
+
+    load();
+
+  }, []);
+
+  return value;
 
 }
