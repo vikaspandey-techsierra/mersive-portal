@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import Card from "@/components/Card";
 import DeviceStatusPie from "@/components/DeviceStatusPie";
 import DeviceTypeDonut from "@/components/DeviceTypeDonut";
@@ -16,97 +15,50 @@ import PlanType from "@/components/icons/dvr.svg";
 import OverallFleetHealth from "@/components/icons/health_and_safety.svg";
 import DeviceStatus from "@/components/icons/assignment.svg";
 import Sidebar from "@/components/Sidebar";
+import { formatDate } from "@/lib/analytics/utils/formatDate";
 
 // Skeletons
 import DeviceTypeDonutSkeleton from "@/components/skeleton/DeviceTypeDonutSkeleton";
 import DeviceStatusSkeleton from "@/components/skeleton/DeviceStatusSkeleton";
 import FleetHealthSkeleton from "@/components/skeleton/FleetHealthSkeleton";
 
-// TYPES
+// CHART FUNCTIONS
+import {
+  useDeviceTypeMetric,
+  useDeviceStatusMetric,
+  usePlanTypeMetric,
+  useFleetHealthMetric,
+} from "@/lib/analytics/hooks/useSnapshotMetric";
 
-interface DashboardStats {
-  meetingsUnderway: number;
-  uniqueUsers: number;
-  avgMeetingLengthMin: number;
-  busiestTimeLabel: string;
-}
+export default function DashboardPage() {
+  // Chart hooks (Chart Functions)
+  const {
+    data: deviceTypeData,
+    createdAt,
+    loading: typeLoading,
+  } = useDeviceTypeMetric();
+  const { data: deviceStatusData, loading: statusLoading } =
+    useDeviceStatusMetric();
+  const { data: planTypeData, loading: planLoading } = usePlanTypeMetric();
+  const { data: fleetHealthData, loading: fleetLoading } =
+    useFleetHealthMetric();
 
-interface AdminAlert {
-  offlineDevices: number;
-  expiredOrExpiringSoon: number;
-  outdatedFirmware: number;
-  otherIssues: number;
-}
-
-interface ReleaseNote {
-  version: string;
-  date: string;
-  bullets: string[];
-}
-
-interface FaqItem {
-  question: string;
-  answer?: string;
-}
-
-interface DeviceTypeItem {
-  name: string;
-  value: number;
-  color: string;
-}
-
-interface DeviceStatusItem {
-  name: string;
-  value: number;
-  percent: number;
-  color: string;
-}
-
-interface PlanTypeItem {
-  name: string;
-  value: number;
-  percent: number;
-  color: string;
-}
-
-interface FleetHealth {
-  score: number;
-  onlineDevices: number;
-  devicesWithIssues: number;
-}
-
-interface DashboardData {
-  stats: DashboardStats;
-  alert: AdminAlert;
-  latestRelease: ReleaseNote;
-  faqs: FaqItem[];
-  deviceBreakdown: {
-    asOf: string;
-    totalDevices: number;
-    byType: DeviceTypeItem[];
-    byStatus: DeviceStatusItem[];
-    byPlan: PlanTypeItem[];
-    fleetHealth: FleetHealth;
-  };
-}
-
-// DUMMY DATA 
-// Replace `DUMMY_DATA` with your API response — shape is identical.
-
-export const DUMMY_DATA: DashboardData = {
-  stats: {
+  // Static UI data (not snapshot metrics)
+  const stats = {
     meetingsUnderway: 0,
     uniqueUsers: 11,
     avgMeetingLengthMin: 50,
     busiestTimeLabel: "11 am",
-  },
-  alert: {
+  };
+
+  const alert = {
     offlineDevices: 78,
     expiredOrExpiringSoon: 2,
     outdatedFirmware: 14,
     otherIssues: 120,
-  },
-  latestRelease: {
+  };
+
+  const release = {
     version: "Mersive v1.0.1",
     date: "April 10, 2024",
     bullets: [
@@ -115,109 +67,74 @@ export const DUMMY_DATA: DashboardData = {
       "Release note bullet point",
       "Release note bullet point",
     ],
-  },
-  faqs: [
+  };
+
+  const faqs = [
     { question: "How do I activate a device?" },
-    {
-      question:
-        "What network settings are needed for WebRTC sharing and casting?",
-    },
+    { question: "What network settings are needed for WebRTC sharing?" },
     { question: "How do I troubleshoot using analytics?" },
     { question: "What is Mersive Hybrid Meeting?" },
-    { question: "Sign up for Mersive's 2026 webinar" },
-  ],
-  deviceBreakdown: {
-    asOf: "Dec 23, 2025 at 3:40 PM",
-    totalDevices: 500,
-    byType: [
-      { name: "Gen4 Pod", value: 250, color: "#6366f1" },
-      { name: "Gen4 Mini", value: 40, color: "#f59e0b" },
-      { name: "Gen4 Smart", value: 100, color: "#a855f7" },
-    ],
-    byStatus: [
-      { name: "Online", value: 214, percent: 47, color: "#6366f1" },
-      { name: "In use", value: 178, percent: 31, color: "#a855f7" },
-      { name: "Offline", value: 50, percent: 23, color: "#f59e0b" },
-      { name: "Unassigned plan", value: 0, percent: 0, color: "#fbbf24" },
-    ],
-    byPlan: [
-      { name: "Pro – 5 year", value: 214, percent: 47, color: "#6366f1" },
-      { name: "Pro EDU", value: 178, percent: 31, color: "#a855f7" },
-      { name: "Smart – 1 year", value: 50, percent: 23, color: "#f59e0b" },
-      { name: "Pro – 3 year", value: 214, percent: 47, color: "#818cf8" },
-      { name: "Essentials EDU", value: 178, percent: 31, color: "#c084fc" },
-      { name: "Smart – 3 year", value: 50, percent: 23, color: "#fbbf24" },
-    ],
-    fleetHealth: {
-      score: 7.2,
-      onlineDevices: 200,
-      devicesWithIssues: 14,
-    },
-  },
-};
-
-export default function DashboardPage() {
-  const data: DashboardData = DUMMY_DATA;
-
-  const [isLoading, setIsLoading] = React.useState(true);
-
-  React.useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, []);
+  ];
 
   return (
     <div className="flex min-h-screen bg-white text-[#090814]">
       <Sidebar />
 
       <div className="flex-1">
-        <AlertBanner alert={data.alert} />
+        <AlertBanner alert={alert} />
+
         <div className="mx-auto space-y-4 max-w-350 mt-4">
-          <StatCards stats={data.stats} />
-          <UpdatesSection release={data.latestRelease} faqs={data.faqs} />
+          <StatCards stats={stats} />
+
+          <UpdatesSection release={release} faqs={faqs} />
 
           <div className="p-8 bg-white text-black">
             <div className="text-2xl font-semibold mb-6 flex gap-2 items-baseline">
               Device Breakdown
               <span className="text-[16px] font-normal text-[#93949C]">
-                as of {data.deviceBreakdown.asOf}
+                {formatDate(createdAt)}
               </span>
               <Image src={Replay} alt="Replay icon" width={24} height={24} />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* DEVICE TYPE */}
               <Card title="Device Type" icon={DeviceType}>
-                {isLoading ? (
+                {typeLoading ? (
                   <DeviceTypeDonutSkeleton />
                 ) : (
-                  <DeviceTypeDonut data={data.deviceBreakdown.byType} />
+                  <DeviceTypeDonut data={deviceTypeData} />
                 )}
               </Card>
 
+              {/* DEVICE STATUS */}
               <Card title="Device Status" icon={DeviceStatus}>
-                {isLoading ? (
+                {statusLoading ? (
                   <DeviceStatusSkeleton />
                 ) : (
-                  <DeviceStatusPie />
+                  <DeviceStatusPie data={deviceStatusData} />
                 )}
               </Card>
 
+              {/* PLAN TYPE */}
               <Card title="Plan Type" icon={PlanType}>
-                {isLoading ? (
+                {planLoading ? (
                   <DeviceStatusSkeleton />
                 ) : (
-                  <PlanTypePie />
+                  <PlanTypePie data={planTypeData} />
                 )}
               </Card>
 
+              {/* FLEET HEALTH */}
               <Card title="Overall Fleet Health" icon={OverallFleetHealth}>
-                {isLoading ? (
+                {fleetLoading ? (
                   <FleetHealthSkeleton />
                 ) : (
-                  <FleetHealthGauge />
+                  <FleetHealthGauge
+                    score={fleetHealthData.score}
+                    onlineDevices={fleetHealthData.onlineDevices}
+                    devicesWithIssues={fleetHealthData.devicesWithIssues}
+                  />
                 )}
               </Card>
             </div>
@@ -225,6 +142,5 @@ export default function DashboardPage() {
         </div>
       </div>
     </div>
-
   );
 }
