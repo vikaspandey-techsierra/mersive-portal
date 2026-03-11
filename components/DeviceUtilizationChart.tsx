@@ -1,6 +1,5 @@
 "use client";
 
-import { DeviceUtilizationPoint } from "@/components/analytics/usage/page";
 import { useState, useRef, useEffect } from "react";
 import {
   LineChart,
@@ -12,6 +11,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { Check } from "lucide-react";
+import { DeviceUtilizationPoint } from "@/lib/types/homepage";
 
 function fmtDate(dateStr: string): string {
   const d = new Date(dateStr);
@@ -67,6 +67,63 @@ const METRIC_LABELS: Record<DeviceMetric, string> = {
 };
 
 const METRIC_KEYS = Object.keys(METRIC_LABELS) as DeviceMetric[];
+
+const PURPLE = "#6860C8";
+const PINK = "#D44E80";
+
+/* ── Axis label components ── */
+
+const LeftAxisLabel = ({
+  viewBox,
+  label,
+}: {
+  viewBox?: { x: number; y: number; width: number; height: number };
+  label: string;
+}) => {
+  if (!viewBox) return null;
+  const cx = viewBox.x - 1;
+  const cy = viewBox.y + viewBox.height / 2;
+  return (
+    <text
+      x={cx}
+      y={cy}
+      fill={PURPLE}
+      fontSize={16}
+      fontWeight={500}
+      textAnchor="middle"
+      transform={`rotate(-90, ${cx}, ${cy})`}
+    >
+      {label}
+    </text>
+  );
+};
+
+const RightAxisLabel = ({
+  viewBox,
+  label,
+}: {
+  viewBox?: { x: number; y: number; width: number; height: number };
+  label: string;
+}) => {
+  if (!viewBox) return null;
+  const cx = viewBox.x + viewBox.width + 10;
+  const cy = viewBox.y + viewBox.height / 2;
+  return (
+    <text
+      x={cx}
+      y={cy}
+      fill={PINK}
+      fontSize={16}
+      fontWeight={500}
+      textAnchor="middle"
+      transform={`rotate(90, ${cx}, ${cy})`}
+    >
+      {label}
+    </text>
+  );
+};
+
+/* ── Dropdown ── */
 
 const MetricDropdown = ({
   value,
@@ -172,6 +229,8 @@ const MetricDropdown = ({
   );
 };
 
+/* ── Main component ── */
+
 interface DeviceUtilizationProps {
   data: DeviceUtilizationPoint[];
   interval: number;
@@ -205,6 +264,8 @@ export default function DeviceUtilization({
     avgLength: Math.round(d.meetings * 5),
   }));
 
+  const hasTwoMetrics = metricB !== null;
+
   return (
     <div className="mb-8">
       <div className="font-semibold text-[15px] text-black mb-0.5">
@@ -215,11 +276,16 @@ export default function DeviceUtilization({
         Compare up to two types of usage data for devices in your organization
       </div>
 
-      <div className="bg-white rounded-xl p-5 pb-4 border border-gray-200">
-        <ResponsiveContainer width="100%" height={240}>
+      <div className="bg-white rounded-xl py-5 pb-4 border border-gray-200">
+        <ResponsiveContainer width="100%" height={280}>
           <LineChart
             data={deviceData}
-            margin={{ top: 8, right: 16, left: -20, bottom: 0 }}
+            margin={{
+              top: 8,
+              right: hasTwoMetrics ? 38 : 10,
+              left: 24,
+              bottom: 0,
+            }}
           >
             <CartesianGrid stroke="#f0f0f0" vertical={false} />
 
@@ -231,49 +297,76 @@ export default function DeviceUtilization({
               tickLine={false}
             />
 
+            {/* ── Left Y-Axis (metricA) ── */}
             <YAxis
-              tick={{ fontSize: 11, fill: "#000" }}
+              yAxisId="left"
+              orientation="left"
+              tick={{ fontSize: 11, fill: "#9CA3AF" }}
               axisLine={false}
               tickLine={false}
+              width={30}
+              label={<LeftAxisLabel label={METRIC_LABELS[metricA]} />}
             />
+
+            {/* ── Right Y-Axis (metricB) — only when a second metric is selected ── */}
+            {hasTwoMetrics && (
+              <YAxis
+                yAxisId="right"
+                orientation="right"
+                tick={{
+                  fontSize: 11,
+                  fill: "#9CA3AF",
+                  style: { whiteSpace: "nowrap" },
+                }}
+                axisLine={false}
+                tickLine={false}
+                width={30}
+                tickFormatter={(value: number) =>
+                  `${value % 1 === 0 ? value : value.toFixed(1)}hr`
+                }
+                label={<RightAxisLabel label={METRIC_LABELS[metricB]} />}
+              />
+            )}
 
             <Tooltip content={<ChartTooltip />} />
 
             <Line
+              yAxisId="left"
               type="linear"
               dataKey={metricA}
               name={METRIC_LABELS[metricA]}
-              stroke="#6860C8"
+              stroke={PURPLE}
               strokeWidth={2}
-              dot={{ r: 4, fill: "#6860C8", strokeWidth: 0 }}
+              dot={{ r: 4, fill: PURPLE, strokeWidth: 0 }}
               activeDot={{ r: 5 }}
             />
 
-            {metricB && (
+            {hasTwoMetrics && (
               <Line
+                yAxisId="right"
                 type="linear"
                 dataKey={metricB}
                 name={METRIC_LABELS[metricB]}
-                stroke="#D44E80"
+                stroke={PINK}
                 strokeWidth={2}
-                dot={{ r: 4, fill: "#D44E80", strokeWidth: 0 }}
+                dot={{ r: 4, fill: PINK, strokeWidth: 0 }}
                 activeDot={{ r: 5 }}
               />
             )}
           </LineChart>
         </ResponsiveContainer>
 
-        <div className="flex gap-2.5 mt-3.5 flex-wrap items-center">
+        <div className="flex gap-2.5 mt-3.5 flex-wrap items-center px-6.5 ">
           <MetricDropdown
             value={metricA}
-            color="#6860C8"
+            color={PURPLE}
             disabledOption={metricB}
             showNone={false}
             onChange={handleChangeA}
           />
           <MetricDropdown
             value={metricB}
-            color="#D44E80"
+            color={PINK}
             disabledOption={metricA}
             showNone={true}
             onChange={handleChangeB}
