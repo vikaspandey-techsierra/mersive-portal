@@ -63,6 +63,96 @@ const DEFAULT_ALERT_CONFIG: AlertConfig = {
 
 const MAX_RECIPIENTS = 5;
 
+// ─── Alert ID mapping ─────────────────────────────────────────────────────────
+
+const ALERT_ID_MAP = {
+  unreachable: 1,
+  rebooted: 2,
+  unassignedFromTemplate: 3,
+  firmwareAvailable: 4,
+  firmwareAboutToBegin: 5,
+  firmwareCompleted: 6,
+} as const;
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface AlertSetting {
+  alert_id: number;
+  enabled: boolean;
+  parameters: {
+    duration: number | null;
+  };
+}
+
+interface EmailAlertSetting {
+  recipient: "user" | "additional_recipient";
+  parameters: {
+    email: string | null;
+  };
+  settings: AlertSetting[];
+}
+
+interface EmailAlertPayload {
+  org_id: string;
+  user_id: string;
+  email_alert_settings: EmailAlertSetting[];
+}
+
+// ─── Build payload helper ─────────────────────────────────────────────────────
+
+function buildAlertSettings(
+  myAlerts: AlertConfig,
+  recipients: Recipient[],
+): EmailAlertSetting[] {
+  const toSettings = (config: AlertConfig): AlertSetting[] => [
+    {
+      alert_id: ALERT_ID_MAP.unreachable,
+      enabled: config.unreachable,
+      parameters: {
+        duration: (config.unreachableMinutes ?? 5) * 60 * 1000,
+      },
+    },
+    {
+      alert_id: ALERT_ID_MAP.rebooted,
+      enabled: config.rebooted,
+      parameters: { duration: null },
+    },
+    {
+      alert_id: ALERT_ID_MAP.unassignedFromTemplate,
+      enabled: config.unassignedFromTemplate,
+      parameters: { duration: null },
+    },
+    {
+      alert_id: ALERT_ID_MAP.firmwareAvailable,
+      enabled: config.firmwareAvailable,
+      parameters: { duration: null },
+    },
+    {
+      alert_id: ALERT_ID_MAP.firmwareAboutToBegin,
+      enabled: config.firmwareAboutToBegin,
+      parameters: { duration: null },
+    },
+    {
+      alert_id: ALERT_ID_MAP.firmwareCompleted,
+      enabled: config.firmwareCompleted,
+      parameters: { duration: null },
+    },
+  ];
+
+  return [
+    {
+      recipient: "user",
+      parameters: { email: null },
+      settings: toSettings(myAlerts),
+    },
+    ...recipients.map((r) => ({
+      recipient: "additional_recipient" as const,
+      parameters: { email: r.email },
+      settings: toSettings(r.alerts),
+    })),
+  ];
+}
+
 // ─── Loading Spinner ──────────────────────────────────────────────────────────
 
 function LoadingSpinner() {
@@ -271,15 +361,12 @@ function AnimatedRecipientCard({
   const [isRemoving, setIsRemoving] = useState(false);
 
   useEffect(() => {
-    // Delay to allow the initial collapsed state to render first,
-    // then trigger the transition to visible
     const timer = setTimeout(() => setIsVisible(true), 30);
     return () => clearTimeout(timer);
   }, []);
 
   const handleRemove = () => {
     setIsRemoving(true);
-    // Wait for exit animation to finish, then actually remove
     setTimeout(onRemove, 350);
   };
 
@@ -671,6 +758,83 @@ function AlertHistorySection() {
   );
 }
 
+// ─── Save Feedback ────────────────────────────────────────────────────────────
+
+function SaveFeedback({
+  isSaving,
+  saveSuccess,
+  saveError,
+}: {
+  isSaving: boolean;
+  saveSuccess: boolean;
+  saveError: string | null;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <button
+        type="button"
+        disabled={isSaving}
+        className="px-4 py-2 bg-[#5E54C5] text-white text-sm font-medium rounded-lg hover:bg-[#4e46b0] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+      >
+        {isSaving && (
+          <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8v8H4z"
+            />
+          </svg>
+        )}
+        {isSaving ? "Saving…" : "Save Changes"}
+      </button>
+
+      {saveSuccess && !isSaving && (
+        <span className="text-sm text-green-600 font-medium flex items-center gap-1">
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M5 13l4 4L19 7"
+            />
+          </svg>
+          Saved successfully
+        </span>
+      )}
+
+      {saveError && !isSaving && (
+        <span className="text-sm text-red-500 flex items-center gap-1">
+          <svg
+            className="w-4 h-4 shrink-0"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+          >
+            <path
+              fillRule="evenodd"
+              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+              clipRule="evenodd"
+            />
+          </svg>
+          {saveError}
+        </span>
+      )}
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const MOCK: Record<string, AnalyticsApiResponse> = {
@@ -714,6 +878,72 @@ export default function EmailAlertsPage() {
   const [recipients, setRecipients] = useState<Recipient[]>([]);
   const [emailErrors, setEmailErrors] = useState<Record<string, string>>({});
 
+  // ── Save state ──
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // ── Shared API call ──
+  const saveToBackend = async (patch?: {
+    recipients?: Recipient[];
+    myAlerts?: AlertConfig;
+  }) => {
+    const effectiveMyAlerts = patch?.myAlerts ?? myAlerts;
+    const effectiveRecipients = patch?.recipients ?? recipients;
+
+    const payload: EmailAlertPayload = {
+      org_id: "org_7f21c4a9", // TODO: replace with value from Phoenix app context
+      user_id: "user_8c9130bd", // TODO: replace with value from Phoenix app context
+      email_alert_settings: buildAlertSettings(
+        effectiveMyAlerts,
+        effectiveRecipients,
+      ),
+    };
+
+    setIsSaving(true);
+    setSaveError(null);
+    setSaveSuccess(false);
+
+    try {
+      const res = await fetch("/api/email-alert-settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.message ?? `Server error: ${res.status}`);
+      }
+
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err) {
+      setSaveError(
+        err instanceof Error ? err.message : "Failed to save settings.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // ── My Alerts save ──
+  const saveMyAlerts = () => saveToBackend({ myAlerts });
+
+  // ── Additional Recipients save (with validation) ──
+  const validateAndSave = async () => {
+    const errs: Record<string, string> = {};
+    recipients.forEach((r) => {
+      if (!r.email) errs[r.id] = "Email is required.";
+      else if (!isValidEmail(r.email))
+        errs[r.id] = "Please enter a valid email address.";
+    });
+    setEmailErrors(errs);
+    if (Object.keys(errs).length > 0) return;
+
+    await saveToBackend({ recipients });
+  };
+
   const addRecipient = () => {
     if (recipients.length >= MAX_RECIPIENTS) return;
     setRecipients([
@@ -742,22 +972,10 @@ export default function EmailAlertsPage() {
     setEmailErrors(errs);
   };
 
-  const validateAndSave = () => {
-    const errs: Record<string, string> = {};
-    recipients.forEach((r) => {
-      if (!r.email) errs[r.id] = "Email is required.";
-      else if (!isValidEmail(r.email))
-        errs[r.id] = "Please enter a valid email address.";
-    });
-    setEmailErrors(errs);
-    if (Object.keys(errs).length === 0) alert("Settings saved!");
-  };
-
   React.useEffect(() => {
     const timer = setTimeout(() => {
       setIsLoading(false);
     }, 1000);
-
     return () => clearTimeout(timer);
   }, []);
 
@@ -833,6 +1051,15 @@ export default function EmailAlertsPage() {
                 config={myAlerts}
                 onChange={(patch) => setMyAlerts({ ...myAlerts, ...patch })}
               />
+              <div className="pt-4 border-t border-gray-100 mt-2">
+                <div onClick={saveMyAlerts}>
+                  <SaveFeedback
+                    isSaving={isSaving}
+                    saveSuccess={saveSuccess}
+                    saveError={saveError}
+                  />
+                </div>
+              </div>
             </div>
           )}
 
@@ -898,13 +1125,13 @@ export default function EmailAlertsPage() {
 
               {recipients.length > 0 && (
                 <div className="pt-4 border-t border-gray-100">
-                  <button
-                    type="button"
-                    onClick={validateAndSave}
-                    className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
-                  >
-                    Save Changes
-                  </button>
+                  <div onClick={validateAndSave}>
+                    <SaveFeedback
+                      isSaving={isSaving}
+                      saveSuccess={saveSuccess}
+                      saveError={saveError}
+                    />
+                  </div>
                 </div>
               )}
             </div>
