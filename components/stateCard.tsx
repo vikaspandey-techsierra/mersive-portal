@@ -56,21 +56,6 @@ export interface ReleaseNote {
   releaseNotesUrl: string;
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-//  1. STAT CARD
-//  A metric tile with a purple icon, label, and bold value.
-//
-//  Props:
-//    icon     — any ReactNode (SVG, emoji, etc.)
-//    label    — small gray label text
-//    value    — large bold value string
-//    isLast   — if true, removes the right border divider
-//
-//  Usage:
-//    <StatCard icon={<IconMonitor />} label="Meetings underway" value="0" />
-//    <StatCard icon={<IconUser />}    label="Unique users"      value="11" isLast />
-// ════════════════════════════════════════════════════════════════════════════
-
 export interface StatCardProps {
   icon: React.ReactNode;
   label: string;
@@ -1117,7 +1102,7 @@ export function MonitoringPageExample() {
         />
         <StatCard
           icon={<span style={{ color: "white", fontSize: 18 }}>👤</span>}
-          label="Unique users"
+          label="Device used"
           value="11"
         />
         <StatCard

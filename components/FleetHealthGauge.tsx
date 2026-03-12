@@ -5,16 +5,15 @@ import { ExternalLinkIcon } from "lucide-react";
 
 interface Props {
   score: number;
-  onlineDevices: number;
+  totalDevices: number;
   devicesWithIssues: number;
 }
 
 export default function FleetHealthGauge({
   score,
-  onlineDevices,
+  totalDevices,
   devicesWithIssues,
 }: Props) {
-
   const data = [
     { name: "Health", value: score },
     { name: "Rest", value: 10 - score },
@@ -22,14 +21,10 @@ export default function FleetHealthGauge({
 
   return (
     <div className="flex flex-col items-center justify-between text-[#090814] w-full max-md:flex-col">
-
       <div className="flex items-center justify-between text-[#090814] w-full max-md:flex-col">
-
         {/* Gauge */}
         <div className="w-78 h-48">
-
           <div className="relative w-78 h-92">
-
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -45,7 +40,6 @@ export default function FleetHealthGauge({
                 </Pie>
               </PieChart>
             </ResponsiveContainer>
-
           </div>
 
           {/* Score */}
@@ -53,15 +47,13 @@ export default function FleetHealthGauge({
             <p className="text-[16px]">Health Score</p>
             <p className="text-[48px] font-semibold">{score}</p>
           </div>
-
         </div>
 
         {/* Stats */}
         <div className="space-y-2 flex flex-col text-[16px] w-[45%] max-md:w-full my-4">
-
           <p className="flex items-center justify-between gap-1">
-            Online devices
-            <span className="font-bold ml-2">{onlineDevices}</span>
+            Total devices
+            <span className="font-bold ml-2">{totalDevices}</span>
           </p>
 
           <p className="flex items-center justify-between gap-1">
@@ -70,9 +62,7 @@ export default function FleetHealthGauge({
               {devicesWithIssues}
             </span>
           </p>
-
         </div>
-
       </div>
 
       <button className="mt-3 px-4 py-2 border border-[#C6C5D3] rounded-lg text-[16px] flex items-center">

@@ -1,6 +1,6 @@
 // lib/analytics/mock/snapshotMock.ts
 
-import { SnapshotRow } from "../snapshot/snapshotTypes";
+import { FleetHealthRow, SnapshotRow } from "../snapshot/snapshotTypes";
 
 export async function mockSnapshotCloudFunction(
   metric: string
@@ -84,3 +84,25 @@ export async function mockSnapshotCloudFunction(
 
   return mockDB[metric] ?? [];
 }
+
+export const fleetHealthMock: FleetHealthRow[] = [
+  {
+    org_id: "test-org-1000",
+    metric_name: "cs_overall_fleet_health",
+    segment_1_name: "Device Health Type",
+    segment_1_value: "All devices",
+    metric_value: "496",
+    devices_list: null,
+    created_at: "2026-03-12 04:04:58.718413 UTC",
+  },
+  {
+    org_id: "test-org-1000",
+    metric_name: "cs_overall_fleet_health",
+    segment_1_name: "Device Health Type",
+    segment_1_value: "Devices with issues",
+    metric_value: "355",
+    devices_list:
+      '["device-158a1165-f908-4e85-9b46-7918ba0a29db","device-f9e8e73f-1493-406d-aa91-bdcd9c973da7"]',
+    created_at: "2026-03-12 04:04:58.718413 UTC",
+  },
+];
