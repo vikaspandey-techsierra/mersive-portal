@@ -17,7 +17,7 @@ export default function SummaryCards({
       value: meetingsUnderway,
     },
     {
-      title: "Unique users",
+      title: "Device used",
       value: uniqueUsers,
     },
     {

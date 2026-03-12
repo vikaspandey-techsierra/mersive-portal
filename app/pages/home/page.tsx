@@ -146,7 +146,7 @@ export default function DashboardPage() {
                 ) : (
                   <FleetHealthGauge
                     score={fleetHealthData.score}
-                    onlineDevices={fleetHealthData.onlineDevices}
+                    totalDevices={fleetHealthData.totalDevices}
                     devicesWithIssues={fleetHealthData.devicesWithIssues}
                   />
                 )}

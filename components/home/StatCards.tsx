@@ -14,7 +14,7 @@ const StatCards = ({ stats }: { stats: DashboardStats }) => {
     },
     {
       icon: UserIcon,
-      label: "Unique users",
+      label: "Device used",
       value: String(stats.uniqueUsers),
     },
     {
@@ -38,7 +38,12 @@ const StatCards = ({ stats }: { stats: DashboardStats }) => {
         >
           <div className="flex items-center gap-2.5">
             <div className="max-md:w-8 max-md:h-8 w-11 h-11 rounded-lg flex items-center justify-center text-white bg-[#5E54C5] ">
-             <Image src={card.icon} alt={`${card.label} icon`} width={20} height={20} />
+              <Image
+                src={card.icon}
+                alt={`${card.label} icon`}
+                width={20}
+                height={20}
+              />
             </div>
           </div>
           <div className="text-[13px] ">{card.label}</div>
