@@ -1,60 +1,78 @@
 import { timeseriesMock } from "../mock/timeseriesMock";
 import { parseTimeseries } from "./timeseriesParser";
-import { setMetric, hasMetric } from "../utils/metricsStore";
+import { setMetric, getMetric } from "../utils/metricsStore";
 import { TimeseriesRow } from "./timeseriesTypes";
 
-export async function fetchTimeseriesMetrics(metrics: string[]) {
+const RANGE_DAYS: Record<string, number> = {
+  "7d":  7,
+  "30d": 30,
+  "60d": 60,
+  "90d": 90,
+  "all": 120,
+};
+
+export function getLatestMockDate(): Date {
+  const dates = timeseriesMock.map((r) => new Date(r.date).getTime());
+  return new Date(Math.max(...dates));
+}
+
+export function getReferenceDate(): Date {
+  return getLatestMockDate(); // swap for new Date() with real API
+}
+
+export function getStartDate(timeRange: string): string {
+  const days = RANGE_DAYS[timeRange] ?? 7;
+  const ref = getLatestMockDate();
+  ref.setDate(ref.getDate() - (days - 1));
+  ref.setHours(0, 0, 0, 0);
+  return ref.toISOString().split("T")[0];
+}
+
+export async function fetchTimeseriesMetrics(
+  metrics: string[],
+  timeRange: string = "7d"
+): Promise<void> {
   if (!metrics.length) return;
 
-  // Only fetch metrics that are NOT already cached
-  const missingMetrics = metrics.filter((metric) => !hasMetric(metric));
-
-  console.log("Metrics requested from manager:", metrics);
-  console.log(
-    " Missing metrics (API will fetch only these):",
-    missingMetrics
+  const missingMetrics = metrics.filter(
+    (metric) => !getMetric(`${metric}__${timeRange}`)
   );
 
+  console.log("Metrics requested:", metrics, "| Range:", timeRange);
+  console.log("Missing (will fetch):", missingMetrics);
+
   if (!missingMetrics.length) {
-    console.log(" All metrics already cached. No API call needed.");
+    console.log("All metrics cached for range:", timeRange);
     return;
   }
 
-  // simulate API latency
   await new Promise((resolve) => setTimeout(resolve, 300));
 
-  // In a real implementation, this would be an API call to your backend/cloud function
-  //   const rows = await fetch("/cloud-function", {
+  // Production: replace with real API call
+  // const rows: TimeseriesRow[] = await fetch("/api/timeseries", {
   //   method: "POST",
-  //   body: JSON.stringify({
-  //     org_id,
-  //     aggregation_level: "Day",
-  //     metrics
-  //   })
-  // })
-  const rows: TimeseriesRow[] = timeseriesMock.filter((row) =>
-    missingMetrics.includes(row.metric_name)
+  //   body: JSON.stringify({ metrics: missingMetrics, timeRange, aggregation_level: "Day" })
+  // }).then(r => r.json())
+
+  const startDate = getStartDate(timeRange);
+
+  const rows: TimeseriesRow[] = timeseriesMock.filter(
+    (row) =>
+      missingMetrics.includes(row.metric_name) &&
+      row.date >= startDate
   );
 
-  console.log(" Rows returned from mock/API:", rows);
+  console.log("Rows from mock/API:", rows.length, "| Start date:", startDate);
 
-  const parsed = parseTimeseries(rows);
+  const parsed = parseTimeseries(rows, timeRange, getReferenceDate(), missingMetrics);
 
-  console.log("Parsed metrics data:", parsed);
+  console.log("Parsed metrics:", Object.keys(parsed));
 
-  // store every requested metric even if empty
-missingMetrics.forEach((metric) => {
-
-  const data = parsed[metric]
-
-  // only store if API returned data
-  if (data && data.length) {
-
-    console.log("Storing metric in metricsStore:", metric)
-
-    setMetric(metric, data)
-
-  }
-
-})
+  missingMetrics.forEach((metric) => {
+    const data = parsed[metric];
+    if (data) {
+      console.log("Storing:", `${metric}__${timeRange}`, `(${data.length} points)`);
+      setMetric(`${metric}__${timeRange}`, data);
+    }
+  });
 }

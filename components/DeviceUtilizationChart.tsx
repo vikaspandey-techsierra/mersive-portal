@@ -13,20 +13,16 @@ import {
 } from "recharts";
 import { Check } from "lucide-react";
 import { useDeviceUtilizationMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
+import { ChartPoint } from "@/lib/analytics/timeseries/timeseriesTypes";
 
 function fmtDate(dateStr: string): string {
   const d = new Date(dateStr);
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-interface DeviceMetricPoint {
-  date: string;
-  value: number;
-}
-
 interface DeviceUtilizationProps {
   interval: number;
-  timeRange?: string;
+  timeRange: string;
 }
 
 interface TEntry {
@@ -79,7 +75,6 @@ const METRIC_LABELS: Record<DeviceMetric, string> = {
 
 const METRIC_KEYS = Object.keys(METRIC_LABELS) as DeviceMetric[];
 
-// UI metric → API metric mapping
 const METRIC_API_MAP: Record<DeviceMetric, string> = {
   meetings: "ts_meetings_num",
   users: "ts_users_num",
@@ -91,8 +86,6 @@ const METRIC_API_MAP: Record<DeviceMetric, string> = {
 
 const PURPLE = "#6860C8";
 const PINK = "#D44E80";
-
-// Axis label components
 
 const LeftAxisLabel = ({
   viewBox,
@@ -236,11 +229,7 @@ const MetricDropdown = ({
               >
                 <span>{METRIC_LABELS[key]}</span>
                 {isSelected && (
-                  <Check
-                    size={16}
-                    strokeWidth={2.5}
-                    className="text-[#6860C8]"
-                  />
+                  <Check size={16} strokeWidth={2.5} className="text-[#6860C8]" />
                 )}
               </div>
             );
@@ -251,16 +240,29 @@ const MetricDropdown = ({
   );
 };
 
-export default function DeviceUtilization({
-  interval,
-}: DeviceUtilizationProps) {
+function getNiceTicks(points: ChartPoint[]): { ticks: number[]; max: number } {
+  if (!points.length) return { ticks: [0, 3, 6, 9, 12], max: 12 };
+  const rawMax = Math.max(...points.map((p) => p.value));
+  if (rawMax === 0) return { ticks: [0, 1, 2, 3, 4], max: 4 };
+
+  const roughStep = rawMax / 4;
+  const magnitude = Math.pow(10, Math.floor(Math.log10(roughStep)));
+  const candidates = [1, 2, 2.5, 5, 10].map((c) => c * magnitude);
+  const niceStep = candidates.find((c) => c >= roughStep) ?? candidates[candidates.length - 1];
+  const niceMax = niceStep * 4;
+  const ticks = [0, 1, 2, 3, 4].map((i) => Math.round(niceStep * i * 1e10) / 1e10);
+  return { ticks, max: niceMax };
+}
+
+export default function DeviceUtilization({ interval, timeRange }: DeviceUtilizationProps) {
   const [metricA, setMetricA] = useState<DeviceMetric>("meetings");
   const [metricB, setMetricB] = useState<DeviceMetric | null>("connections");
 
-  // Use mapped API metrics
+  // timeRange passed through so hook re-fetches when user switches range
   const { dataA, dataB } = useDeviceUtilizationMetrics(
     METRIC_API_MAP[metricA],
-    metricB ? METRIC_API_MAP[metricB] : ""
+    metricB ? METRIC_API_MAP[metricB] : "",
+    timeRange
   );
 
   const handleChangeA = (next: DeviceMetric | null) => {
@@ -274,54 +276,24 @@ export default function DeviceUtilization({
     setMetricB(next);
   };
 
-  const pointsA = dataA as DeviceMetricPoint[];
-  const pointsB = dataB as DeviceMetricPoint[];
+  const pointsA: ChartPoint[] = dataA;
+  const pointsB: ChartPoint[] = dataB;
 
-  const hasMetricAData = pointsA.length > 0;
-  const hasMetricBData = pointsB.length > 0;
-
-  // Compute nice ticks dynamically from data max - always exactly 5 ticks (0,1x,2x,3x,4x)
-  // so left and right axis gridlines always align perfectly
-  function getNiceTicks(points: DeviceMetricPoint[]): { ticks: number[]; max: number } {
-    if (!points.length) return { ticks: [0, 3, 6, 9, 12], max: 12 };
-    const rawMax = Math.max(...points.map((p) => p.value));
-    if (rawMax === 0) return { ticks: [0, 1, 2, 3, 4], max: 4 };
-
-    // Pick a step so that 4 steps covers rawMax, snapped to a nice number
-    const roughStep = rawMax / 4;
-    const magnitude = Math.pow(10, Math.floor(Math.log10(roughStep)));
-    const candidates = [1, 2, 2.5, 5, 10].map((c) => c * magnitude);
-    const niceStep = candidates.find((c) => c >= roughStep) ?? candidates[candidates.length - 1];
-    const niceMax = niceStep * 4;
-
-    // Always exactly 5 ticks: 0, step, 2*step, 3*step, 4*step
-    const ticks = [0, 1, 2, 3, 4].map((i) =>
-      Math.round(niceStep * i * 1e10) / 1e10
-    );
-    return { ticks, max: niceMax };
-  }
+  const hasMetricAData = pointsA.some((p) => p.value > 0);
+  const hasMetricBData = pointsB.some((p) => p.value > 0);
 
   const { ticks: ticksA, max: maxA } = getNiceTicks(pointsA);
   const { ticks: ticksB, max: maxB } = getNiceTicks(pointsB);
 
-  // When left has no data, mirror right ticks on left so gridlines still render
   const leftTicks = hasMetricAData ? ticksA : ticksB;
-  const leftMax = hasMetricAData ? maxA : maxB;
+  const leftMax   = hasMetricAData ? maxA   : maxB;
 
-  // choose base dataset
   const baseData = hasMetricAData ? pointsA : pointsB;
 
   const deviceData = baseData.map((d, i) => ({
     label: fmtDate(d.date),
-
-    ...(hasMetricAData && {
-      [metricA]: pointsA[i]?.value ?? null,
-    }),
-
-    ...(metricB &&
-      hasMetricBData && {
-        [metricB]: pointsB[i]?.value ?? null,
-      }),
+    ...(hasMetricAData && { [metricA]: pointsA[i]?.value ?? null }),
+    ...(metricB && hasMetricBData && { [metricB]: pointsB[i]?.value ?? null }),
   }));
 
   const hasTwoMetrics = metricB !== null;
@@ -342,7 +314,7 @@ export default function DeviceUtilization({
             data={deviceData}
             margin={{
               top: 8,
-              right: (hasTwoMetrics && hasMetricAData && hasMetricBData) ? 38 : 30,
+              right: hasTwoMetrics && hasMetricAData && hasMetricBData ? 38 : 30,
               left: 24,
               bottom: 0,
             }}
@@ -356,7 +328,6 @@ export default function DeviceUtilization({
               tickLine={false}
             />
 
-            {/* Left axis — shows metricA if it has data, otherwise shows metricB */}
             <YAxis
               yAxisId="left"
               orientation="left"
@@ -381,12 +352,11 @@ export default function DeviceUtilization({
               }
             />
 
-            {/* Right axis — ONLY rendered when both metrics have data */}
             {hasTwoMetrics && hasMetricAData && hasMetricBData && (
               <YAxis
                 yAxisId="right"
                 orientation="right"
-                tick={{ fontSize: 11, fill: "#9CA3AF", style: { whiteSpace: "nowrap" } }}
+                tick={{ fontSize: 11, fill: "#9CA3AF" }}
                 axisLine={false}
                 tickLine={false}
                 width={30}
@@ -401,20 +371,12 @@ export default function DeviceUtilization({
               />
             )}
 
-            {/* Gridlines always on left axis */}
             {leftTicks.map((v) => (
-              <ReferenceLine
-                key={v}
-                yAxisId="left"
-                y={v}
-                stroke="#f0f0f0"
-                strokeWidth={1}
-              />
+              <ReferenceLine key={v} yAxisId="left" y={v} stroke="#f0f0f0" strokeWidth={1} />
             ))}
 
             <Tooltip content={<ChartTooltip />} />
 
-            {/* metricA line — always on left */}
             {hasMetricAData && (
               <Line
                 yAxisId="left"
@@ -427,7 +389,6 @@ export default function DeviceUtilization({
               />
             )}
 
-            {/* metricB line — right axis only when both have data, otherwise left */}
             {hasTwoMetrics && hasMetricBData && (
               <Line
                 yAxisId={hasMetricAData && hasMetricBData ? "right" : "left"}
@@ -442,7 +403,7 @@ export default function DeviceUtilization({
           </LineChart>
         </ResponsiveContainer>
 
-        <div className="flex gap-2.5 mt-3.5 flex-wrap items-center px-6.5 ">
+        <div className="flex gap-2.5 mt-3.5 flex-wrap items-center px-6.5">
           <MetricDropdown
             value={metricA}
             color={PURPLE}

@@ -1,26 +1,57 @@
-// Raw API rows
-// grouped by metric
-// grouped by date
-// convert metric_value to number
+import { TimeseriesRow, ChartPoint, ParsedMetricsMap } from "./timeseriesTypes";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function parseTimeseries(data: any[]) {
+const RANGE_DAYS: Record<string, number> = {
+  "7d":  7,
+  "30d": 30,
+  "60d": 60,
+  "90d": 90,
+  "all": 120,
+};
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const result: Record<string, any[]> = {}
+function generateDateRange(timeRange: string, referenceDate: Date): string[] {
+  const days = RANGE_DAYS[timeRange] ?? 7;
+  const dates: string[] = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(referenceDate);
+    d.setDate(d.getDate() - i);
+    d.setHours(0, 0, 0, 0);
+    dates.push(d.toISOString().split("T")[0]);
+  }
+  return dates;
+}
+
+export function parseTimeseries(
+  data: TimeseriesRow[],
+  timeRange: string = "7d",
+  referenceDate: Date = new Date(),
+  requestedMetrics: string[] = []
+): ParsedMetricsMap {
+  const byMetric: Record<string, Record<string, number>> = {};
+
+  // Seed all requested metrics so they always get a full date array
+  requestedMetrics.forEach((m) => {
+    byMetric[m] = {};
+  });
+
+  // Group rows by metric -> date, summing values for segmented metrics
   data.forEach((row) => {
-    const metric = row.metric_name
+    const metric = row.metric_name;
+    if (!byMetric[metric]) byMetric[metric] = {};
+    byMetric[metric][row.date] =
+      (byMetric[metric][row.date] ?? 0) + Number(row.metric_value);
+  });
 
-    if (!result[metric]) {
-      result[metric] = []
-    }
+  const allDates = generateDateRange(timeRange, referenceDate);
 
-    result[metric].push({
-      date: row.date,
-      value: Number(row.metric_value),
-      segment: row.segment_1_value,
-      device: row.device_name
-    })
-  })
-  return result
+  const result: ParsedMetricsMap = {};
+
+  Object.keys(byMetric).forEach((metric) => {
+    // Fill every date — 0 for missing so line stays at baseline
+    result[metric] = allDates.map((date): ChartPoint => ({
+      date,
+      value: byMetric[metric][date] ?? 0,
+    }));
+  });
+
+  return result;
 }

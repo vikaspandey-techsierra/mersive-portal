@@ -1,35 +1,16 @@
-import { fetchTimeseriesMetrics } from "../timeseries/timeseriesManager"
+// metricsManager is kept for tracking registered metrics (useful for debugging/future use)
+// Fetching is handled directly in useTimeSeriesMetrics to avoid race conditions
 
-const registeredMetrics = new Set<string>()
+const registeredMetrics = new Set<string>();
 
-let fetchScheduled = false
-
-export function registerMetric(metric: string) {
-  registeredMetrics.add(metric)
-
-  console.log("Registered Metrics:", Array.from(registeredMetrics));
-
-  scheduleFetch()
-}
-
-function scheduleFetch() {
-  if (fetchScheduled) return
-  fetchScheduled = true
-  setTimeout(async () => {
-
-    const metricsToFetch = Array.from(registeredMetrics)
-
-    if (metricsToFetch.length > 0) {
-      await fetchTimeseriesMetrics(metricsToFetch)
-    }
-    fetchScheduled = false
-  }, 50)
+export function registerMetric(metric: string, timeRange: string = "7d") {
+  registeredMetrics.add(`${metric}__${timeRange}`);
 }
 
 export function getRegisteredMetrics() {
-  return Array.from(registeredMetrics)
+  return Array.from(registeredMetrics);
 }
 
 export function clearRegisteredMetrics() {
-  registeredMetrics.clear()
+  registeredMetrics.clear();
 }
