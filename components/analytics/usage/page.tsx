@@ -74,18 +74,14 @@ export default function UsagePage() {
       </div>
 
       {isLoading ? (
-        <LineChartSkeleton
-          title={"Device Utilization"}
-          description={
-            "Compare up to two types of usage data for devices in your organization"
-          }
-        />
-      ) : (
-        <DeviceUtilization
-          data={apiData.deviceUtilization}
-          interval={interval}
-        />
-      )}
+  <LineChartSkeleton
+    title={"Device Utilization"}
+    description={
+      "Compare up to two types of usage data for devices in your organization"
+    }
+  />
+) : (
+<DeviceUtilization interval={interval} timeRange={timeRange} />)}
       <hr className="pb-5" />
       {isLoading ? (
         <AreaChartSkeleton
