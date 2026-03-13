@@ -7,15 +7,21 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
+  ReferenceLine,
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
 import { Check } from "lucide-react";
-import { DeviceUtilizationPoint } from "@/lib/types/homepage";
+import { useDeviceUtilizationMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
+import { ChartPoint } from "@/lib/analytics/timeseries/timeseriesTypes";
 
 function fmtDate(dateStr: string): string {
   const d = new Date(dateStr);
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+interface DeviceUtilizationProps {
+  timeRange: string;
 }
 
 interface TEntry {
@@ -68,10 +74,17 @@ const METRIC_LABELS: Record<DeviceMetric, string> = {
 
 const METRIC_KEYS = Object.keys(METRIC_LABELS) as DeviceMetric[];
 
+const METRIC_API_MAP: Record<DeviceMetric, string> = {
+  meetings: "ts_meetings_num",
+  users: "ts_users_num",
+  hours: "ts_meetings_duration_tot",
+  connections: "ts_connections_num",
+  posts: "ts_posts_num",
+  avgLength: "ts_meetings_duration_avg",
+};
+
 const PURPLE = "#6860C8";
 const PINK = "#D44E80";
-
-/* ── Axis label components ── */
 
 const LeftAxisLabel = ({
   viewBox,
@@ -122,8 +135,6 @@ const RightAxisLabel = ({
     </text>
   );
 };
-
-/* ── Dropdown ── */
 
 const MetricDropdown = ({
   value,
@@ -196,7 +207,6 @@ const MetricDropdown = ({
           {METRIC_KEYS.map((key) => {
             const isSelected = value === key;
             const isDisabled = key === disabledOption;
-
             return (
               <div
                 key={key}
@@ -229,19 +239,35 @@ const MetricDropdown = ({
   );
 };
 
-/* ── Main component ── */
+function getNiceTicks(points: ChartPoint[]): { ticks: number[]; max: number } {
+  if (!points.length) return { ticks: [0, 3, 6, 9, 12], max: 12 };
+  const rawMax = Math.max(...points.map((p) => p.value));
+  if (rawMax === 0) return { ticks: [0, 1, 2, 3, 4], max: 4 };
 
-interface DeviceUtilizationProps {
-  data: DeviceUtilizationPoint[];
-  interval: number;
+  const roughStep = rawMax / 4;
+  const magnitude = Math.pow(10, Math.floor(Math.log10(roughStep)));
+  const candidates = [1, 2, 2.5, 5, 10].map((c) => c * magnitude);
+  const niceStep =
+    candidates.find((c) => c >= roughStep) ?? candidates[candidates.length - 1];
+  const niceMax = niceStep * 4;
+  const ticks = [0, 1, 2, 3, 4].map(
+    (i) => Math.round(niceStep * i * 1e10) / 1e10
+  );
+  return { ticks, max: niceMax };
 }
 
 export default function DeviceUtilization({
-  data,
-  interval,
+  timeRange,
 }: DeviceUtilizationProps) {
   const [metricA, setMetricA] = useState<DeviceMetric>("meetings");
   const [metricB, setMetricB] = useState<DeviceMetric | null>("connections");
+
+  // timeRange passed through so hook re-fetches when user switches range
+  const { dataA, dataB } = useDeviceUtilizationMetrics(
+    METRIC_API_MAP[metricA],
+    metricB ? METRIC_API_MAP[metricB] : "",
+    timeRange
+  );
 
   const handleChangeA = (next: DeviceMetric | null) => {
     if (next === null) return;
@@ -254,14 +280,24 @@ export default function DeviceUtilization({
     setMetricB(next);
   };
 
-  const deviceData = data.map((d) => ({
+  const pointsA: ChartPoint[] = dataA;
+  const pointsB: ChartPoint[] = dataB;
+
+  const hasMetricAData = pointsA.some((p) => p.value > 0);
+  const hasMetricBData = pointsB.some((p) => p.value > 0);
+
+  const { ticks: ticksA, max: maxA } = getNiceTicks(pointsA);
+  const { ticks: ticksB, max: maxB } = getNiceTicks(pointsB);
+
+  const leftTicks = hasMetricAData ? ticksA : ticksB;
+  const leftMax = hasMetricAData ? maxA : maxB;
+
+  const baseData = hasMetricAData ? pointsA : pointsB;
+
+  const deviceData = baseData.map((d, i) => ({
     label: fmtDate(d.date),
-    meetings: d.meetings,
-    users: Math.round(d.meetings * 1.4),
-    hours: Math.round(d.meetings * 2.3),
-    connections: d.connections,
-    posts: Math.round(d.meetings * 0.8),
-    avgLength: Math.round(d.meetings * 5),
+    ...(hasMetricAData && { [metricA]: pointsA[i]?.value ?? null }),
+    ...(metricB && hasMetricBData && { [metricB]: pointsB[i]?.value ?? null }),
   }));
 
   const hasTwoMetrics = metricB !== null;
@@ -271,7 +307,6 @@ export default function DeviceUtilization({
       <div className="font-semibold text-[15px] text-black mb-0.5">
         Device Utilization
       </div>
-
       <div className="text-[13px] text-gray-400 mb-3">
         Compare up to two types of usage data for devices in your organization
       </div>
@@ -282,22 +317,37 @@ export default function DeviceUtilization({
             data={deviceData}
             margin={{
               top: 8,
-              right: hasTwoMetrics ? 38 : 10,
+              right:
+                hasTwoMetrics && hasMetricAData && hasMetricBData ? 38 : 30,
               left: 24,
               bottom: 0,
             }}
           >
-            <CartesianGrid stroke="#f0f0f0" vertical={false} />
-
+            <CartesianGrid
+              stroke="#f0f0f0"
+              vertical={false}
+              horizontal={false}
+            />
             <XAxis
               dataKey="label"
               tick={{ fontSize: 11, fill: "#000" }}
-              interval={interval}
-              axisLine={false}
+              axisLine={{ stroke: "#f0f0f0" }}
               tickLine={false}
+              ticks={(() => {
+                const len = deviceData.length;
+                if (len === 0) return [];
+                // Always show exactly 7 labels: first, last, and 5 evenly spaced in between
+                const count = 7;
+                const selected = new Set<number>([0, len - 1]);
+                for (let i = 1; i < count - 1; i++) {
+                  selected.add(Math.round((i / (count - 1)) * (len - 1)));
+                }
+                return [...selected]
+                  .sort((a, b) => a - b)
+                  .map((i) => deviceData[i].label);
+              })()}
             />
 
-            {/* ── Left Y-Axis (metricA) ── */}
             <YAxis
               yAxisId="left"
               orientation="left"
@@ -305,48 +355,77 @@ export default function DeviceUtilization({
               axisLine={false}
               tickLine={false}
               width={30}
-              label={<LeftAxisLabel label={METRIC_LABELS[metricA]} />}
+              domain={[0, leftMax]}
+              ticks={leftTicks}
+              allowDecimals={true}
+              tickFormatter={(value: number) => {
+                const m = hasMetricAData ? metricA : metricB!;
+                if (m === "hours")
+                  return `${value % 1 === 0 ? value : value.toFixed(1)}hr`;
+                return value % 1 === 0
+                  ? `${value}`
+                  : `${parseFloat(value.toFixed(2))}`;
+              }}
+              label={
+                hasMetricAData ? (
+                  <LeftAxisLabel label={METRIC_LABELS[metricA]} />
+                ) : hasMetricBData ? (
+                  <LeftAxisLabel label={METRIC_LABELS[metricB!]} />
+                ) : undefined
+              }
             />
 
-            {/* ── Right Y-Axis (metricB) — only when a second metric is selected ── */}
-            {hasTwoMetrics && (
+            {hasTwoMetrics && hasMetricAData && hasMetricBData && (
               <YAxis
                 yAxisId="right"
                 orientation="right"
-                tick={{
-                  fontSize: 11,
-                  fill: "#9CA3AF",
-                  style: { whiteSpace: "nowrap" },
-                }}
+                tick={{ fontSize: 11, fill: "#9CA3AF" }}
                 axisLine={false}
                 tickLine={false}
                 width={30}
-                tickFormatter={(value: number) =>
-                  `${value % 1 === 0 ? value : value.toFixed(1)}hr`
-                }
-                label={<RightAxisLabel label={METRIC_LABELS[metricB]} />}
+                domain={[0, maxB]}
+                ticks={ticksB}
+                allowDecimals={true}
+                tickFormatter={(value: number) => {
+                  if (metricB === "hours")
+                    return `${value % 1 === 0 ? value : value.toFixed(1)}hr`;
+                  return value % 1 === 0
+                    ? `${value}`
+                    : `${parseFloat(value.toFixed(2))}`;
+                }}
+                label={<RightAxisLabel label={METRIC_LABELS[metricB!]} />}
               />
             )}
 
+            {leftTicks.map((v) => (
+              <ReferenceLine
+                key={v}
+                yAxisId="left"
+                y={v}
+                stroke="#f0f0f0"
+                strokeWidth={1}
+              />
+            ))}
+
             <Tooltip content={<ChartTooltip />} />
 
-            <Line
-              yAxisId="left"
-              type="linear"
-              dataKey={metricA}
-              name={METRIC_LABELS[metricA]}
-              stroke={PURPLE}
-              strokeWidth={2}
-              dot={{ r: 4, fill: PURPLE, strokeWidth: 0 }}
-              activeDot={{ r: 5 }}
-            />
-
-            {hasTwoMetrics && (
+            {hasMetricAData && (
               <Line
-                yAxisId="right"
+                yAxisId="left"
+                type="linear"
+                dataKey={metricA}
+                stroke={PURPLE}
+                strokeWidth={2}
+                dot={{ r: 4, fill: PURPLE, strokeWidth: 0 }}
+                activeDot={{ r: 5 }}
+              />
+            )}
+
+            {hasTwoMetrics && hasMetricBData && (
+              <Line
+                yAxisId={hasMetricAData && hasMetricBData ? "right" : "left"}
                 type="linear"
                 dataKey={metricB}
-                name={METRIC_LABELS[metricB]}
                 stroke={PINK}
                 strokeWidth={2}
                 dot={{ r: 4, fill: PINK, strokeWidth: 0 }}
@@ -356,7 +435,7 @@ export default function DeviceUtilization({
           </LineChart>
         </ResponsiveContainer>
 
-        <div className="flex gap-2.5 mt-3.5 flex-wrap items-center px-6.5 ">
+        <div className="flex gap-2.5 mt-3.5 flex-wrap items-center px-6.5">
           <MetricDropdown
             value={metricA}
             color={PURPLE}

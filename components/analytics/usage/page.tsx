@@ -33,7 +33,6 @@ const TIME_RANGES: { key: TimeRange; label: string }[] = [
   { key: "all", label: "All time" },
 ];
 
-// PAGE
 export default function UsagePage() {
   const [timeRange, setTimeRange] = useState<TimeRange>("7d");
 
@@ -44,10 +43,7 @@ export default function UsagePage() {
   const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1000);
-
+    const timer = setTimeout(() => setIsLoading(false), 1000);
     return () => clearTimeout(timer);
   }, []);
 
@@ -75,41 +71,35 @@ export default function UsagePage() {
 
       {isLoading ? (
         <LineChartSkeleton
-          title={"Device Utilization"}
-          description={
-            "Compare up to two types of usage data for devices in your organization"
-          }
+          title="Device Utilization"
+          description="Compare up to two types of usage data for devices in your organization"
         />
       ) : (
-        <DeviceUtilization
-          data={apiData.deviceUtilization}
-          interval={interval}
-        />
+        <DeviceUtilization timeRange={timeRange} />
       )}
+
       <hr className="pb-5" />
+
       {isLoading ? (
         <AreaChartSkeleton
-          title={"User Connections"}
-          description={
-            "Compare connection modes, sharing protocols, user operating systems, and types of conferencing solutions used"
-          }
+          title="User Connections"
+          description="Compare connection modes, sharing protocols, user operating systems, and types of conferencing solutions used"
         />
       ) : (
         <UserConnections
           data={apiData.userConnections}
           interval={interval}
           title="User Connections"
-          subtitle=" Compare connection modes, sharing protocols, user operating systems, and
-        types of conferencing solutions used"
+          subtitle="Compare connection modes, sharing protocols, user operating systems, and types of conferencing solutions used"
         />
       )}
+
       <hr className="pb-5" />
+
       {isLoading ? (
         <LineChartSkeleton
-          title={"Collaboration Usage"}
-          description={
-            "Compare how many users connect versus how often they share a post within a meeting on average"
-          }
+          title="Collaboration Usage"
+          description="Compare how many users connect versus how often they share a post within a meeting on average"
         />
       ) : (
         <CollaborationUsage
@@ -117,6 +107,7 @@ export default function UsagePage() {
           interval={interval}
         />
       )}
+
       <hr className="pb-5" />
       <SelectedDevices />
     </>

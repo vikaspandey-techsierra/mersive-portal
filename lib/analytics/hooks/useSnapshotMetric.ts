@@ -7,8 +7,10 @@ import {
   ChartData,
   DeviceStatusData,
   PlanTypeData,
-  FleetHealthData
+  FleetHealthData,
+  FleetHealthRow
 } from "../snapshot/snapshotTypes";
+import { fleetHealthMock } from "../mock/snapshotMock";
 
 
 
@@ -115,49 +117,42 @@ export function usePlanTypeMetric() {
 
 // FLEET HEALTH
 export function useFleetHealthMetric() {
-
   const [data, setData] = useState<FleetHealthData>({
     score: 0,
-    onlineDevices: 0,
-    devicesWithIssues: 0
+    totalDevices: 0,
+    devicesWithIssues: 0,
   });
-
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-
     async function loadMetric() {
+      const rows: FleetHealthRow[] = fleetHealthMock;
 
-      const rows = await getSnapshotMetric("cs_devices_num_by_status");
+      const allDevicesRow = rows.find(
+        (r) => r.segment_1_value === "All devices"
+      );
+      const issuesRow = rows.find(
+        (r) => r.segment_1_value === "Devices with issues"
+      );
 
-      const parsed = parseSnapshot(rows);
+      const totalDevices = Number(allDevicesRow?.metric_value ?? 0);
+      const devicesWithIssues = Number(issuesRow?.metric_value ?? 0);
 
-      const online = parsed.find((r) => r.name === "Online")?.value ?? 0;
-      const offline = parsed.find((r) => r.name === "Offline")?.value ?? 0;
-      const inUse = parsed.find((r) => r.name === "In use")?.value ?? 0;
+      const score =
+        totalDevices > 0
+          ? Number(
+              (((totalDevices - devicesWithIssues) * 10) / totalDevices).toFixed(1)
+            )
+          : 0;
 
-      const totalDevices = online + offline + inUse;
-
-      const healthScore = totalDevices
-        ? Number(((online / totalDevices) * 10).toFixed(1))
-        : 0;
-
-      setData({
-        score: healthScore,
-        onlineDevices: online,
-        devicesWithIssues: offline
-      });
-
+      setData({ score, totalDevices, devicesWithIssues });
       setLoading(false);
-
     }
 
     loadMetric();
-
   }, []);
 
   return { data, loading };
-
 }
 
 // BANNER METRICS
@@ -272,7 +267,7 @@ export function useMeetingsUnderwayMetric() {
 
 }
 
-export function useUniqueUsersMetric() {
+export function useActiveDevicesMetric() {
 
   const [value, setValue] = useState(0);
 
@@ -280,7 +275,7 @@ export function useUniqueUsersMetric() {
 
     async function load() {
 
-      const rows = await getSnapshotMetric("agg_users_num");
+      const rows = await getSnapshotMetric("agg_active_devices_num");
 
       setValue(Number(rows?.[0]?.metric_value ?? 0));
 
