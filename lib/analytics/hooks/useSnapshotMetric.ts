@@ -267,7 +267,7 @@ export function useMeetingsUnderwayMetric() {
 
 }
 
-export function useUniqueUsersMetric() {
+export function useActiveDevicesMetric() {
 
   const [value, setValue] = useState(0);
 
