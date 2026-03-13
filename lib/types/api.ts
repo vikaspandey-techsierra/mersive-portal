@@ -4,7 +4,7 @@
 
 export interface DashboardStats {
   meetingsUnderway: number;
-  uniqueUsers: number;
+  activeUsers: number;
   avgMeetingLengthMin: number;
   busiestTimeLabel: string;
 }

@@ -1,13 +1,13 @@
 interface Props {
   meetingsUnderway: number;
-  uniqueUsers: number;
+  activeUsers: number;
   avgMeetingLengthMinutes: number;
   busiestTime: string;
 }
 
 export default function SummaryCards({
   meetingsUnderway,
-  uniqueUsers,
+  activeUsers,
   avgMeetingLengthMinutes,
   busiestTime,
 }: Props) {
@@ -18,7 +18,7 @@ export default function SummaryCards({
     },
     {
       title: "Device used",
-      value: uniqueUsers,
+      value: activeUsers,
     },
     {
       title: "Average meeting length",
