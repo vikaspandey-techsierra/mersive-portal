@@ -4,7 +4,7 @@ import { DashboardData } from "./types/dashboard";
 export const dashboardData: DashboardData = {
   summary: {
     meetingsUnderway: 0,
-    uniqueUsers: 11,
+    activeUsers: 11,
     avgMeetingLengthMinutes: 50,
     busiestTime: "11 am",
   },

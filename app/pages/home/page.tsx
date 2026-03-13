@@ -33,7 +33,7 @@ import {
   useOutdatedFirmwareMetric,
   useOtherIssuesMetric,
   useMeetingsUnderwayMetric,
-  useUniqueUsersMetric,
+  useActiveDevicesMetric,
   useAvgMeetingLengthMetric,
   useBusiestTimeMetric,
 } from "@/lib/analytics/hooks/useSnapshotMetric";
@@ -59,7 +59,7 @@ export default function DashboardPage() {
 
   // STATS CARDS METRICS
   const meetingsUnderway = useMeetingsUnderwayMetric();
-  const uniqueUsers = useUniqueUsersMetric();
+  const activeUsers = useActiveDevicesMetric();
   const avgMeetingLength = useAvgMeetingLengthMetric();
   const busiestTime = useBusiestTimeMetric();
 
@@ -98,7 +98,7 @@ export default function DashboardPage() {
           <StatCards
             stats={{
               meetingsUnderway,
-              uniqueUsers,
+              activeUsers,
               avgMeetingLengthMin: avgMeetingLength,
               busiestTimeLabel: busiestTime,
             }}

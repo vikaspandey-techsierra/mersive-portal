@@ -16,7 +16,7 @@ import { DashboardApiResponse } from "./types/api";
 export const DUMMY_DASHBOARD_DATA: DashboardApiResponse = {
   stats: {
     meetingsUnderway: 0,
-    uniqueUsers: 11,
+    activeUsers: 11,
     avgMeetingLengthMin: 50,
     busiestTimeLabel: "11 am",
   },

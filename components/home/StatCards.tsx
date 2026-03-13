@@ -15,7 +15,7 @@ const StatCards = ({ stats }: { stats: DashboardStats }) => {
     {
       icon: UserIcon,
       label: "Device used",
-      value: String(stats.uniqueUsers),
+      value: String(stats.activeUsers),
     },
     {
       icon: ClockIcon,
