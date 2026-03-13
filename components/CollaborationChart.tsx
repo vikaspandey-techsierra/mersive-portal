@@ -24,7 +24,7 @@ interface TEntry {
   color: string;
 }
 
-const ChartTooltip = ({
+export const ChartTooltip = ({
   active,
   payload,
   label,
@@ -37,9 +37,7 @@ const ChartTooltip = ({
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-[13px] shadow-md">
-      <div className="font-semibold mb-1 text-gray-800">
-        {label}
-      </div>
+      <div className="font-semibold mb-1 text-gray-800">{label}</div>
       {payload.map((e) => (
         <div key={e.name} className="mt-1" style={{ color: e.color }}>
           {e.name}: {e.value}
@@ -138,14 +136,8 @@ export default function CollaborationUsage({
         </ResponsiveContainer>
 
         <div className="flex gap-2 mt-3.5 flex-wrap items-center">
-          <LegendPill
-            label="Avg. connections per meeting"
-            color="#6860C8"
-          />
-          <LegendPill
-            label="Avg. posts per meeting"
-            color="#D44E80"
-          />
+          <LegendPill label="Avg. connections per meeting" color="#6860C8" />
+          <LegendPill label="Avg. posts per meeting" color="#D44E80" />
         </div>
       </div>
     </div>

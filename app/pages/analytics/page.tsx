@@ -5,6 +5,7 @@ import MonitoringPage from "@/components/analytics/monitoring/page";
 import UsagePage from "@/components/analytics/usage/page";
 import Sidebar from "@/components/Sidebar";
 import { useState } from "react";
+import { Download } from "lucide-react";
 
 type Tab = "Usage" | "Monitoring" | "Email Alerts";
 
@@ -66,20 +67,15 @@ export default function AnalyticsLayout() {
               })}
             </div>
 
-            <button
-              className=" w-full sm:w-auto flex items-center justify-center gap-2 text-sm font-medium
-               text-black border border-gray-300 rounded-lg px-4 py-2 hover:bg-gray-50 transition
-                whitespace-nowrap"
-            >
+            <button className="w-full sm:w-auto flex items-center gap-2 text-sm font-medium text-black border border-gray-300 rounded-lg px-4 py-2 hover:bg-gray-50">
+              <Download size={16} />
               Export to CSV
             </button>
           </div>
         </div>
 
         {/* Page Content */}
-        <div className=" w-full min-w-0">
-          {renderContent()}
-        </div>
+        <div className=" w-full min-w-0">{renderContent()}</div>
       </div>
     </div>
   );
