@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { getMetric, setMetric, getAllMetrics } from "../utils/metricsStore";
 import { fetchTimeseriesMetrics } from "../timeseries/timeseriesManager";
-import { calculateMetric, METRIC_DEPENDENCIES } from "../utils/metricsResolver.ts";
+import { calculateMetric, METRIC_DEPENDENCIES } from "../utils/metricsResolver";
 import {
   ChartPoint,
   DeviceUtilizationData,
