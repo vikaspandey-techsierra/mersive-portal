@@ -14,12 +14,7 @@ import {
 import { Check } from "lucide-react";
 import { useDeviceUtilizationMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
 import { ChartPoint } from "@/lib/analytics/timeseries/timeseriesTypes";
-
-function fmtDate(dateStr: string): string {
-  const d = new Date(dateStr);
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
-
+import { formatShortDate } from "@/lib/analytics/utils/formatDate";
 interface DeviceUtilizationProps {
   timeRange: string;
 }
@@ -262,7 +257,6 @@ export default function DeviceUtilization({
   const [metricA, setMetricA] = useState<DeviceMetric>("meetings");
   const [metricB, setMetricB] = useState<DeviceMetric | null>("connections");
 
-  // timeRange passed through so hook re-fetches when user switches range
   const { dataA, dataB } = useDeviceUtilizationMetrics(
     METRIC_API_MAP[metricA],
     metricB ? METRIC_API_MAP[metricB] : "",
@@ -290,17 +284,26 @@ export default function DeviceUtilization({
   const { ticks: ticksB, max: maxB } = getNiceTicks(pointsB);
 
   const leftTicks = hasMetricAData ? ticksA : ticksB;
-  const leftMax = hasMetricAData ? maxA : maxB;
-
-  const baseData = hasMetricAData ? pointsA : pointsB;
+  const leftMax   = hasMetricAData ? maxA   : maxB;
+  const baseData  = hasMetricAData ? pointsA : pointsB;
 
   const deviceData = baseData.map((d, i) => ({
-    label: fmtDate(d.date),
+    label: formatShortDate(d.date),
     ...(hasMetricAData && { [metricA]: pointsA[i]?.value ?? null }),
     ...(metricB && hasMetricBData && { [metricB]: pointsB[i]?.value ?? null }),
   }));
 
   const hasTwoMetrics = metricB !== null;
+
+  // Right axis shows whenever metricB has data, not gated on metricA
+  const showRightAxis = hasTwoMetrics && hasMetricBData;
+
+  // metricB line uses right axis when it has its own axis, otherwise falls to left
+  const metricBAxisId = showRightAxis ? "right" : "left";
+
+  // Reference lines bind to whichever axis is active
+  const refLineAxisId = hasMetricAData ? "left" : "right";
+  const refLineTicks  = hasMetricAData ? leftTicks : ticksB;
 
   return (
     <div className="mb-8">
@@ -317,17 +320,13 @@ export default function DeviceUtilization({
             data={deviceData}
             margin={{
               top: 8,
-              right:
-                hasTwoMetrics && hasMetricAData && hasMetricBData ? 38 : 30,
+              right: showRightAxis ? 38 : 30,
               left: 24,
               bottom: 0,
             }}
           >
-            <CartesianGrid
-              stroke="#f0f0f0"
-              vertical={false}
-              horizontal={false}
-            />
+            <CartesianGrid stroke="#f0f0f0" vertical={false} horizontal={false} />
+
             <XAxis
               dataKey="label"
               tick={{ fontSize: 11, fill: "#000" }}
@@ -336,7 +335,6 @@ export default function DeviceUtilization({
               ticks={(() => {
                 const len = deviceData.length;
                 if (len === 0) return [];
-                // Always show exactly 7 labels: first, last, and 5 evenly spaced in between
                 const count = 7;
                 const selected = new Set<number>([0, len - 1]);
                 for (let i = 1; i < count - 1; i++) {
@@ -348,6 +346,7 @@ export default function DeviceUtilization({
               })()}
             />
 
+            {/* Left axis — always metricA, purple label */}
             <YAxis
               yAxisId="left"
               orientation="left"
@@ -366,16 +365,11 @@ export default function DeviceUtilization({
                   ? `${value}`
                   : `${parseFloat(value.toFixed(2))}`;
               }}
-              label={
-                hasMetricAData ? (
-                  <LeftAxisLabel label={METRIC_LABELS[metricA]} />
-                ) : hasMetricBData ? (
-                  <LeftAxisLabel label={METRIC_LABELS[metricB!]} />
-                ) : undefined
-              }
+              label={<LeftAxisLabel label={METRIC_LABELS[metricA]} />}
             />
 
-            {hasTwoMetrics && hasMetricAData && hasMetricBData && (
+            {/* Right axis — metricB, pink label, only when metricB has data */}
+            {showRightAxis && (
               <YAxis
                 yAxisId="right"
                 orientation="right"
@@ -397,10 +391,11 @@ export default function DeviceUtilization({
               />
             )}
 
-            {leftTicks.map((v) => (
+            {/* Reference lines bind to whichever axis is active */}
+            {refLineTicks.map((v) => (
               <ReferenceLine
                 key={v}
-                yAxisId="left"
+                yAxisId={refLineAxisId}
                 y={v}
                 stroke="#f0f0f0"
                 strokeWidth={1}
@@ -423,7 +418,7 @@ export default function DeviceUtilization({
 
             {hasTwoMetrics && hasMetricBData && (
               <Line
-                yAxisId={hasMetricAData && hasMetricBData ? "right" : "left"}
+                yAxisId={metricBAxisId}
                 type="linear"
                 dataKey={metricB}
                 stroke={PINK}

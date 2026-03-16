@@ -1,5 +1,4 @@
 export function formatDate(dateString?: string) {
-
   if (!dateString) return "";
 
   const date = new Date(dateString);
@@ -11,5 +10,14 @@ export function formatDate(dateString?: string) {
     hour: "numeric",
     minute: "2-digit"
   });
+}
 
+// Short date for chart x-axis labels
+export function formatShortDate(dateString?: string): string {
+  if (!dateString) return "";
+
+  return new Date(dateString).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
 }
