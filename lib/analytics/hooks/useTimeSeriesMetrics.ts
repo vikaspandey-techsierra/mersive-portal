@@ -3,33 +3,13 @@
 import { useEffect, useState } from "react";
 import { getMetric, setMetric, getAllMetrics } from "../utils/metricsStore";
 import { fetchTimeseriesMetrics } from "../timeseries/timeseriesManager";
-import { calculateMetric, METRIC_DEPENDENCIES } from "../utils/metricsResolver";
+import { calculateMetric } from "../utils/metricsResolver";
+import { registerMetric, getRegisteredMetrics } from "../utils/metricsManager";
 import {
   ChartPoint,
   DeviceUtilizationData,
   CollaborationUsageData,
 } from "../timeseries/timeseriesTypes";
-
-export const DEVICE_UTILIZATION_METRICS = [
-  "ts_meetings_num",
-  "ts_users_num",
-  "ts_meetings_duration_tot",
-  "ts_connections_num",
-  "ts_posts_num",
-  "ts_meetings_duration_avg",
-];
-
-export const USER_CONNECTION_METRICS = [
-  "ts_connections_num_by_mode",
-  "ts_connections_num_by_protocol",
-  "ts_connections_num_by_os",
-  "ts_connections_num_by_conference",
-];
-
-export const COLLABORATION_METRICS = [
-  "ts_meetings_connection_avg",
-  "ts_meetings_post_avg",
-];
 
 function useMetric(metric: string, timeRange: string = "7d"): ChartPoint[] {
   const [data, setData] = useState<ChartPoint[]>([]);
@@ -42,25 +22,36 @@ function useMetric(metric: string, timeRange: string = "7d"): ChartPoint[] {
     async function loadMetric() {
       const cacheKey = `${metric}__${timeRange}`;
 
-      const dependencies = METRIC_DEPENDENCIES[metric] ?? [metric];
-      const missingDeps = dependencies.filter(
-        (m) => !getMetric(`${m}__${timeRange}`)
-      );
+      //register metric
+      registerMetric(metric);
 
-      if (missingDeps.length) {
-        await fetchTimeseriesMetrics(missingDeps, timeRange);
+      let stored = getMetric(cacheKey);
+
+      //BATCHING
+      if (!stored) {
+        const registered = getRegisteredMetrics();
+
+        const metricsToFetch = Array.from(
+          new Set([metric, ...registered])
+        );
+
+        await fetchTimeseriesMetrics(metricsToFetch, timeRange);
       }
 
       if (cancelled) return;
 
-      let stored = getMetric(cacheKey);
+      stored = getMetric(cacheKey);
 
-      // Calculate derived metric if not directly cached
+      //derived metrics
       if (!stored || stored.length === 0) {
         const allMetrics = getAllMetrics();
         const scopedMetrics: Record<string, ChartPoint[]> = {};
+
         Object.keys(allMetrics).forEach((key) => {
-          scopedMetrics[key.replace(`__${timeRange}`, "")] = allMetrics[key];
+          if (key.endsWith(`__${timeRange}`)) {
+            scopedMetrics[key.replace(`__${timeRange}`, "")] =
+              allMetrics[key];
+          }
         });
 
         const calculated = calculateMetric(metric, scopedMetrics);
@@ -85,7 +76,7 @@ function useMetric(metric: string, timeRange: string = "7d"): ChartPoint[] {
   return metric ? data : [];
 }
 
-// DEVICE UTILIZATION CHART
+// DEVICE UTILIZATION
 export function useDeviceUtilizationMetrics(
   metricA: string,
   metricB: string,
@@ -96,7 +87,7 @@ export function useDeviceUtilizationMetrics(
   return { dataA, dataB };
 }
 
-// USER CONNECTIONS CHART
+// USER CONNECTIONS
 export function useUserConnectionsMetrics(
   metric: string,
   timeRange: string = "7d"
@@ -104,7 +95,7 @@ export function useUserConnectionsMetrics(
   return useMetric(metric, timeRange);
 }
 
-// COLLABORATION USAGE CHART
+// COLLABORATION
 export function useCollaborationUsageMetrics(
   timeRange: string = "7d"
 ): CollaborationUsageData {

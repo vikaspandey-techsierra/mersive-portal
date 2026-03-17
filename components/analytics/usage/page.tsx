@@ -14,6 +14,7 @@ import {
 import React from "react";
 import LineChartSkeleton from "@/components/skeleton/LineChartSkeleton";
 import AreaChartSkeleton from "@/components/skeleton/AreaChartSkeleton";
+import { registerMetric } from "@/lib/analytics/utils/metricsManager";
 
 const MOCK: Record<string, AnalyticsApiResponse> = {
   "7d": generateMockData(7),
@@ -45,6 +46,10 @@ export default function UsagePage() {
   React.useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 1000);
     return () => clearTimeout(timer);
+  }, []);
+
+  React.useEffect(() => {
+    registerMetric("ts_connections_num_by_os");
   }, []);
 
   return (
@@ -87,8 +92,7 @@ export default function UsagePage() {
         />
       ) : (
         <UserConnections
-          data={apiData.userConnections}
-          interval={interval}
+          timeRange={timeRange}
           title="User Connections"
           subtitle="Compare connection modes, sharing protocols, user operating systems, and types of conferencing solutions used"
         />

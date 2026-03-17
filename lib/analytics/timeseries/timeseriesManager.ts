@@ -6,11 +6,11 @@ import { TimeseriesRow } from "./timeseriesTypes";
 const pendingMetrics: Record<string, Set<string>> = {};
 
 const RANGE_DAYS: Record<string, number> = {
-  "7d":  7,
+  "7d": 7,
   "30d": 30,
   "60d": 60,
   "90d": 90,
-  "all": 120,
+  all: 120,
 };
 
 export function getLatestMockDate(): Date {
@@ -81,7 +81,6 @@ export async function fetchTimeseriesMetrics(
   missingMetrics.forEach((metric) => {
     const data = parsed[metric];
     if (data) {
-        console.log("Storing:", `${metric}__${timeRange}`, `(${data.length} points)`);
       setMetric(`${metric}__${timeRange}`, data);
     }
   });
