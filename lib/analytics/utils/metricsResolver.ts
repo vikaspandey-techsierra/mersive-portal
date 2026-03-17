@@ -1,4 +1,4 @@
-import { METRIC_FORMULAS } from "./metricsDerived.ts"
+import { METRIC_FORMULAS } from "./metricsDerived"
 
 export const METRIC_DEPENDENCIES: Record<string, string[]> = {
   ts_meetings_duration_avg: [
