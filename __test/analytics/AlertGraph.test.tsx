@@ -8,13 +8,7 @@
  */
 
 import React from "react";
-import {
-  render,
-  screen,
-  fireEvent,
-  act,
-  waitFor,
-} from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 
 // ─── Mock MOCK_ALERT_HISTORY ──────────────────────────────────────────────────
 // jest.mock is hoisted before const declarations, so MOCK_HISTORY must be
@@ -169,8 +163,8 @@ describe("AlertGraph — heading and description", () => {
     await waitForData();
     expect(
       screen.getByText(
-        /View the quantity and which types of alerts were emailed/i
-      )
+        /View the quantity and which types of alerts were emailed/i,
+      ),
     ).toBeInTheDocument();
   });
 });
@@ -180,19 +174,19 @@ describe("AlertGraph — time range buttons", () => {
     renderGraph();
     await waitForData();
     expect(
-      screen.getByRole("button", { name: /last 7 days/i })
+      screen.getByRole("button", { name: /last 7 days/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /last 30 days/i })
+      screen.getByRole("button", { name: /last 30 days/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /last 60 days/i })
+      screen.getByRole("button", { name: /last 60 days/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /last 90 days/i })
+      screen.getByRole("button", { name: /last 90 days/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /all time/i })
+      screen.getByRole("button", { name: /all time/i }),
     ).toBeInTheDocument();
   });
 
@@ -209,10 +203,10 @@ describe("AlertGraph — time range buttons", () => {
     fireEvent.click(screen.getByRole("button", { name: /last 30 days/i }));
     await waitForData();
     expect(
-      screen.getByRole("button", { name: /last 30 days/i }).className
+      screen.getByRole("button", { name: /last 30 days/i }).className,
     ).toMatch(/bg-\[#6860C8\]/);
     expect(
-      screen.getByRole("button", { name: /last 7 days/i }).className
+      screen.getByRole("button", { name: /last 7 days/i }).className,
     ).not.toMatch(/bg-\[#6860C8\]/);
   });
 
@@ -238,9 +232,9 @@ describe("AlertGraph — time range buttons", () => {
       await waitForData();
       expect(screen.getByTestId("area-chart")).toHaveAttribute(
         "data-points",
-        String(count)
+        String(count),
       );
-    }
+    },
   );
 });
 
@@ -283,7 +277,7 @@ describe("AlertGraph — series (Areas)", () => {
     SERIES.forEach(({ key, color }) => {
       expect(screen.getByTestId(`area-${key}`)).toHaveAttribute(
         "data-fill",
-        color
+        color,
       );
     });
   });
@@ -301,7 +295,7 @@ describe("AlertGraph — series (Areas)", () => {
     SERIES.forEach(({ key }) => {
       expect(screen.getByTestId(`area-${key}`)).toHaveAttribute(
         "data-name",
-        NAMES[key]
+        NAMES[key],
       );
     });
   });
@@ -329,7 +323,7 @@ describe("AlertGraph — legend toggles", () => {
     await waitForData();
     // Each checked checkbox renders a checkmark SVG path
     const checkmarks = document.querySelectorAll(
-      'svg path[d="M1 4L3.5 6.5L9 1"]'
+      'svg path[d="M1 4L3.5 6.5L9 1"]',
     );
     expect(checkmarks.length).toBe(5);
   });
@@ -340,7 +334,7 @@ describe("AlertGraph — legend toggles", () => {
     // Click the "Unreachable" legend item
     fireEvent.click(screen.getByText("Unreachable"));
     const checkmarks = document.querySelectorAll(
-      'svg path[d="M1 4L3.5 6.5L9 1"]'
+      'svg path[d="M1 4L3.5 6.5L9 1"]',
     );
     expect(checkmarks.length).toBe(4);
   });
@@ -351,7 +345,7 @@ describe("AlertGraph — legend toggles", () => {
     fireEvent.click(screen.getByText("Unreachable"));
     fireEvent.click(screen.getByText("Unreachable"));
     const checkmarks = document.querySelectorAll(
-      'svg path[d="M1 4L3.5 6.5L9 1"]'
+      'svg path[d="M1 4L3.5 6.5L9 1"]',
     );
     expect(checkmarks.length).toBe(5);
   });
@@ -361,7 +355,7 @@ describe("AlertGraph — legend toggles", () => {
     await waitForData();
     LABELS.forEach((label) => fireEvent.click(screen.getByText(label)));
     const checkmarks = document.querySelectorAll(
-      'svg path[d="M1 4L3.5 6.5L9 1"]'
+      'svg path[d="M1 4L3.5 6.5L9 1"]',
     );
     expect(checkmarks.length).toBe(0);
   });
@@ -372,7 +366,7 @@ describe("AlertGraph — legend toggles", () => {
     fireEvent.click(screen.getByText("Rebooted"));
     fireEvent.click(screen.getByText("Update available"));
     const checkmarks = document.querySelectorAll(
-      'svg path[d="M1 4L3.5 6.5L9 1"]'
+      'svg path[d="M1 4L3.5 6.5L9 1"]',
     );
     expect(checkmarks.length).toBe(3);
   });
@@ -500,7 +494,7 @@ describe("AlertGraph — edge cases", () => {
     await waitForData();
     expect(screen.getByTestId("area-chart")).toHaveAttribute(
       "data-points",
-      "0"
+      "0",
     );
     // restore
     MOCK_HISTORY["7d"] = makePoints(7);
@@ -512,7 +506,7 @@ describe("AlertGraph — edge cases", () => {
     await waitForData();
     expect(screen.getByTestId("area-chart")).toHaveAttribute(
       "data-points",
-      "1"
+      "1",
     );
     MOCK_HISTORY["7d"] = makePoints(7);
   });

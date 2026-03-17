@@ -49,8 +49,7 @@ export default function AreaChartSkeleton({ title, description }: Props) {
               />
             ))}
 
-            {/* Light area — back, tallest */}
-            {/* Pattern: mid start → slight dip → big peak middle → dip low → rise right */}
+            {/* Light area */}
             <polygon
               points="70,340 70,260 280,240 500,280 720,160 940,290 1160,170 1380,120 1500,130 1500,340"
               fill="#EEEDF4"
@@ -64,7 +63,7 @@ export default function AreaChartSkeleton({ title, description }: Props) {
               opacity="0.85"
             />
 
-            {/* Dark area — front, reduced height, stays in lower 50% */}
+            {/* Dark area */}
             <polygon
               points="70,340 70,295 280,282 500,318 720,218 940,328 1160,228 1380,190 1500,200 1500,340"
               fill="#B8B4CC"

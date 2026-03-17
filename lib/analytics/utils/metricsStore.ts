@@ -3,13 +3,11 @@ import { ChartPoint, MetricsStore } from "../timeseries/timeseriesTypes";
 const metricsStore: MetricsStore = {};
 
 export function setMetric(key: string, data: ChartPoint[]): void {
-  console.log("Cache SET:", key);
   metricsStore[key] = data;
 }
 
 export function getMetric(key: string): ChartPoint[] | null {
   const data = metricsStore[key];
-  console.log(data ? "Cache HIT:" : "Cache MISS:", key);
   return data ?? null;
 }
 

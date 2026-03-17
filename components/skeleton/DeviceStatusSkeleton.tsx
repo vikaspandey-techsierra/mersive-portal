@@ -3,11 +3,12 @@
 export default function DeviceStatusSkeleton() {
   return (
     <div className="flex items-center justify-between w-full animate-pulse">
-      {/* Left Pie Skeleton - with conic-gradient segments */}
+      {/* Left Pie Skeleton  */}
       <div
         className="w-55 h-55 rounded-full shrink-0"
         style={{
-          background: "conic-gradient(#A8A4BC 0% 20%, #DDD9E8 20% 65%, #EEEDF4 65% 100%)",
+          background:
+            "conic-gradient(#A8A4BC 0% 20%, #DDD9E8 20% 65%, #EEEDF4 65% 100%)",
         }}
       />
 

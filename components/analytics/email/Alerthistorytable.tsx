@@ -34,41 +34,25 @@ export function LoadingSpinner({ size = 64 }: { size?: number }) {
 export type SortDir = "asc" | "desc";
 
 export interface ColumnDef<T> {
-  /** Unique key, used for sorting */
   key: keyof T & string;
   label: string;
-  /** Optional fixed width e.g. "120px" or "10%" */
   width?: string;
-  /** Custom cell renderer */
   render?: (value: T[keyof T], row: T) => ReactNode;
-  /** Allow sorting on this column (default true) */
   sortable?: boolean;
-  /** Tailwind classes for the cell */
   cellClassName?: string;
 }
 
 export interface DataTableProps<T extends Record<string, unknown>> {
-  /** Column definitions */
   columns: ColumnDef<T>[];
-  /** Row data */
   data: T[];
-  /** Show loading state */
   loading?: boolean;
-  /** Loading spinner label */
   loadingLabel?: string;
-  /** Empty state message */
   emptyMessage?: string;
-  /** Show a checkbox in the first column */
   selectable?: boolean;
-  /** Controlled selected row keys */
   selectedKeys?: Set<string>;
-  /** Row key accessor (defaults to index) */
   rowKey?: (row: T, index: number) => string;
-  /** Callback when selection changes */
   onSelectionChange?: (keys: Set<string>) => void;
-  /** Optional max height to enable vertical scroll (e.g. "400px") */
   maxHeight?: string;
-  /** Additional className on the outer wrapper */
   className?: string;
 }
 
@@ -82,7 +66,7 @@ function SortArrows({ active, dir }: { active: boolean; dir: SortDir }) {
         height="16"
         viewBox="0 0 16 16"
         fill="none"
-        className={`-mb-[2px] ${active && dir === "asc" ? "text-[#5E54C5]" : "text-[#9CA3AF]"}`}
+        className={`-mb-0.5 ${active && dir === "asc" ? "text-[#5E54C5]" : "text-[#9CA3AF]"}`}
       >
         <path
           d="M4 10L8 6L12 10"
@@ -97,7 +81,7 @@ function SortArrows({ active, dir }: { active: boolean; dir: SortDir }) {
         height="16"
         viewBox="0 0 16 16"
         fill="none"
-        className={`-mt-[2px] ${active && dir === "desc" ? "text-[#5E54C5]" : "text-[#9CA3AF]"}`}
+        className={`-mb-0.5 ${active && dir === "desc" ? "text-[#5E54C5]" : "text-[#9CA3AF]"}`}
       >
         <path
           d="M4 6L8 10L12 6"
@@ -205,7 +189,7 @@ export function DataTable<T extends Record<string, unknown>>({
           <thead className="border-b border-[#E5E7EB] sticky top-0 bg-white z-10">
             <tr>
               {selectable && (
-                <th className="pl-4 py-[12px] w-[44px]">
+                <th className="pl-4 py-3 w-11">
                   <input
                     type="checkbox"
                     checked={allSelected}
@@ -222,7 +206,7 @@ export function DataTable<T extends Record<string, unknown>>({
                 return (
                   <th
                     key={col.key}
-                    className={`text-left text-[12px] font-medium text-[#6B7280] py-[12px] pr-4 first:pl-4 whitespace-nowrap ${sortable ? "cursor-pointer select-none" : ""}`}
+                    className={`text-left text-[12px] font-medium text-[#6B7280] py-3 pr-4 first:pl-4 whitespace-nowrap ${sortable ? "cursor-pointer select-none" : ""}`}
                     onClick={sortable ? () => handleSort(col.key) : undefined}
                   >
                     <span className="inline-flex items-center">
@@ -271,12 +255,12 @@ export function DataTable<T extends Record<string, unknown>>({
                 return (
                   <tr
                     key={key}
-                    className={`h-[43px] border-b border-[#F1F2F4] transition-colors ${
+                    className={`h-10.75 border-b border-[#F1F2F4] transition-colors ${
                       isSelected ? "bg-[#F5F4FF]" : "hover:bg-[#F9FAFB]"
                     }`}
                   >
                     {selectable && (
-                      <td className="pl-4 py-[12px]">
+                      <td className="pl-4 py-3">
                         <input
                           type="checkbox"
                           checked={isSelected}
@@ -288,7 +272,7 @@ export function DataTable<T extends Record<string, unknown>>({
                     {columns.map((col) => (
                       <td
                         key={col.key}
-                        className={`py-[12px] px-[8px] first:pl-4 ${col.cellClassName ?? ""}`}
+                        className={`py-3 px-2 first:pl-4 ${col.cellClassName ?? ""}`}
                       >
                         {col.render
                           ? col.render(row[col.key], row)

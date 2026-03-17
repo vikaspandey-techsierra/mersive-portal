@@ -1,6 +1,6 @@
 "use client";
 
-import { DeviceUtilizationPoint } from "@/components/analytics/usage/page";
+import { DeviceUtilizationPoint } from "@/lib/types/homepage";
 import {
   LineChart,
   Line,

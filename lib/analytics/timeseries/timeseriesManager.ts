@@ -56,10 +56,7 @@ export async function fetchTimeseriesMetrics(
 
   if (!missingMetrics.length) return;
 
-  console.log("BATCH Metrics:", missingMetrics);
-
   const metricsString = missingMetrics.join(",");
-  console.log("Metrics (string):", metricsString);
 
   const startDate = getStartDate(timeRange);
 
@@ -81,7 +78,6 @@ export async function fetchTimeseriesMetrics(
   missingMetrics.forEach((metric) => {
     const data = parsed[metric];
     if (data) {
-        console.log("Storing:", `${metric}__${timeRange}`, `(${data.length} points)`);
       setMetric(`${metric}__${timeRange}`, data);
     }
   });
