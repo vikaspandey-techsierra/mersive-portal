@@ -19,7 +19,7 @@ export function getLatestMockDate(): Date {
 }
 
 export function getReferenceDate(): Date {
-  return getLatestMockDate(); // swap for new Date() with real API
+  return getLatestMockDate();
 }
 
 export function getStartDate(timeRange: string): string {
@@ -31,7 +31,7 @@ export function getStartDate(timeRange: string): string {
 }
 
 export async function fetchTimeseriesMetrics(
-  metrics: string[],
+  metrics: string[] | string,
   timeRange: string = "7d"
 ): Promise<void> {
 
@@ -39,17 +39,22 @@ export async function fetchTimeseriesMetrics(
     pendingMetrics[timeRange] = new Set();
   }
 
-  //collect all metrics
-  metrics.forEach((m) => pendingMetrics[timeRange].add(m));
+  //normalize input (string | string[])
+  const metricsArray =
+    typeof metrics === "string"
+      ? metrics.split(",").map((m) => m.trim())
+      : metrics;
 
-  //debounce batching (wait for all calls)
+  // add to batch queue
+  metricsArray.forEach((m) => pendingMetrics[timeRange].add(m));
+
+  //batching delay
   await new Promise((resolve) => setTimeout(resolve, 0));
 
   const allMetrics = Array.from(pendingMetrics[timeRange]);
-
-  // clear queue
   pendingMetrics[timeRange].clear();
 
+  //only fetch missing
   const missingMetrics = allMetrics.filter(
     (metric) => !getMetric(`${metric}__${timeRange}`)
   );
@@ -58,16 +63,16 @@ export async function fetchTimeseriesMetrics(
 
   console.log("BATCH Metrics:", missingMetrics);
 
+  //API string (for real backend)
   const metricsString = missingMetrics.join(",");
   console.log("Metrics (string):", metricsString);
 
   const startDate = getStartDate(timeRange);
 
-  const metricsArray = metricsString.split(",").map((m) => m.trim());
-
+  // USE missingMetrics directly (NO re-split bug)
   const rows: TimeseriesRow[] = timeseriesMock.filter(
     (row) =>
-      metricsArray.includes(row.metric_name) &&
+      missingMetrics.includes(row.metric_name) &&
       row.date >= startDate
   );
 
@@ -78,10 +83,16 @@ export async function fetchTimeseriesMetrics(
     missingMetrics
   );
 
+  // cache result
   missingMetrics.forEach((metric) => {
     const data = parsed[metric];
     if (data) {
       setMetric(`${metric}__${timeRange}`, data);
     }
   });
+
+  console.log("BATCH Metrics:", missingMetrics);
+  console.log("Metrics string:", metricsString);
+  console.log("Rows fetched:", rows.length);  
+  console.log("Parsed result:", parsed);
 }

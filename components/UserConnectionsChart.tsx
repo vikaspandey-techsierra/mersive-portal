@@ -1,9 +1,7 @@
 "use client";
 
 import { timeseriesMock } from "@/lib/analytics/mock/timeseriesMock";
-import { registerMetric } from "@/lib/analytics/utils/metricsManager";
-import { getMetric } from "@/lib/analytics/utils/metricsStore";
-import { fetchTimeseriesMetrics } from "@/lib/analytics/timeseries/timeseriesManager";
+import { useUserConnectionsMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
 import { useState, useMemo, useEffect } from "react";
 import {
   AreaChart,
@@ -15,6 +13,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
+// TYPES
 type MetricRow = {
   date: string;
   value: number;
@@ -33,7 +32,7 @@ function fmtDate(dateStr: string): string {
   });
 }
 
-//COLORS
+// COLORS
 const COLOR_PALETTE = [
   "#6860C8",
   "#D44E80",
@@ -42,10 +41,17 @@ const COLOR_PALETTE = [
   "#E8902A",
 ];
 
-
-//TOOLTIP 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const CustomTooltip = ({ active, payload, label }: any) => {
+// TOOLTIP
+const CustomTooltip = ({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  payload?: any[];
+  label?: string;
+}) => {
   if (!active || !payload?.length) return null;
 
   return (
@@ -53,10 +59,8 @@ const CustomTooltip = ({ active, payload, label }: any) => {
       <div className="font-semibold mb-1 text-black">{label}</div>
 
       {payload
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .filter((e: any) => e.value > 0)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .map((e: any) => (
+        .filter((e) => e.value > 0)
+        .map((e) => (
           <div key={e.name} style={{ color: e.color }}>
             {e.name}: {e.value}
           </div>
@@ -75,57 +79,48 @@ export default function UserConnections({
   subtitle?: string;
 }) {
   const [selectedMetric, setSelectedMetric] = useState<string>("");
-  const [metricData, setMetricData] = useState<MetricRow[] | null>(null);
-  const [activeSegments, setActiveSegments] = useState<Record<string, boolean>>(
-    {}
-  );
 
-  // dynamic metrics
-  const availableMetrics = useMemo(() => {
-    return Array.from(
-      new Set(
-        timeseriesMock
-          .map((row) => row.metric_name)
-          .filter((m) => m.includes("_by_"))
-      )
-    );
+  // ✅ BUILD DROPDOWN FROM segment_1_name
+  const availableDimensions = useMemo(() => {
+    const map = new Map<string, string>();
+
+    timeseriesMock.forEach((row) => {
+      if (!row.segment_1_name) return;
+
+      if (!map.has(row.segment_1_name)) {
+        map.set(row.segment_1_name, row.metric_name);
+      }
+    });
+
+    return Array.from(map.entries()).map(([label, metric]) => ({
+      label,
+      metric,
+    }));
   }, []);
 
-  const selected = selectedMetric || availableMetrics[0];
+  const selected = selectedMetric || availableDimensions[0]?.metric;
 
-  useEffect(() => {
-    if (!selected) return;
+  // ✅ FETCH VIA HOOK
+  const rawData = useUserConnectionsMetrics(selected, timeRange);
 
-    let cancelled = false;
+  const metricData: MetricRow[] = useMemo(() => {
+    return rawData ?? [];
+  }, [rawData]);
 
-    async function load() {
-      const key = `${selected}__${timeRange}`;
+  const [activeSegments, setActiveSegments] = useState<
+    Record<string, boolean>
+  >({});
 
-      registerMetric(selected);
-      await fetchTimeseriesMetrics([selected], timeRange);
-
-      if (cancelled) return;
-
-      const data = getMetric(key);
-      if (data) setMetricData(data);
-    }
-
-    load();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selected, timeRange]);
-
-  //segments
+  // ✅ SEGMENTS FROM segment_1_value
   const segments = useMemo(() => {
-    if (!metricData) return [];
+    if (!metricData.length) return [];
+
     return Array.from(
       new Set(metricData.map((d) => d.segment).filter(Boolean))
     ) as string[];
   }, [metricData]);
 
-  //colors
+  // COLORS
   const segmentColorMap = useMemo(() => {
     const map: Record<string, string> = {};
     segments.forEach((s, i) => {
@@ -134,7 +129,7 @@ export default function UserConnections({
     return map;
   }, [segments]);
 
-  //toggles
+  // TOGGLES
   useEffect(() => {
     if (!segments.length) return;
 
@@ -148,9 +143,9 @@ export default function UserConnections({
     });
   }, [segments]);
 
-  //chart data
+  // CHART DATA
   const chartData = useMemo(() => {
-    if (!metricData || segments.length === 0) return [];
+    if (!metricData.length || segments.length === 0) return [];
 
     const map: Record<string, ChartRow> = {};
 
@@ -180,6 +175,7 @@ export default function UserConnections({
 
   return (
     <div className="mb-8 w-full">
+      {/* HEADER */}
       <div className="text-[15px] font-semibold text-black mb-1">
         {title}
       </div>
@@ -188,6 +184,7 @@ export default function UserConnections({
         {subtitle}
       </div>
 
+      {/* CARD */}
       <div className="bg-white rounded-xl p-5 border border-gray-200">
         <ResponsiveContainer width="100%" height={260}>
           <AreaChart data={chartData}>
@@ -243,14 +240,14 @@ export default function UserConnections({
             onChange={(e) => setSelectedMetric(e.target.value)}
             className="border border-gray-300 rounded-md px-2.5 py-1.5 text-[13px] text-black bg-white font-medium"
           >
-            {availableMetrics.map((m) => (
-              <option key={m} value={m}>
-                {m.split("_by_")[1]?.toUpperCase()}
+            {availableDimensions.map((item) => (
+              <option key={item.metric} value={item.metric}>
+                {item.label}
               </option>
             ))}
           </select>
 
-          {/* legend */}
+          {/* LEGEND */}
           {segments.map((segment) => (
             <label
               key={segment}
