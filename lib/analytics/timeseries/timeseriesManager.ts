@@ -18,16 +18,26 @@ export function getLatestMockDate(): Date {
   return new Date(Math.max(...dates));
 }
 
-export function getReferenceDate(): Date {
-  return getLatestMockDate();
-}
-
 export function getStartDate(timeRange: string): string {
   const days = RANGE_DAYS[timeRange] ?? 7;
-  const ref = getLatestMockDate();
-  ref.setDate(ref.getDate() - (days - 1));
-  ref.setHours(0, 0, 0, 0);
-  return ref.toISOString().split("T")[0];
+  const end = getLatestMockDate();
+
+  const start = new Date(end);
+  start.setDate(start.getDate() - (days - 1));
+  start.setHours(0, 0, 0, 0);
+
+  return start.toISOString().split("T")[0];
+}
+
+export function getEndDate(): string {
+  const end = getLatestMockDate();
+  end.setHours(0, 0, 0, 0);
+  return end.toISOString().split("T")[0];
+}
+
+export function getAggregationLevel(timeRange: string): "day" | "week" {
+  if (timeRange === "7d" || timeRange === "30d") return "day";
+  return "week";
 }
 
 export async function fetchTimeseriesMetrics(
@@ -39,60 +49,62 @@ export async function fetchTimeseriesMetrics(
     pendingMetrics[timeRange] = new Set();
   }
 
-  //normalize input (string | string[])
   const metricsArray =
     typeof metrics === "string"
       ? metrics.split(",").map((m) => m.trim())
       : metrics;
 
-  // add to batch queue
   metricsArray.forEach((m) => pendingMetrics[timeRange].add(m));
 
-  //batching delay
+  // batching delay
   await new Promise((resolve) => setTimeout(resolve, 0));
 
   const allMetrics = Array.from(pendingMetrics[timeRange]);
   pendingMetrics[timeRange].clear();
 
-  //only fetch missing
   const missingMetrics = allMetrics.filter(
     (metric) => !getMetric(`${metric}__${timeRange}`)
   );
 
   if (!missingMetrics.length) return;
 
-  console.log("BATCH Metrics:", missingMetrics);
-
-  //API string (for real backend)
+  //BUILD API PARAMS
   const metricsString = missingMetrics.join(",");
-  console.log("Metrics (string):", metricsString);
-
   const startDate = getStartDate(timeRange);
+  const endDate = getEndDate();
+  const aggregationLevel = getAggregationLevel(timeRange);
 
-  // USE missingMetrics directly (NO re-split bug)
+  console.log("BATCH Metrics:", missingMetrics);
+  console.log("Metrics (string):", metricsString);
+  console.log("start_date:", startDate);
+  console.log("end_date:", endDate);
+  console.log("aggregation_level:", aggregationLevel);
+
+  //MOCK FILTER (simulate API)
   const rows: TimeseriesRow[] = timeseriesMock.filter(
     (row) =>
       missingMetrics.includes(row.metric_name) &&
-      row.date >= startDate
+      row.date >= startDate &&
+      row.date <= endDate
   );
 
+  console.log("Rows fetched:", rows.length);
+
+  //PARSE
   const parsed = parseTimeseries(
     rows,
     timeRange,
-    getReferenceDate(),
+    getLatestMockDate(),
     missingMetrics
   );
 
-  // cache result
+  console.log("Parsed result:", parsed);
+
+  // CACHE
   missingMetrics.forEach((metric) => {
     const data = parsed[metric];
     if (data) {
       setMetric(`${metric}__${timeRange}`, data);
     }
   });
-
-  console.log("BATCH Metrics:", missingMetrics);
-  console.log("Metrics string:", metricsString);
-  console.log("Rows fetched:", rows.length);  
-  console.log("Parsed result:", parsed);
 }

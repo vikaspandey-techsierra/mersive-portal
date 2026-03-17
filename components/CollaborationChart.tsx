@@ -129,7 +129,8 @@ export default function CollaborationUsage({
               name="Avg. connections per meeting"
               stroke="#6860C8"
               strokeWidth={2}
-              dot={{ r: 4 }}
+              dot={{ r: 4, fill: "#6860C8", strokeWidth: 0 }}
+              activeDot={{ r: 5 }}
             />
 
             <Line
@@ -138,7 +139,8 @@ export default function CollaborationUsage({
               name="Avg. posts per meeting"
               stroke="#D44E80"
               strokeWidth={2}
-              dot={{ r: 4 }}
+              dot={{ r: 4, fill: "#D44E80", strokeWidth: 0 }}
+              activeDot={{ r: 5 }}
             />
           </LineChart>
         </ResponsiveContainer>
