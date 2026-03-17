@@ -14,7 +14,7 @@ import {
 import { Check } from "lucide-react";
 import { useDeviceUtilizationMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
 import { ChartPoint } from "@/lib/analytics/timeseries/timeseriesTypes";
-import { formatShortDate } from "@/lib/analytics/utils/formatDate";
+import { formatShortDate } from "@/lib/analytics/utils/helpers";
 interface DeviceUtilizationProps {
   timeRange: string;
 }

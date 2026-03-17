@@ -3,13 +3,17 @@
 import { useEffect, useState } from "react";
 import { getMetric, setMetric, getAllMetrics } from "../utils/metricsStore";
 import { fetchTimeseriesMetrics } from "../timeseries/timeseriesManager";
-import { calculateMetric } from "../utils/metricsResolver";
-import { registerMetric, getRegisteredMetrics } from "../utils/metricsManager";
+import { calculateMetric, METRIC_DEPENDENCIES } from "../utils/metricsResolver";
+import {
+  registerMetric,
+  getRegisteredMetrics,
+} from "../utils/metricsManager";
 import {
   ChartPoint,
   DeviceUtilizationData,
   CollaborationUsageData,
 } from "../timeseries/timeseriesTypes";
+import { isDerivedMetric } from "../utils/helpers";
 
 function useMetric(metric: string, timeRange: string = "7d"): ChartPoint[] {
   const [data, setData] = useState<ChartPoint[]>([]);
@@ -22,27 +26,28 @@ function useMetric(metric: string, timeRange: string = "7d"): ChartPoint[] {
     async function loadMetric() {
       const cacheKey = `${metric}__${timeRange}`;
 
-      //register metric
       registerMetric(metric);
 
       let stored = getMetric(cacheKey);
 
-      //BATCHING
+      // FETCH ONLY NON-DERIVED METRICS
       if (!stored) {
         const registered = getRegisteredMetrics();
 
         const metricsToFetch = Array.from(
           new Set([metric, ...registered])
-        );
+        ).filter((m) => !isDerivedMetric(m));
 
-        await fetchTimeseriesMetrics(metricsToFetch, timeRange);
+        if (metricsToFetch.length) {
+          await fetchTimeseriesMetrics(metricsToFetch, timeRange);
+        }
       }
 
       if (cancelled) return;
 
       stored = getMetric(cacheKey);
 
-      //derived metrics
+      // HANDLE DERIVED METRICS
       if (!stored || stored.length === 0) {
         const allMetrics = getAllMetrics();
         const scopedMetrics: Record<string, ChartPoint[]> = {};
@@ -53,6 +58,28 @@ function useMetric(metric: string, timeRange: string = "7d"): ChartPoint[] {
               allMetrics[key];
           }
         });
+
+        //AUTO-FETCH DEPENDENCIES IF NEEDED
+        if (isDerivedMetric(metric)) {
+          const deps = METRIC_DEPENDENCIES[metric] || [];
+
+          const missingDeps = deps.filter(
+            (d) => !getMetric(`${d}__${timeRange}`)
+          );
+
+          if (missingDeps.length) {
+            await fetchTimeseriesMetrics(missingDeps, timeRange);
+
+            // refresh scoped metrics after fetch
+            const refreshed = getAllMetrics();
+            Object.keys(refreshed).forEach((key) => {
+              if (key.endsWith(`__${timeRange}`)) {
+                scopedMetrics[key.replace(`__${timeRange}`, "")] =
+                  refreshed[key];
+              }
+            });
+          }
+        }
 
         const calculated = calculateMetric(metric, scopedMetrics);
         if (calculated?.length) {
