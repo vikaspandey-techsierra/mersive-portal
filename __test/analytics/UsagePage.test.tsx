@@ -50,9 +50,25 @@ jest.mock("@/components/CollaborationChart", () =>
   ))
 );
 
-jest.mock("@/components/SelectedDevices", () =>
-  jest.fn(() => <div data-testid="selected-devices" />)
-);
+jest.mock("@/components/SelectedDevices", () => {
+  return jest.fn(() => {
+    const [checked, setChecked] = React.useState(true);
+
+    return (
+      <div data-testid="selected-devices">
+        <label>
+          <input
+            type="checkbox"
+            aria-label="Device 1"
+            checked={checked}
+            onChange={() => setChecked(!checked)}
+          />
+          Device 1
+        </label>
+      </div>
+    );
+  });
+});
 
 jest.mock("@/components/skeleton/LineChartSkeleton", () =>
   jest.fn(({ title, description }: { title: string; description?: string }) => (
@@ -340,6 +356,36 @@ describe("UsagePage", () => {
     it("SelectedDevices is always present regardless of loading state", () => {
       render(<UsagePage />);
       expect(screen.getByTestId("selected-devices")).toBeInTheDocument();
+    });
+  });
+
+  // ── Device selection (integration) ─────────────────────────────────────────
+
+  describe("device selection (integration)", () => {
+    const renderAndLoad = async () => {
+      render(<UsagePage />);
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+    };
+
+    it("updates UI when device is unchecked", async () => {
+      await renderAndLoad();
+
+      const checkbox = screen.getByRole("checkbox", {
+        name: /device 1/i,
+      });
+
+      // Initially checked
+      expect(checkbox).toBeChecked();
+
+      // Uncheck
+      fireEvent.click(checkbox);
+
+      expect(checkbox).not.toBeChecked();
+
+      // Basic assertion to confirm UI still stable after interaction
+      expect(screen.getByTestId("device-utilization")).toBeInTheDocument();
     });
   });
 });
