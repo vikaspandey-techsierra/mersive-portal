@@ -12,7 +12,7 @@ interface Device {
   id: string;
   name: string;
   meetings: number | null;
-  totalUsers: number | null;
+  totalConnections: number | null;
   hoursInUse: number | null;
   contentItems: number | null;
   avgDuration: string | null;
@@ -32,7 +32,7 @@ const MOCK_DEVICES: Device[] = [
     id: "1",
     name: "Board Room",
     meetings: 2,
-    totalUsers: 3,
+    totalConnections: 3,
     hoursInUse: 2,
     contentItems: 1,
     avgDuration: "1 hr",
@@ -43,7 +43,7 @@ const MOCK_DEVICES: Device[] = [
     id: "2",
     name: "Corner Conference",
     meetings: 1,
-    totalUsers: 2,
+    totalConnections: 2,
     hoursInUse: 0.5,
     contentItems: 2,
     avgDuration: "30 min",
@@ -54,7 +54,7 @@ const MOCK_DEVICES: Device[] = [
     id: "3",
     name: "Hallway",
     meetings: 1,
-    totalUsers: 1,
+    totalConnections: 1,
     hoursInUse: 0.75,
     contentItems: 1,
     avgDuration: "45 min",
@@ -65,7 +65,7 @@ const MOCK_DEVICES: Device[] = [
     id: "4",
     name: "John’s Office",
     meetings: 2,
-    totalUsers: 1,
+    totalConnections: 1,
     hoursInUse: 4,
     contentItems: 4,
     avgDuration: "2 hrs",
@@ -76,7 +76,7 @@ const MOCK_DEVICES: Device[] = [
     id: "5",
     name: "Temp Office",
     meetings: null,
-    totalUsers: null,
+    totalConnections: null,
     hoursInUse: null,
     contentItems: null,
     avgDuration: null,
@@ -223,7 +223,9 @@ export default function MonitoringPage() {
       {isLoading ? (
         <LineChartSkeleton
           title={"Downtime"}
-          description={"Monitor how many devices are down and for long the downtime lasted"}
+          description={
+            "Monitor how many devices are down and for long the downtime lasted"
+          }
         />
       ) : (
         <DowntimeChart data={apiData.downtime} interval={interval} />

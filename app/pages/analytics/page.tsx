@@ -66,11 +66,12 @@ export default function AnalyticsLayout() {
                 );
               })}
             </div>
-
-            <button className="w-full sm:w-auto flex items-center gap-2 text-sm font-medium text-black border border-gray-300 rounded-lg px-4 py-2 hover:bg-gray-50">
-              <Download size={16} />
-              Export to CSV
-            </button>
+            {activeTab !== "Email Alerts" && (
+              <button className="w-full sm:w-auto flex items-center gap-2 text-sm font-medium text-black border border-gray-300 rounded-lg px-4 py-2 hover:bg-gray-50">
+                <Download size={16} />
+                Export to CSV
+              </button>
+            )}
           </div>
         </div>
 

@@ -64,8 +64,8 @@ describe("Static content", () => {
     renderLoaded();
     expect(
       screen.getByText(
-        "Select all or narrow the data down to a specific group of devices"
-      )
+        "Select all or narrow the data down to a specific group of devices",
+      ),
     ).toBeInTheDocument();
   });
 
@@ -79,11 +79,10 @@ describe("Static content", () => {
     [
       "Name",
       "Meetings",
-      "Total Users",
+      "Total Connections",
       "Hours in Use",
       "Content Items",
       "Avg. Duration",
-      "Content Types",
     ].forEach((col) => expect(screen.getByText(col)).toBeInTheDocument());
   });
 });
@@ -95,7 +94,7 @@ describe("Table rows — initial data", () => {
   it("renders all 5 device rows", () => {
     renderLoaded();
     ALL_DEVICE_NAMES.forEach((name) =>
-      expect(screen.getByText(name)).toBeInTheDocument()
+      expect(screen.getByText(name)).toBeInTheDocument(),
     );
   });
 
@@ -104,14 +103,14 @@ describe("Table rows — initial data", () => {
     const row = screen.getByText("Board Room").closest("tr")!;
     // "2" appears in multiple cells (meetings, hoursInUse, contentTypes) — use getAllByText
     expect(within(row).getAllByText("2").length).toBeGreaterThanOrEqual(1);
-    expect(within(row).getByText("3")).toBeInTheDocument(); // totalUsers
+    expect(within(row).getByText("3")).toBeInTheDocument(); // totalConnections
   });
 
   it("displays '-' for every null field in Temp Office", () => {
     renderLoaded();
     const row = screen.getByText("Temp Office").closest("tr")!;
     const dashes = within(row).getAllByText("-");
-    expect(dashes.length).toBeGreaterThanOrEqual(6); // meetings, users, hours, items, duration, types
+    expect(dashes.length).toBeGreaterThanOrEqual(5); // meetings, users, hours, items, duration, types
   });
 
   it("displays avgDuration '1 hr' for Board Room", () => {
@@ -263,7 +262,7 @@ describe("Search filter", () => {
     fireEvent.change(input, { target: { value: "board" } });
     fireEvent.change(input, { target: { value: "" } });
     ALL_DEVICE_NAMES.forEach((name) =>
-      expect(screen.getByText(name)).toBeInTheDocument()
+      expect(screen.getByText(name)).toBeInTheDocument(),
     );
   });
 
@@ -273,7 +272,7 @@ describe("Search filter", () => {
       target: { value: "zzznomatch" },
     });
     ALL_DEVICE_NAMES.forEach((name) =>
-      expect(screen.queryByText(name)).not.toBeInTheDocument()
+      expect(screen.queryByText(name)).not.toBeInTheDocument(),
     );
   });
 
@@ -305,7 +304,7 @@ describe("Sorting", () => {
     const rows = getBodyRows();
     const names = rows.map((r) => r.cells[1]?.textContent?.trim());
     expect(names).toEqual(
-      [...names].sort((a, b) => (a ?? "").localeCompare(b ?? ""))
+      [...names].sort((a, b) => (a ?? "").localeCompare(b ?? "")),
     );
   });
 
@@ -315,7 +314,7 @@ describe("Sorting", () => {
     const rows = getBodyRows();
     const names = rows.map((r) => r.cells[1]?.textContent?.trim());
     expect(names).toEqual(
-      [...names].sort((a, b) => (b ?? "").localeCompare(a ?? ""))
+      [...names].sort((a, b) => (b ?? "").localeCompare(a ?? "")),
     );
   });
 
@@ -346,7 +345,7 @@ describe("Sorting", () => {
     renderLoaded();
     fireEvent.click(screen.getByText("Meetings")); // asc
     fireEvent.click(screen.getByText("Meetings")); // desc
-    fireEvent.click(screen.getByText("Total Users")); // new col → asc
+    fireEvent.click(screen.getByText("Total Connections")); // new col → asc
     const rows = getBodyRows();
     const nums = rows
       .map((r) => r.cells[3]?.textContent?.trim())
@@ -412,17 +411,17 @@ describe("SortIcon visual state", () => {
     renderLoaded();
     const nameHeader = screen.getByText("Name").closest("th")!;
     expect(
-      nameHeader.querySelector("path[stroke='#6860C8']")
+      nameHeader.querySelector("path[stroke='#6860C8']"),
     ).toBeInTheDocument();
   });
 
   it("inactive columns show only grey icon paths", () => {
     renderLoaded();
-    const header = screen.getByText("Total Users").closest("th")!;
+    const header = screen.getByText("Total Connections").closest("th")!;
     const greyPaths = header.querySelectorAll("path[stroke='#9CA3AF']");
     expect(greyPaths.length).toBeGreaterThan(0);
     expect(
-      header.querySelector("path[stroke='#6860C8']")
+      header.querySelector("path[stroke='#6860C8']"),
     ).not.toBeInTheDocument();
   });
 
@@ -431,12 +430,12 @@ describe("SortIcon visual state", () => {
     fireEvent.click(screen.getByText("Meetings"));
     const meetingsHeader = screen.getByText("Meetings").closest("th")!;
     expect(
-      meetingsHeader.querySelector("path[stroke='#6860C8']")
+      meetingsHeader.querySelector("path[stroke='#6860C8']"),
     ).toBeInTheDocument();
     // Old column (Name) should now be grey
     const nameHeader = screen.getByText("Name").closest("th")!;
     expect(
-      nameHeader.querySelector("path[stroke='#6860C8']")
+      nameHeader.querySelector("path[stroke='#6860C8']"),
     ).not.toBeInTheDocument();
   });
 });
@@ -475,7 +474,7 @@ describe("Edge cases", () => {
   it("scroll container has max-h-80 for vertical overflow", () => {
     renderLoaded();
     expect(document.querySelector(".overflow-x-auto")!.className).toContain(
-      "max-h-80"
+      "max-h-80",
     );
   });
 

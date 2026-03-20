@@ -52,7 +52,7 @@ const ChartTooltip = ({
 
 type DeviceMetric =
   | "meetings"
-  | "users"
+  // | "users"
   | "hours"
   | "connections"
   | "posts"
@@ -60,7 +60,7 @@ type DeviceMetric =
 
 const METRIC_LABELS: Record<DeviceMetric, string> = {
   meetings: "Number of meetings",
-  users: "Number of users",
+  // users: "Number of users",
   hours: "Hours in use",
   connections: "Number of connections",
   posts: "Number of posts",
@@ -71,7 +71,7 @@ const METRIC_KEYS = Object.keys(METRIC_LABELS) as DeviceMetric[];
 
 const METRIC_API_MAP: Record<DeviceMetric, string> = {
   meetings: "ts_meetings_num",
-  users: "ts_users_num",
+  // users: "ts_users_num",
   hours: "ts_meetings_duration_tot",
   connections: "ts_connections_num",
   posts: "ts_posts_num",
@@ -246,7 +246,7 @@ function getNiceTicks(points: ChartPoint[]): { ticks: number[]; max: number } {
     candidates.find((c) => c >= roughStep) ?? candidates[candidates.length - 1];
   const niceMax = niceStep * 4;
   const ticks = [0, 1, 2, 3, 4].map(
-    (i) => Math.round(niceStep * i * 1e10) / 1e10
+    (i) => Math.round(niceStep * i * 1e10) / 1e10,
   );
   return { ticks, max: niceMax };
 }
@@ -260,7 +260,7 @@ export default function DeviceUtilization({
   const { dataA, dataB } = useDeviceUtilizationMetrics(
     METRIC_API_MAP[metricA],
     metricB ? METRIC_API_MAP[metricB] : "",
-    timeRange
+    timeRange,
   );
 
   const handleChangeA = (next: DeviceMetric | null) => {
@@ -284,8 +284,8 @@ export default function DeviceUtilization({
   const { ticks: ticksB, max: maxB } = getNiceTicks(pointsB);
 
   const leftTicks = hasMetricAData ? ticksA : ticksB;
-  const leftMax   = hasMetricAData ? maxA   : maxB;
-  const baseData  = hasMetricAData ? pointsA : pointsB;
+  const leftMax = hasMetricAData ? maxA : maxB;
+  const baseData = hasMetricAData ? pointsA : pointsB;
 
   const deviceData = baseData.map((d, i) => ({
     label: formatShortDate(d.date),
@@ -303,7 +303,7 @@ export default function DeviceUtilization({
 
   // Reference lines bind to whichever axis is active
   const refLineAxisId = hasMetricAData ? "left" : "right";
-  const refLineTicks  = hasMetricAData ? leftTicks : ticksB;
+  const refLineTicks = hasMetricAData ? leftTicks : ticksB;
 
   return (
     <div className="mb-8">
@@ -325,7 +325,11 @@ export default function DeviceUtilization({
               bottom: 0,
             }}
           >
-            <CartesianGrid stroke="#f0f0f0" vertical={false} horizontal={false} />
+            <CartesianGrid
+              stroke="#f0f0f0"
+              vertical={false}
+              horizontal={false}
+            />
 
             <XAxis
               dataKey="label"

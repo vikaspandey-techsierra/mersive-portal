@@ -69,7 +69,7 @@ const buildDeviceUtilizationPoints = (count: number) =>
     meetings: i + 5,
     posts: i + 2,
     hours: i * 0.5,
-    users: i + 8,
+    // users: i + 8,
     avgLength: 0.5,
   }));
 
@@ -85,12 +85,12 @@ describe("CollaborationUsage", () => {
       expect(screen.getByText("Collaboration Usage")).toBeInTheDocument();
     });
 
-    it("renders the description text", () => {
-      render(<CollaborationUsage {...defaultProps} />);
-      expect(
-        screen.getByText(/Compare how many users connect/)
-      ).toBeInTheDocument();
-    });
+    // it("renders the description text", () => {
+    //   render(<CollaborationUsage {...defaultProps} />);
+    //   expect(
+    //     screen.getByText(/Compare how many users connect/),
+    //   ).toBeInTheDocument();
+    // });
 
     it("renders the line chart", () => {
       render(<CollaborationUsage {...defaultProps} />);
@@ -109,7 +109,7 @@ describe("CollaborationUsage", () => {
       render(<CollaborationUsage {...defaultProps} />);
       expect(screen.getByTestId("line-avgConnections")).toHaveAttribute(
         "data-stroke",
-        "#6860C8"
+        "#6860C8",
       );
     });
 
@@ -117,7 +117,7 @@ describe("CollaborationUsage", () => {
       render(<CollaborationUsage {...defaultProps} />);
       expect(screen.getByTestId("line-avgPosts")).toHaveAttribute(
         "data-stroke",
-        "#D44E80"
+        "#D44E80",
       );
     });
 
@@ -125,7 +125,7 @@ describe("CollaborationUsage", () => {
       render(<CollaborationUsage {...defaultProps} />);
       expect(screen.getByTestId("line-avgConnections")).toHaveAttribute(
         "data-name",
-        "Avg. connections per meeting"
+        "Avg. connections per meeting",
       );
     });
 
@@ -133,7 +133,7 @@ describe("CollaborationUsage", () => {
       render(<CollaborationUsage {...defaultProps} />);
       expect(screen.getByTestId("line-avgPosts")).toHaveAttribute(
         "data-name",
-        "Avg. posts per meeting"
+        "Avg. posts per meeting",
       );
     });
   });
@@ -142,7 +142,7 @@ describe("CollaborationUsage", () => {
     it("renders purple legend pill", () => {
       render(<CollaborationUsage {...defaultProps} />);
       expect(
-        screen.getByText("Avg. connections per meeting")
+        screen.getByText("Avg. connections per meeting"),
       ).toBeInTheDocument();
     });
 
@@ -172,12 +172,12 @@ describe("CollaborationUsage", () => {
           <div style={{ color: "#6860C8" }}>
             Avg. connections per meeting: 5
           </div>
-        </div>
+        </div>,
       );
       expect(container.querySelector(".shadow-md")).toBeInTheDocument();
       expect(screen.getByText("Feb 26")).toBeInTheDocument();
       expect(
-        screen.getByText(/Avg. connections per meeting/)
+        screen.getByText(/Avg. connections per meeting/),
       ).toBeInTheDocument();
     });
   });
@@ -187,7 +187,7 @@ describe("CollaborationUsage", () => {
       render(<CollaborationUsage {...defaultProps} />);
       expect(screen.getByTestId("line-chart")).toHaveAttribute(
         "data-points",
-        String(defaultProps.data.length)
+        String(defaultProps.data.length),
       );
     });
 
@@ -198,7 +198,7 @@ describe("CollaborationUsage", () => {
       render(<CollaborationUsage data={data} interval={1} />);
       expect(screen.getByTestId("line-chart")).toHaveAttribute(
         "data-points",
-        "3"
+        "3",
       );
     });
 
@@ -207,11 +207,11 @@ describe("CollaborationUsage", () => {
         <CollaborationUsage
           data={buildDeviceUtilizationPoints(1)}
           interval={0}
-        />
+        />,
       );
       expect(screen.getByTestId("line-chart")).toHaveAttribute(
         "data-points",
-        "1"
+        "1",
       );
     });
 
@@ -219,7 +219,7 @@ describe("CollaborationUsage", () => {
       render(<CollaborationUsage data={[]} interval={0} />);
       expect(screen.getByTestId("line-chart")).toHaveAttribute(
         "data-points",
-        "0"
+        "0",
       );
     });
   });
@@ -229,7 +229,7 @@ describe("CollaborationUsage", () => {
       render(<CollaborationUsage {...defaultProps} interval={3} />);
       expect(screen.getByTestId("x-axis")).toHaveAttribute(
         "data-interval",
-        "3"
+        "3",
       );
     });
   });
@@ -250,16 +250,16 @@ describe("LineChartSkeleton", () => {
       <LineChartSkeleton
         title="Device Utilization"
         description="Compare up to two types of usage data"
-      />
+      />,
     );
     expect(
-      screen.getByText("Compare up to two types of usage data")
+      screen.getByText("Compare up to two types of usage data"),
     ).toBeInTheDocument();
   });
 
   it("does not render description element when description is omitted", () => {
     const { container } = render(
-      <LineChartSkeleton title="Device Utilization" />
+      <LineChartSkeleton title="Device Utilization" />,
     );
     expect(container.querySelector("p")).not.toBeInTheDocument();
   });
@@ -293,7 +293,10 @@ describe("AreaChartSkeleton", () => {
 
   it("renders description when provided", () => {
     render(
-      <AreaChartSkeleton title="User Connections" description="Some subtitle" />
+      <AreaChartSkeleton
+        title="User Connections"
+        description="Some subtitle"
+      />,
     );
     expect(screen.getByText("Some subtitle")).toBeInTheDocument();
   });
@@ -442,7 +445,7 @@ describe("timeseriesMock", () => {
     "ts_connections_num",
     "ts_posts_num",
     "ts_meetings_duration_tot",
-    "ts_users_num",
+    // "ts_users_num",
     "ts_downtime_duration_tot",
     "ts_app_alerts_unreachable_num",
     "ts_connections_num_by_os",
@@ -456,14 +459,14 @@ describe("timeseriesMock", () => {
 
   it("ts_meetings_num has at least 1 row", () => {
     const rows = timeseriesMock.filter(
-      (r) => r.metric_name === "ts_meetings_num"
+      (r) => r.metric_name === "ts_meetings_num",
     );
     expect(rows.length).toBeGreaterThanOrEqual(1);
   });
 
   it("ts_connections_num has at least 1 row", () => {
     const rows = timeseriesMock.filter(
-      (r) => r.metric_name === "ts_connections_num"
+      (r) => r.metric_name === "ts_connections_num",
     );
     expect(rows.length).toBeGreaterThanOrEqual(1);
   });
@@ -482,7 +485,7 @@ describe("timeseriesMock", () => {
 
   it("ts_meetings_duration_tot values are fractional hours (< 24)", () => {
     const rows = timeseriesMock.filter(
-      (r) => r.metric_name === "ts_meetings_duration_tot"
+      (r) => r.metric_name === "ts_meetings_duration_tot",
     );
     rows.forEach((r) => {
       expect(Number(r.metric_value)).toBeLessThan(24);
@@ -492,7 +495,7 @@ describe("timeseriesMock", () => {
 
   it("ts_connections_num_by_os has 'OS' as segment_1_name", () => {
     const rows = timeseriesMock.filter(
-      (r) => r.metric_name === "ts_connections_num_by_os"
+      (r) => r.metric_name === "ts_connections_num_by_os",
     );
     rows.forEach((r) => {
       expect(r.segment_1_name).toBe("OS");
@@ -501,7 +504,7 @@ describe("timeseriesMock", () => {
 
   it("ts_connections_num_by_os contains at least one OS value", () => {
     const rows = timeseriesMock.filter(
-      (r) => r.metric_name === "ts_connections_num_by_os"
+      (r) => r.metric_name === "ts_connections_num_by_os",
     );
     const osValues = new Set(rows.map((r) => r.segment_1_value));
     // Assert that known OS values that are present are valid OS names

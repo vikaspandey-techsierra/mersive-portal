@@ -12,7 +12,7 @@ import {
 
 export const DEVICE_UTILIZATION_METRICS = [
   "ts_meetings_num",
-  "ts_users_num",
+  // "ts_users_num",
   "ts_meetings_duration_tot",
   "ts_connections_num",
   "ts_posts_num",

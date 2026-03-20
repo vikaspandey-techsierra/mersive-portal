@@ -8,22 +8,20 @@ interface Device {
   id: string;
   name: string;
   meetings: number | null;
-  totalUsers: number | null;
+  totalConnections: number | null;
   hoursInUse: number | null;
   contentItems: number | null;
   avgDuration: string | null;
   avgDurationMinutes: number | null;
-  contentTypes: number | null;
 }
 
 type SortKey =
   | "name"
   | "meetings"
-  | "totalUsers"
+  | "totalConnections"
   | "hoursInUse"
   | "contentItems"
-  | "avgDurationMinutes"
-  | "contentTypes";
+  | "avgDurationMinutes";
 
 type SortDir = "asc" | "desc";
 
@@ -34,56 +32,51 @@ const MOCK_DEVICES: Device[] = [
     id: "1",
     name: "Board Room",
     meetings: 2,
-    totalUsers: 3,
+    totalConnections: 3,
     hoursInUse: 2,
     contentItems: 1,
     avgDuration: "1 hr",
     avgDurationMinutes: 60,
-    contentTypes: 2,
   },
   {
     id: "2",
     name: "Corner Conference",
     meetings: 1,
-    totalUsers: 2,
+    totalConnections: 2,
     hoursInUse: 0.5,
     contentItems: 2,
     avgDuration: "30 min",
     avgDurationMinutes: 30,
-    contentTypes: 1,
   },
   {
     id: "3",
     name: "Hallway",
     meetings: 1,
-    totalUsers: 1,
+    totalConnections: 1,
     hoursInUse: 0.75,
     contentItems: 1,
     avgDuration: "45 min",
     avgDurationMinutes: 45,
-    contentTypes: 1,
   },
   {
     id: "4",
     name: "John's Office",
     meetings: 2,
-    totalUsers: 1,
+    totalConnections: 1,
     hoursInUse: 4,
     contentItems: 4,
     avgDuration: "2 hrs",
     avgDurationMinutes: 120,
-    contentTypes: 3,
   },
   {
     id: "5",
     name: "Temp Office",
     meetings: null,
-    totalUsers: null,
+    totalConnections: null,
     hoursInUse: null,
     contentItems: null,
     avgDuration: null,
     avgDurationMinutes: null,
-    contentTypes: null,
   },
 ];
 
@@ -336,7 +329,12 @@ export default function SelectedDevices() {
               </th>
               <Th label="Name" sortable sk="name" {...sortProps} />
               <Th label="Meetings" sortable sk="meetings" {...sortProps} />
-              <Th label="Total Users" sortable sk="totalUsers" {...sortProps} />
+              <Th
+                label="Total Connections"
+                sortable
+                sk="totalConnections"
+                {...sortProps}
+              />
               <Th
                 label="Hours in Use"
                 sortable
@@ -353,12 +351,6 @@ export default function SelectedDevices() {
                 label="Avg. Duration"
                 sortable
                 sk="avgDurationMinutes"
-                {...sortProps}
-              />
-              <Th
-                label="Content Types"
-                sortable
-                sk="contentTypes"
                 {...sortProps}
               />
             </tr>
@@ -395,7 +387,7 @@ export default function SelectedDevices() {
                     {fmt(device.meetings)}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-700">
-                    {fmt(device.totalUsers)}
+                    {fmt(device.totalConnections)}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-700">
                     {device.hoursInUse === null ? "-" : device.hoursInUse}
@@ -405,9 +397,6 @@ export default function SelectedDevices() {
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-700">
                     {device.avgDuration ?? "-"}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-700">
-                    {fmt(device.contentTypes)}
                   </td>
                 </tr>
               );
