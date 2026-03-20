@@ -29,12 +29,7 @@ export default function DeviceTypeDonut({ data }: Props) {
       <div className="w-55 h-55 relative">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
-            <Pie
-              data={data}
-              innerRadius={70}
-              outerRadius={100}
-              dataKey="value"
-            >
+            <Pie data={data} innerRadius={70} outerRadius={100} dataKey="value">
               {data.map((_, i) => (
                 <Cell key={i} fill={COLORS[i % COLORS.length]} />
               ))}

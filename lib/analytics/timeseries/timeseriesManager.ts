@@ -44,7 +44,6 @@ export async function fetchTimeseriesMetrics(
   metrics: string[] | string,
   timeRange: string = "7d"
 ): Promise<void> {
-
   if (!pendingMetrics[timeRange]) {
     pendingMetrics[timeRange] = new Set();
   }
@@ -68,8 +67,8 @@ export async function fetchTimeseriesMetrics(
 
   if (!missingMetrics.length) return;
 
-  //BUILD API PARAMS
   const metricsString = missingMetrics.join(",");
+
   const startDate = getStartDate(timeRange);
   const endDate = getEndDate();
   const aggregationLevel = getAggregationLevel(timeRange);

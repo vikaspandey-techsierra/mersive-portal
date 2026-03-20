@@ -20,7 +20,7 @@ interface TEntry {
   color: string;
 }
 
-const ChartTooltip = ({
+export const ChartTooltip = ({
   active,
   payload,
   label,
