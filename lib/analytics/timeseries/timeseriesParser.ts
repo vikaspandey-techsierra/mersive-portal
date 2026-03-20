@@ -1,11 +1,11 @@
-import { TimeseriesRow, ChartPoint, ParsedMetricsMap } from "./timeseriesTypes";
+import { TimeseriesRow, ParsedMetricsMap } from "./timeseriesTypes";
 
 const RANGE_DAYS: Record<string, number> = {
-  "7d":  7,
+  "7d": 7,
   "30d": 30,
   "60d": 60,
   "90d": 90,
-  "all": 120,
+  all: 120,
 };
 
 function generateDateRange(timeRange: string, referenceDate: Date): string[] {
@@ -26,31 +26,79 @@ export function parseTimeseries(
   referenceDate: Date = new Date(),
   requestedMetrics: string[] = []
 ): ParsedMetricsMap {
-  const byMetric: Record<string, Record<string, number>> = {};
+  const byMetric: Record<
+    string,
+    Record<string, Record<string, number> | number>
+  > = {};
 
-  // Seed all requested metrics so they always get a full date array
   requestedMetrics.forEach((m) => {
     byMetric[m] = {};
   });
 
-  // Group rows by metric -> date, summing values for segmented metrics
   data.forEach((row) => {
     const metric = row.metric_name;
+    const date = row.date;
+    const value = Number(row.metric_value);
+
     if (!byMetric[metric]) byMetric[metric] = {};
-    byMetric[metric][row.date] =
-      (byMetric[metric][row.date] ?? 0) + Number(row.metric_value);
+
+    const isSegmented = metric.includes("_by_");
+
+    //SEGMENTED METRICS
+    if (isSegmented) {
+      if (!row.segment_1_value) return;
+
+      const segment = row.segment_1_value;
+
+      if (!byMetric[metric][date]) {
+        byMetric[metric][date] = {};
+      }
+
+      const segmentMap = byMetric[metric][date] as Record<string, number>;
+
+      segmentMap[segment] = (segmentMap[segment] ?? 0) + value;
+    }
+
+    //NON-SEGMENTED
+    else {
+      const existing = byMetric[metric][date] as number | undefined;
+      byMetric[metric][date] = (existing ?? 0) + value;
+    }
   });
 
   const allDates = generateDateRange(timeRange, referenceDate);
-
   const result: ParsedMetricsMap = {};
 
   Object.keys(byMetric).forEach((metric) => {
-    // Fill every date — 0 for missing so line stays at baseline
-    result[metric] = allDates.map((date): ChartPoint => ({
-      date,
-      value: byMetric[metric][date] ?? 0,
-    }));
+    result[metric] = [];
+
+    allDates.forEach((date) => {
+      const entry = byMetric[metric][date];
+
+      // fill missing dates (important for chart UI)
+      if (!entry) {
+        result[metric].push({
+          date,
+          value: 0,
+        });
+        return;
+      }
+
+      if (typeof entry === "object") {
+        Object.entries(entry).forEach(([seg, value]) => {
+          result[metric].push({
+            date,
+            value,
+            segment: seg,
+          });
+        });
+      } else {
+        result[metric].push({
+          date,
+          value: entry,
+        });
+      }
+    });
   });
 
   return result;

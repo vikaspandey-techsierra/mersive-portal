@@ -8,15 +8,17 @@ import SelectableDataTable, {
 } from "@/components/SelectedDevices";
 import UserConnections from "@/components/UserConnectionsChart";
 import { useState } from "react";
+import React from "react";
+import LineChartSkeleton from "@/components/skeleton/LineChartSkeleton";
+import AreaChartSkeleton from "@/components/skeleton/AreaChartSkeleton";
+import { registerMetric } from "@/lib/analytics/utils/metricsManager";
+import { useUsageMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
 import {
   AnalyticsApiResponse,
   DAY_COUNTS,
   generateMockData,
   tickInterval,
 } from "@/lib/homePage";
-import React from "react";
-import LineChartSkeleton from "@/components/skeleton/LineChartSkeleton";
-import AreaChartSkeleton from "@/components/skeleton/AreaChartSkeleton";
 
 /* ── Row shape ── */
 interface UsageDevice extends Record<string, unknown> {
@@ -126,6 +128,15 @@ interface UsagePageProps {
   tableRef?: React.Ref<SelectableDataTableHandle>;
 }
 
+const METRIC_API_MAP: Record<string, string> = {
+  meetings: "ts_meetings_num",
+  users: "ts_users_num",
+  hours: "ts_meetings_duration_tot",
+  connections: "ts_connections_num",
+  posts: "ts_posts_num",
+  avgLength: "ts_meetings_duration_avg",
+};
+
 export default function UsagePage({ tableRef }: UsagePageProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>("7d");
   const [isLoading, setIsLoading] = React.useState(true);
@@ -133,11 +144,21 @@ export default function UsagePage({ tableRef }: UsagePageProps) {
   const apiData = MOCK[timeRange];
   const days = DAY_COUNTS[timeRange];
   const interval = tickInterval(days);
+  registerMetric("ts_connections_num_by_os");
 
   React.useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 1000);
     return () => clearTimeout(timer);
   }, []);
+
+  const deviceMetricA = METRIC_API_MAP["meetings"];
+  const deviceMetricB = METRIC_API_MAP["connections"];
+
+  const { ready } = useUsageMetrics(timeRange, {
+    deviceMetricA,
+    deviceMetricB,
+    userConnectionsMetric: "ts_connections_num_by_os",
+  });
 
   return (
     <>
@@ -161,7 +182,7 @@ export default function UsagePage({ tableRef }: UsagePageProps) {
         </div>
       </div>
 
-      {isLoading ? (
+      {isLoading || !ready ? (
         <LineChartSkeleton
           title="Device Utilization"
           description="Compare up to two types of usage data for devices in your organization"
@@ -172,15 +193,14 @@ export default function UsagePage({ tableRef }: UsagePageProps) {
 
       <hr className="pb-5" />
 
-      {isLoading ? (
+      {isLoading || !ready ? (
         <AreaChartSkeleton
           title="User Connections"
           description="Compare connection modes, sharing protocols, user operating systems, and types of conferencing solutions used"
         />
       ) : (
         <UserConnections
-          data={apiData.userConnections}
-          interval={interval}
+          timeRange={timeRange}
           title="User Connections"
           subtitle="Compare connection modes, sharing protocols, user operating systems, and types of conferencing solutions used"
         />
@@ -188,16 +208,13 @@ export default function UsagePage({ tableRef }: UsagePageProps) {
 
       <hr className="pb-5" />
 
-      {isLoading ? (
+      {isLoading || !ready ? (
         <LineChartSkeleton
           title="Collaboration Usage"
           description="Compare how many users connect versus how often they share a post within a meeting on average"
         />
       ) : (
-        <CollaborationUsage
-          data={apiData.deviceUtilization}
-          interval={interval}
-        />
+        <CollaborationUsage timeRange={timeRange} />
       )}
 
       <hr className="pb-5" />

@@ -14,7 +14,7 @@ import {
 import { Check } from "lucide-react";
 import { useDeviceUtilizationMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
 import { ChartPoint } from "@/lib/analytics/timeseries/timeseriesTypes";
-import { formatShortDate } from "@/lib/analytics/utils/formatDate";
+import { formatShortDate } from "@/lib/analytics/utils/helpers";
 interface DeviceUtilizationProps {
   timeRange: string;
 }
@@ -256,10 +256,9 @@ export default function DeviceUtilization({
 }: DeviceUtilizationProps) {
   const [metricA, setMetricA] = useState<DeviceMetric>("meetings");
   const [metricB, setMetricB] = useState<DeviceMetric | null>("connections");
-
   const { dataA, dataB } = useDeviceUtilizationMetrics(
-    METRIC_API_MAP[metricA],
-    metricB ? METRIC_API_MAP[metricB] : "",
+    metricA === "avgLength" ? "" : METRIC_API_MAP[metricA],
+    metricB === "avgLength" ? "" : metricB ? METRIC_API_MAP[metricB] : "",
     timeRange,
   );
 
@@ -274,8 +273,28 @@ export default function DeviceUtilization({
     setMetricB(next);
   };
 
-  const pointsA: ChartPoint[] = dataA;
-  const pointsB: ChartPoint[] = dataB;
+  const isAvgLengthA = metricA === "avgLength";
+  const isAvgLengthB = metricB === "avgLength";
+
+  const meetingsData = useDeviceUtilizationMetrics(
+    "ts_meetings_num",
+    "",
+    timeRange,
+  ).dataA;
+
+  const durationData = useDeviceUtilizationMetrics(
+    "ts_meetings_duration_tot",
+    "",
+    timeRange,
+  ).dataA;
+
+  const pointsA: ChartPoint[] = isAvgLengthA
+    ? computeAvgLength(meetingsData, durationData)
+    : dataA;
+
+  const pointsB: ChartPoint[] = isAvgLengthB
+    ? computeAvgLength(meetingsData, durationData)
+    : dataB;
 
   const hasMetricAData = pointsA.some((p) => p.value > 0);
   const hasMetricBData = pointsB.some((p) => p.value > 0);
@@ -304,6 +323,21 @@ export default function DeviceUtilization({
   // Reference lines bind to whichever axis is active
   const refLineAxisId = hasMetricAData ? "left" : "right";
   const refLineTicks = hasMetricAData ? leftTicks : ticksB;
+
+  function computeAvgLength(
+    meetings: ChartPoint[],
+    duration: ChartPoint[],
+  ): ChartPoint[] {
+    return meetings.map((m, i) => {
+      const meetingCount = m.value ?? 0;
+      const totalDuration = duration[i]?.value ?? 0;
+
+      return {
+        date: m.date,
+        value: meetingCount ? totalDuration / meetingCount : 0,
+      };
+    });
+  }
 
   return (
     <div className="mb-8">
