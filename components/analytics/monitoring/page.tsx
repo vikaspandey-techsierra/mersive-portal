@@ -3,105 +3,98 @@
 import { useState } from "react";
 import DowntimeChart, { type DowntimePoint } from "@/components/DowntimeChart";
 import AlertsChart, { type AlertPoint } from "@/components/AlertChart";
-import SelectedDevices from "@/components/SelectedDevices";
+import SelectableDataTable, {
+  ColumnDef,
+  SelectableDataTableHandle,
+} from "@/components/SelectedDevices";
 import React from "react";
 import LineChartSkeleton from "@/components/skeleton/LineChartSkeleton";
 import AreaChartSkeleton from "@/components/skeleton/AreaChartSkeleton";
 
-interface Device {
+/* ── Row shape ── */
+interface MonitoringDevice {
   id: string;
   name: string;
-  meetings: number | null;
-  totalConnections: number | null;
-  hoursInUse: number | null;
-  contentItems: number | null;
-  avgDuration: string | null;
-  avgDurationMinutes: number | null;
-  contentTypes: number | null;
+  numberOfDevices: number | null;
+  totalDowntime: string | null;
+  /** Raw minutes — used for sorting totalDowntime */
+  totalDowntimeMinutes: number | null;
+  [key: string]: unknown;
 }
 
-export interface MonitoringApiResponse {
-  range: "7d" | "30d" | "60d" | "90d" | "all";
-  downtime: DowntimePoint[];
-  alerts: AlertPoint[];
-  selectedDevices: Device[];
-}
-
-const MOCK_DEVICES: Device[] = [
+/* ── Mock data ── */
+const MONITORING_DEVICES: MonitoringDevice[] = [
   {
     id: "1",
     name: "Board Room",
-    meetings: 2,
-    totalConnections: 3,
-    hoursInUse: 2,
-    contentItems: 1,
-    avgDuration: "1 hr",
-    avgDurationMinutes: 60,
-    contentTypes: 2,
+    numberOfDevices: 3,
+    totalDowntime: "1 hr 20 min",
+    totalDowntimeMinutes: 80,
   },
   {
     id: "2",
     name: "Corner Conference",
-    meetings: 1,
-    totalConnections: 2,
-    hoursInUse: 0.5,
-    contentItems: 2,
-    avgDuration: "30 min",
-    avgDurationMinutes: 30,
-    contentTypes: 1,
+    numberOfDevices: 2,
+    totalDowntime: "45 min",
+    totalDowntimeMinutes: 45,
   },
   {
     id: "3",
     name: "Hallway",
-    meetings: 1,
-    totalConnections: 1,
-    hoursInUse: 0.75,
-    contentItems: 1,
-    avgDuration: "45 min",
-    avgDurationMinutes: 45,
-    contentTypes: 1,
+    numberOfDevices: 1,
+    totalDowntime: "2 hrs",
+    totalDowntimeMinutes: 120,
   },
   {
     id: "4",
-    name: "John’s Office",
-    meetings: 2,
-    totalConnections: 1,
-    hoursInUse: 4,
-    contentItems: 4,
-    avgDuration: "2 hrs",
-    avgDurationMinutes: 120,
-    contentTypes: 3,
+    name: "John's Office",
+    numberOfDevices: 1,
+    totalDowntime: "30 min",
+    totalDowntimeMinutes: 30,
   },
   {
     id: "5",
     name: "Temp Office",
-    meetings: null,
-    totalConnections: null,
-    hoursInUse: null,
-    contentItems: null,
-    avgDuration: null,
-    avgDurationMinutes: null,
-    contentTypes: null,
+    numberOfDevices: null,
+    totalDowntime: null,
+    totalDowntimeMinutes: null,
   },
 ];
+
+/* ── Column definitions ── */
+const MONITORING_COLUMNS: ColumnDef<MonitoringDevice>[] = [
+  { key: "name", label: "Name", sortable: true },
+  { key: "numberOfDevices", label: "Number of Devices", sortable: true },
+  {
+    key: "totalDowntimeMinutes",
+    label: "Total Downtime",
+    sortable: true,
+    // Sort by raw minutes, display the friendly string
+    render: (_value, row) => row.totalDowntime ?? "-",
+    // Export the friendly string
+    csvValue: (_value, row) => row.totalDowntime ?? "",
+  },
+];
+
+/* ── Chart data generators (unchanged from original) ── */
+export interface MonitoringApiResponse {
+  range: "7d" | "30d" | "60d" | "90d" | "all";
+  downtime: DowntimePoint[];
+  alerts: AlertPoint[];
+}
 
 function generateDowntime(days: number): DowntimePoint[] {
   const baseDate = new Date("2024-12-16");
   const wave = [9, 13, 3, 11, 19, 0, 0];
-
   const rand = (base: number, spread = 0.2) =>
     Math.max(0, Math.round(base + (Math.random() - 0.5) * base * spread));
-
   return Array.from({ length: days }, (_, i) => {
     const d = new Date(baseDate);
     d.setDate(d.getDate() + i);
-
     const month = d.toLocaleString("en-US", { month: "short" });
-    const day = d.getDate();
     const p = wave[i % 7];
-
     return {
-      date: `${month} ${day}`,
+      date: `${month} ${d.getDate()}`,
       devices: rand(p),
       hours: Number((1 + p / 20).toFixed(2)),
     };
@@ -110,17 +103,13 @@ function generateDowntime(days: number): DowntimePoint[] {
 
 function generateAlerts(days: number): AlertPoint[] {
   const baseDate = new Date("2024-12-16");
-
   return Array.from({ length: days }, (_, i) => {
     const d = new Date(baseDate);
     d.setDate(d.getDate() + i);
-
     const month = d.toLocaleString("en-US", { month: "short" });
-    const day = d.getDate();
     const factor = [8, 12, 4, 10, 18, 6, 3][i % 7];
-
     return {
-      date: `${month} ${day}`,
+      date: `${month} ${d.getDate()}`,
       unreachable: Math.round(factor * 0.5),
       rebooted: Math.round(factor * 0.4),
       unassigned: Math.round(factor * 0.6),
@@ -139,12 +128,10 @@ function buildMock(days: number): MonitoringApiResponse {
     60: "60d",
     90: "90d",
   };
-
   return {
     range: (rangeKey[days] ?? "all") as MonitoringApiResponse["range"],
     downtime: generateDowntime(days),
     alerts: generateAlerts(days),
-    selectedDevices: MOCK_DEVICES,
   };
 }
 
@@ -181,20 +168,21 @@ function tickInterval(days: number): number {
   return 13;
 }
 
-export default function MonitoringPage() {
+interface MonitoringPageProps {
+  /** Ref forwarded from AnalyticsLayout so the Export CSV button can call exportCSV() */
+  tableRef?: React.Ref<SelectableDataTableHandle>;
+}
+
+export default function MonitoringPage({ tableRef }: MonitoringPageProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>("7d");
+  const [isLoading, setIsLoading] = React.useState(true);
 
   const apiData = MOCK[timeRange];
   const days = DAY_COUNTS[timeRange];
   const interval = tickInterval(days);
 
-  const [isLoading, setIsLoading] = React.useState(true);
-
   React.useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1000);
-
+    const timer = setTimeout(() => setIsLoading(false), 1000);
     return () => clearTimeout(timer);
   }, []);
 
@@ -222,27 +210,39 @@ export default function MonitoringPage() {
 
       {isLoading ? (
         <LineChartSkeleton
-          title={"Downtime"}
-          description={
-            "Monitor how many devices are down and for long the downtime lasted"
-          }
+          title="Downtime"
+          description="Monitor how many devices are down and for long the downtime lasted"
         />
       ) : (
         <DowntimeChart data={apiData.downtime} interval={interval} />
       )}
+
       <hr className="my-10 border-t border-gray-200" />
+
       {isLoading ? (
         <AreaChartSkeleton
-          title={"Alerts"}
-          description={
-            "Monitor the quantity and which types of alerts occurred in your fleet"
-          }
+          title="Alerts"
+          description="Monitor the quantity and which types of alerts occurred in your fleet"
         />
       ) : (
         <AlertsChart data={apiData.alerts} interval={interval} />
       )}
+
       <hr className="my-10 border-t border-gray-200" />
-      <SelectedDevices />
+
+      <SelectableDataTable
+        ref={tableRef}
+        heading="Selected Devices"
+        subheading="Select all or narrow the data down to a specific group of devices"
+        rows={MONITORING_DEVICES}
+        rowKey="id"
+        columns={MONITORING_COLUMNS}
+        defaultSortKey="name"
+        defaultSortDir="asc"
+        defaultAllSelected
+        isLoading={isLoading}
+        csvFilename="monitoring-devices"
+      />
     </div>
   );
 }

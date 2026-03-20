@@ -1,113 +1,107 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import Image from "next/image";
+import {
+  useState,
+  useMemo,
+  useEffect,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
+import loading from "../components/icons/loading.svg";
 
-/* TYPES  */
+/* ─────────────────────────────────────────────
+   TYPES
+───────────────────────────────────────────── */
 
-interface Device {
-  id: string;
-  name: string;
-  meetings: number | null;
-  totalConnections: number | null;
-  hoursInUse: number | null;
-  contentItems: number | null;
-  avgDuration: string | null;
-  avgDurationMinutes: number | null;
+export type SortDir = "asc" | "desc";
+
+/** One column definition */
+export interface ColumnDef<T extends Record<string, unknown>> {
+  /** Unique key matching a field in your data row */
+  key: keyof T & string;
+  /** Header label shown in <th> */
+  label: string;
+  /** Whether this column is sortable (default: false) */
+  sortable?: boolean;
+  /**
+   * Optional plain-text extractor used during CSV export.
+   * Provide this whenever the column has a custom `render` that returns JSX,
+   * so the CSV gets a clean string/number instead of "[object Object]".
+   * e.g. for avgDuration: (_v, row) => row.avgDuration ?? ""
+   */
+  csvValue?: (value: T[keyof T], row: T) => string | number;
+  /**
+   * Custom renderer for a cell value.
+   * Receives the raw value and the full row.
+   * Defaults to String(value) or "-" when null/undefined.
+   */
+  render?: (value: T[keyof T], row: T) => React.ReactNode;
+  /** Extra className applied to every <td> in this column */
+  cellClassName?: string;
 }
 
-type SortKey =
-  | "name"
-  | "meetings"
-  | "totalConnections"
-  | "hoursInUse"
-  | "contentItems"
-  | "avgDurationMinutes";
+export interface SelectableDataTableProps<T extends Record<string, unknown>> {
+  // ── Content ──────────────────────────────
+  /** Bold heading at the top */
+  heading: string;
+  /** Muted subheading below the heading */
+  subheading: string;
+  /** Search input placeholder */
+  searchPlaceholder?: string;
 
-type SortDir = "asc" | "desc";
+  // ── Data ─────────────────────────────────
+  rows: T[];
+  /** Field used as a stable unique identifier (e.g. "id") */
+  rowKey: keyof T & string;
+  columns: ColumnDef<T>[];
 
-/*  MOCK DATA */
+  // ── Sorting ───────────────────────────────
+  defaultSortKey?: keyof T & string;
+  defaultSortDir?: SortDir;
 
-const MOCK_DEVICES: Device[] = [
-  {
-    id: "1",
-    name: "Board Room",
-    meetings: 2,
-    totalConnections: 3,
-    hoursInUse: 2,
-    contentItems: 1,
-    avgDuration: "1 hr",
-    avgDurationMinutes: 60,
-  },
-  {
-    id: "2",
-    name: "Corner Conference",
-    meetings: 1,
-    totalConnections: 2,
-    hoursInUse: 0.5,
-    contentItems: 2,
-    avgDuration: "30 min",
-    avgDurationMinutes: 30,
-  },
-  {
-    id: "3",
-    name: "Hallway",
-    meetings: 1,
-    totalConnections: 1,
-    hoursInUse: 0.75,
-    contentItems: 1,
-    avgDuration: "45 min",
-    avgDurationMinutes: 45,
-  },
-  {
-    id: "4",
-    name: "John's Office",
-    meetings: 2,
-    totalConnections: 1,
-    hoursInUse: 4,
-    contentItems: 4,
-    avgDuration: "2 hrs",
-    avgDurationMinutes: 120,
-  },
-  {
-    id: "5",
-    name: "Temp Office",
-    meetings: null,
-    totalConnections: null,
-    hoursInUse: null,
-    contentItems: null,
-    avgDuration: null,
-    avgDurationMinutes: null,
-  },
-];
+  // ── Selection ─────────────────────────────
+  /** Whether all rows start selected (default: true) */
+  defaultAllSelected?: boolean;
+  /** Callback fired whenever the selection changes */
+  onSelectionChange?: (selectedIds: Set<string>) => void;
 
-/*  HELPERS  */
+  // ── Loading ───────────────────────────────
+  /**
+   * Control loading state externally. When omitted the component starts in a
+   * 2-second simulated-load state (useful for demos / storybook).
+   */
+  isLoading?: boolean;
 
-const fmt = (v: number | null) => (v === null ? "-" : String(v));
+  // ── CSV ───────────────────────────────────
+  /** Base filename for the downloaded CSV (without extension). Defaults to "export". */
+  csvFilename?: string;
+}
 
-/* LOADER SVG */
+/** Handle exposed via ref — call exportCSV() from any parent button */
+export interface SelectableDataTableHandle {
+  exportCSV: () => void;
+}
 
-const LoaderSVG = () => (
-  <svg
-    width="64"
-    height="64"
-    viewBox="0 0 100 100"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-    className="animate-spin"
-    style={{ animationDuration: "1s" }}
-  >
-    <path
-      d="M50 100C43.2515 100 36.703 98.6773 30.5366 96.0696C24.5825 93.5515 19.2351 89.9466 14.6452 85.3558C10.0543 80.7649 6.45037 75.4184 3.93135 69.4643C1.32272 63.296 0 56.7485 0 50C0 43.2515 1.32272 36.703 3.93041 30.5366C6.44848 24.5825 10.0534 19.2351 14.6442 14.6452C19.2351 10.0543 24.5816 6.45037 30.5357 3.93135C36.703 1.32272 43.2515 0 50 0C56.7485 0 63.297 1.32272 69.4634 3.93041C75.4175 6.44848 80.765 10.0534 85.3548 14.6442C89.9457 19.2351 93.5496 24.5816 96.0687 30.5357C98.6773 36.7021 99.9991 43.2506 99.9991 49.9991C99.9991 51.0793 99.9642 52.1709 99.8953 53.2436L92.2184 52.7511C92.2769 51.8416 92.3062 50.9151 92.3062 49.9991C92.3062 44.2855 91.1882 38.7456 88.9833 33.5321C86.853 28.495 83.8019 23.9693 79.9149 20.0832C76.0279 16.1962 71.5031 13.1451 66.466 11.0148C61.2525 8.80993 55.7126 7.69195 49.9991 7.69195C44.2855 7.69195 38.7456 8.80993 33.5321 11.0148C28.495 13.1451 23.9693 16.1962 20.0832 20.0832C16.1962 23.9702 13.1451 28.495 11.0148 33.5321C8.80993 38.7456 7.69195 44.2855 7.69195 49.9991C7.69195 55.7126 8.80993 61.2525 11.0148 66.466C13.1451 71.5031 16.1962 76.0288 20.0832 79.9149C23.9702 83.8019 28.495 86.853 33.5321 88.9833C38.7456 91.1882 44.2855 92.3062 49.9991 92.3062C57.692 92.3062 65.2216 90.2221 71.7748 86.2804C78.1459 82.4481 83.4189 76.9874 87.0229 70.4908L93.7497 74.2221C89.4919 81.8961 83.2651 88.3456 75.7401 92.8722C67.9897 97.5348 59.0892 99.9991 49.9991 99.9991L50 100Z"
-      fill="#5E54C5"
-    />
-    <path
-      d="M94.2293 66.5283C96.3536 66.5283 98.0757 64.8062 98.0757 62.6819C98.0757 60.5576 96.3536 58.8354 94.2293 58.8354C92.1049 58.8354 90.3828 60.5576 90.3828 62.6819C90.3828 64.8062 92.1049 66.5283 94.2293 66.5283Z"
-      fill="#5E54C5"
-    />
-  </svg>
-);
+/* ─────────────────────────────────────────────
+   INTERNAL HELPERS
+───────────────────────────────────────────── */
 
-/*  SORT ICON  */
+const defaultRender = (value: unknown): React.ReactNode =>
+  value === null || value === undefined ? "-" : String(value);
+
+function escapeCSV(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  const str = String(value);
+  if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+/* ─────────────────────────────────────────────
+   SORT ICON
+───────────────────────────────────────────── */
 
 const SortIcon = ({ active, dir }: { active: boolean; dir: SortDir }) => (
   <span className="ml-1 inline-flex flex-col items-center justify-center gap-0.5">
@@ -132,7 +126,9 @@ const SortIcon = ({ active, dir }: { active: boolean; dir: SortDir }) => (
   </span>
 );
 
-/*  CHECKBOX  */
+/* ─────────────────────────────────────────────
+   CHECKBOX
+───────────────────────────────────────────── */
 
 const Checkbox = ({
   checked,
@@ -171,87 +167,128 @@ const Checkbox = ({
   </span>
 );
 
-/*  HEADER CELL  */
+/* ─────────────────────────────────────────────
+   INNER COMPONENT  (generic, wrapped by forwardRef below)
+───────────────────────────────────────────── */
 
-interface ThProps {
-  label: string;
-  sortable?: boolean;
-  sk?: SortKey;
-  activeSortKey: SortKey;
-  activeSortDir: SortDir;
-  onSort: (key: SortKey) => void;
-}
-
-const Th = ({
-  label,
-  sortable,
-  sk,
-  activeSortKey,
-  activeSortDir,
-  onSort,
-}: ThProps) => (
-  <th
-    onClick={sortable && sk ? () => onSort(sk) : undefined}
-    className={`px-6 py-3 text-left text-sm font-medium text-gray-500 whitespace-nowrap select-none ${
-      sortable ? "cursor-pointer" : ""
-    }`}
-  >
-    <span className="inline-flex items-center">
-      {label}
-      {sortable && sk && (
-        <SortIcon active={activeSortKey === sk} dir={activeSortDir} />
-      )}
-    </span>
-  </th>
-);
-
-/*  MAIN COMPONENT  */
-
-export default function SelectedDevices() {
+function SelectableDataTableInner<T extends Record<string, unknown>>(
+  {
+    heading,
+    subheading,
+    searchPlaceholder = "Search",
+    rows,
+    rowKey,
+    columns,
+    defaultSortKey,
+    defaultSortDir = "asc",
+    defaultAllSelected = true,
+    onSelectionChange,
+    isLoading: isLoadingProp,
+    csvFilename = "export",
+  }: SelectableDataTableProps<T>,
+  ref: React.Ref<SelectableDataTableHandle>,
+) {
   const [search, setSearch] = useState("");
-  const [sortKey, setSortKey] = useState<SortKey>("name");
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [sortKey, setSortKey] = useState<string>(
+    defaultSortKey ?? columns[0]?.key ?? "",
+  );
+  const [sortDir, setSortDir] = useState<SortDir>(defaultSortDir);
   const [selected, setSelected] = useState<Set<string>>(
-    new Set(MOCK_DEVICES.map((d) => d.id)),
+    () => new Set(defaultAllSelected ? rows.map((r) => String(r[rowKey])) : []),
   );
 
-  // Simulated loading state — replace `setIsLoading(false)` trigger
-  // with your actual data-fetch completion (e.g. after await fetchDevices())
-  const [isLoading, setIsLoading] = useState(true);
-
+  // Internal simulated loading (only used when prop is not provided)
+  const [internalLoading, setInternalLoading] = useState(
+    isLoadingProp === undefined,
+  );
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 2000);
-    return () => clearTimeout(timer);
-  }, []);
+    if (isLoadingProp !== undefined) return;
+    const t = setTimeout(() => setInternalLoading(false), 2000);
+    return () => clearTimeout(t);
+  }, [isLoadingProp]);
 
+  const isLoading = isLoadingProp ?? internalLoading;
+
+  // Sync selection when rows change (e.g. data fetched after mount)
+  useEffect(() => {
+    if (defaultAllSelected) {
+      setSelected(new Set(rows.map((r) => String(r[rowKey]))));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows]);
+
+  // Notify parent
+  useEffect(() => {
+    onSelectionChange?.(selected);
+  }, [selected, onSelectionChange]);
+
+  /* ── Filter ── */
   const filtered = useMemo(
     () =>
-      MOCK_DEVICES.filter((d) =>
-        d.name.toLowerCase().includes(search.toLowerCase()),
-      ),
-    [search],
+      rows.filter((r) => {
+        const searchable = columns
+          .map((c) => String(r[c.key] ?? ""))
+          .join(" ")
+          .toLowerCase();
+        return searchable.includes(search.toLowerCase());
+      }),
+    [rows, columns, search],
   );
 
+  /* ── Sort ── */
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
       const av = a[sortKey];
       const bv = b[sortKey];
-
-      if (av === null && bv === null) return 0;
-      if (av === null) return 1;
-      if (bv === null) return -1;
-
+      if (av === null || av === undefined) return 1;
+      if (bv === null || bv === undefined) return -1;
       if (typeof av === "string" && typeof bv === "string") {
         return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
       }
-
       return sortDir === "asc"
         ? (av as number) - (bv as number)
         : (bv as number) - (av as number);
     });
   }, [filtered, sortKey, sortDir]);
 
-  const handleSort = (key: SortKey) => {
+  /* ── CSV Export ── */
+  const exportCSV = () => {
+    // Only include currently-selected rows
+    const selectedRows = sorted.filter((r) => selected.has(String(r[rowKey])));
+
+    const header = columns.map((c) => escapeCSV(c.label)).join(",");
+
+    const body = selectedRows
+      .map((row) =>
+        columns
+          .map((col) => {
+            // Use csvValue extractor if provided, otherwise fall back to the raw field
+            const raw = col.csvValue
+              ? col.csvValue(row[col.key], row)
+              : row[col.key];
+            return escapeCSV(raw);
+          })
+          .join(","),
+      )
+      .join("\n");
+
+    const blob = new Blob([`${header}\n${body}`], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${csvFilename}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  /* ── Expose handle to parent ── */
+  // Re-create the handle whenever the data it closes over changes
+  useImperativeHandle(ref, () => ({ exportCSV }), [sorted, selected, columns]);
+
+  /* ── Selection handlers ── */
+  const handleSort = (key: string) => {
     if (sortKey === key) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     } else {
@@ -260,47 +297,41 @@ export default function SelectedDevices() {
     }
   };
 
-  const allSelected = sorted.every((d) => selected.has(d.id));
-  const someSelected = sorted.some((d) => selected.has(d.id)) && !allSelected;
+  const allSelected = sorted.every((r) => selected.has(String(r[rowKey])));
+  const someSelected =
+    sorted.some((r) => selected.has(String(r[rowKey]))) && !allSelected;
 
   const toggleAll = () => {
     if (allSelected) {
       setSelected(new Set());
     } else {
-      setSelected(new Set(sorted.map((d) => d.id)));
+      setSelected(new Set(sorted.map((r) => String(r[rowKey]))));
     }
   };
 
   const toggleOne = (id: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
-      // eslint-disable-next-line @typescript-eslint/no-unused-expressions
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
   };
 
-  const sortProps = {
-    activeSortKey: sortKey,
-    activeSortDir: sortDir,
-    onSort: handleSort,
-  };
-
+  /* ── Render ── */
   return (
     <div className="mb-8 w-full min-w-0">
+      {/* Header */}
       <div className="font-bold text-lg text-black mb-1">
-        Selected Devices ({selected.size})
+        {heading} ({selected.size})
       </div>
+      <div className="text-sm text-gray-400 mb-4">{subheading}</div>
 
-      <div className="text-sm text-gray-400 mb-4">
-        Select all or narrow the data down to a specific group of devices
-      </div>
-
+      {/* Search */}
       <div className="mb-6">
         <div className="inline-flex items-center border border-gray-200 rounded-lg px-3 py-2 bg-white w-full sm:w-60">
           <input
             type="text"
-            placeholder="Search"
+            placeholder={searchPlaceholder}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="outline-none text-sm text-gray-800 bg-transparent w-full"
@@ -308,16 +339,21 @@ export default function SelectedDevices() {
         </div>
       </div>
 
-      {/* Scroll container  */}
+      {/* Table */}
       <div className="relative w-full overflow-x-auto overflow-y-auto max-h-80 border border-gray-200 rounded-lg">
-        {/* Loading overlay */}
         {isLoading && (
           <div className="absolute inset-0 z-20 mt-15 flex items-center justify-center bg-white rounded-lg">
-            <LoaderSVG />
+            <Image
+              src={loading}
+              alt="Loading"
+              width={100}
+              height={100}
+              className="animate-spin"
+            />
           </div>
         )}
 
-        <table className="min-w-225 w-full">
+        <table className="min-w-max w-full">
           <thead className="sticky top-0 z-10 bg-white">
             <tr className="border-b border-gray-200">
               <th className="px-6 py-3 w-12">
@@ -327,43 +363,34 @@ export default function SelectedDevices() {
                   onChange={toggleAll}
                 />
               </th>
-              <Th label="Name" sortable sk="name" {...sortProps} />
-              <Th label="Meetings" sortable sk="meetings" {...sortProps} />
-              <Th
-                label="Total Connections"
-                sortable
-                sk="totalConnections"
-                {...sortProps}
-              />
-              <Th
-                label="Hours in Use"
-                sortable
-                sk="hoursInUse"
-                {...sortProps}
-              />
-              <Th
-                label="Content Items"
-                sortable
-                sk="contentItems"
-                {...sortProps}
-              />
-              <Th
-                label="Avg. Duration"
-                sortable
-                sk="avgDurationMinutes"
-                {...sortProps}
-              />
+              {columns.map((col) => (
+                <th
+                  key={col.key}
+                  onClick={col.sortable ? () => handleSort(col.key) : undefined}
+                  className={`px-6 py-3 text-left text-sm font-medium text-gray-500 whitespace-nowrap select-none ${
+                    col.sortable ? "cursor-pointer" : ""
+                  }`}
+                >
+                  <span className="inline-flex items-center">
+                    {col.label}
+                    {col.sortable && (
+                      <SortIcon active={sortKey === col.key} dir={sortDir} />
+                    )}
+                  </span>
+                </th>
+              ))}
             </tr>
           </thead>
 
           <tbody>
-            {sorted.map((device, idx) => {
-              const isChecked = selected.has(device.id);
+            {sorted.map((row, idx) => {
+              const id = String(row[rowKey]);
+              const isChecked = selected.has(id);
 
               return (
                 <tr
-                  key={device.id}
-                  onClick={() => toggleOne(device.id)}
+                  key={id}
+                  onClick={() => toggleOne(id)}
                   className={`cursor-pointer hover:bg-gray-50 ${
                     idx < sorted.length - 1 ? "border-b border-gray-100" : ""
                   }`}
@@ -371,39 +398,56 @@ export default function SelectedDevices() {
                   <td className="px-6 py-4 w-12">
                     <Checkbox
                       checked={isChecked}
-                      onChange={() => toggleOne(device.id)}
+                      onChange={() => toggleOne(id)}
                     />
                   </td>
-
-                  <td
-                    className={`px-6 py-4 text-sm ${
-                      isChecked ? "font-semibold text-black" : "text-black"
-                    }`}
-                  >
-                    {device.name}
-                  </td>
-
-                  <td className="px-6 py-4 text-sm text-gray-700">
-                    {fmt(device.meetings)}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-700">
-                    {fmt(device.totalConnections)}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-700">
-                    {device.hoursInUse === null ? "-" : device.hoursInUse}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-700">
-                    {fmt(device.contentItems)}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-700">
-                    {device.avgDuration ?? "-"}
-                  </td>
+                  {columns.map((col, colIdx) => (
+                    <td
+                      key={col.key}
+                      className={`px-6 py-4 text-sm ${
+                        colIdx === 0
+                          ? isChecked
+                            ? "font-semibold text-black"
+                            : "text-black"
+                          : "text-gray-700"
+                      } ${col.cellClassName ?? ""}`}
+                    >
+                      {col.render
+                        ? col.render(row[col.key], row)
+                        : defaultRender(row[col.key])}
+                    </td>
+                  ))}
                 </tr>
               );
             })}
+
+            {sorted.length === 0 && (
+              <tr>
+                <td
+                  colSpan={columns.length + 1}
+                  className="px-6 py-8 text-center text-sm text-gray-400"
+                >
+                  No results found.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
     </div>
   );
 }
+
+/* ─────────────────────────────────────────────
+   EXPORT  — cast preserves the generic type param through forwardRef
+───────────────────────────────────────────── */
+
+const SelectableDataTable = forwardRef(SelectableDataTableInner) as <
+  T extends Record<string, unknown>,
+>(
+  props: SelectableDataTableProps<T> & {
+    ref?: React.Ref<SelectableDataTableHandle>;
+  },
+) => ReturnType<typeof SelectableDataTableInner>;
+
+export default SelectableDataTable;
