@@ -34,10 +34,6 @@ export default function UsagePage() {
   const [timeRange, setTimeRange] = useState<TimeRange>("7d");
   const [isLoading, setIsLoading] = React.useState(true);
 
-  /**
-   * ✅ IMPORTANT: register BEFORE hook (single batch)
-   * This is just to ensure "_by_" metric is included
-   */
   registerMetric("ts_connections_num_by_os");
 
   React.useEffect(() => {
