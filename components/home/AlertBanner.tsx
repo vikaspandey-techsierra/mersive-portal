@@ -8,6 +8,13 @@ import AlertChip from "./AlertChip";
 import ErrorIcon from "@/components/icons/error.svg";
 
 const AlertBanner = ({ alert }: { alert: AdminAlert }) => {
+  const hasAlerts =
+    alert.offlineDevices ||
+    alert.expiredOrExpiringSoon ||
+    alert.outdatedFirmware ||
+    alert.otherIssues;
+
+  if (!hasAlerts) return null;
   return (
     <div className=" px-8 py-4 flex items-center gap-2 bg-[#F3D9D7] justify-between ">
       {/* Left: title */}
