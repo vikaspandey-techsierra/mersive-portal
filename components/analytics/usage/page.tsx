@@ -9,7 +9,7 @@ import React from "react";
 import LineChartSkeleton from "@/components/skeleton/LineChartSkeleton";
 import AreaChartSkeleton from "@/components/skeleton/AreaChartSkeleton";
 import { registerMetric } from "@/lib/analytics/utils/metricsManager";
-import { useDashboardMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
+import { useUsageMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
 
 type TimeRange = "7d" | "30d" | "60d" | "90d" | "all";
 
@@ -48,7 +48,7 @@ export default function UsagePage() {
   const deviceMetricA = METRIC_API_MAP["meetings"];
   const deviceMetricB = METRIC_API_MAP["connections"];
 
-  const { ready } = useDashboardMetrics(timeRange, {
+  const { ready } = useUsageMetrics(timeRange, {
     deviceMetricA,
     deviceMetricB,
     userConnectionsMetric: "ts_connections_num_by_os",

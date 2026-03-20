@@ -9,7 +9,7 @@ import {
   CollaborationUsageData,
 } from "../timeseries/timeseriesTypes";
 
-export function useDashboardMetrics(
+export function useUsageMetrics(
   timeRange: string,
   params: {
     deviceMetricA: string;
