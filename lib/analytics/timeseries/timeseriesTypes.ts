@@ -14,8 +14,9 @@ export interface TimeseriesRow {
 // Parsed / Chart-ready
 
 export interface ChartPoint {
-  date: string
-  value: number  // 0 for missing dates, actual value otherwise
+  date: string;
+  value: number;
+  segment?: string;
 }
 
 export interface ParsedMetric {

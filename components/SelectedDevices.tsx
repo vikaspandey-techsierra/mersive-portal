@@ -91,7 +91,7 @@ const MOCK_DEVICES: Device[] = [
 
 const fmt = (v: number | null) => (v === null ? "-" : String(v));
 
-/* LOADER SVG — inlined from design asset */
+/* LOADER SVG */
 
 const LoaderSVG = () => (
   <svg
@@ -315,7 +315,7 @@ export default function SelectedDevices() {
         </div>
       </div>
 
-      {/* Scroll container — relative so the loader overlay can be absolute */}
+      {/* Scroll container  */}
       <div className="relative w-full overflow-x-auto overflow-y-auto max-h-80 border border-gray-200 rounded-lg">
         {/* Loading overlay */}
         {isLoading && (

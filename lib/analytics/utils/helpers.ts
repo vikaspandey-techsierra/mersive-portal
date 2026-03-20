@@ -1,3 +1,5 @@
+import { METRIC_DEPENDENCIES } from "./metricsResolver";
+
 export function formatDate(dateString?: string) {
   if (!dateString) return "";
 
@@ -20,4 +22,8 @@ export function formatShortDate(dateString?: string): string {
     month: "short",
     day: "numeric",
   });
+}
+
+export function isDerivedMetric(metric: string) {
+  return metric in METRIC_DEPENDENCIES;
 }

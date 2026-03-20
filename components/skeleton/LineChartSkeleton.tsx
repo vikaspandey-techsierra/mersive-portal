@@ -57,8 +57,18 @@ export default function LineChartSkeleton({ title, description }: Props) {
             ))}
 
             {/* Lines */}
-            <polyline points={darkPoints} fill="none" stroke="#A8A4BC" strokeWidth="2" />
-            <polyline points={lightPoints} fill="none" stroke="#C8C4D8" strokeWidth="2" />
+            <polyline
+              points={darkPoints}
+              fill="none"
+              stroke="#A8A4BC"
+              strokeWidth="2"
+            />
+            <polyline
+              points={lightPoints}
+              fill="none"
+              stroke="#C8C4D8"
+              strokeWidth="2"
+            />
 
             {/* Dots */}
             {darkDots.map(([x, y], i) => (
@@ -68,14 +78,22 @@ export default function LineChartSkeleton({ title, description }: Props) {
               <circle key={i} cx={x} cy={y} r="6" fill="#C8C4D8" />
             ))}
 
-            {/* X-axis labels — below chart data, above buttons */}
+            {/* X-axis labels  */}
             {[60, 280, 500, 720, 940, 1160, 1380].map((x, i) => (
-              <rect key={i} x={x - 28} y="330" width="50" height="12" rx="3" fill="#E2E2EC" />
+              <rect
+                key={i}
+                x={x - 28}
+                y="330"
+                width="50"
+                height="12"
+                rx="3"
+                fill="#E2E2EC"
+              />
             ))}
           </svg>
         </div>
 
-        {/* Bottom buttons — below x-axis labels */}
+        {/* Bottom buttons  */}
         <div className="flex gap-3 mt-2">
           <div className="w-44 h-8 rounded-md bg-[#EEEDF4]" />
           <div className="w-44 h-8 rounded-md bg-[#B0AECA]" />

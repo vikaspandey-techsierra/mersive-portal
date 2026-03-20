@@ -1,6 +1,6 @@
 "use client";
 
-import { DeviceUtilizationPoint } from "@/components/analytics/usage/page";
+import { useCollaborationUsageMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
 import {
   LineChart,
   Line,
@@ -10,12 +10,8 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-
-// HELPERS
-function fmtDate(dateStr: string): string {
-  const d = new Date(dateStr);
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
+import { useMemo } from "react";
+import { formatShortDate } from "@/lib/analytics/utils/helpers";
 
 // TOOLTIP
 interface TEntry {
@@ -24,7 +20,7 @@ interface TEntry {
   color: string;
 }
 
-const ChartTooltip = ({
+export const ChartTooltip = ({
   active,
   payload,
   label,
@@ -37,14 +33,14 @@ const ChartTooltip = ({
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-[13px] shadow-md">
-      <div className="font-semibold mb-1 text-gray-800">
-        {label}
-      </div>
-      {payload.map((e) => (
-        <div key={e.name} className="mt-1" style={{ color: e.color }}>
-          {e.name}: {e.value}
-        </div>
-      ))}
+      <div className="font-semibold mb-1 text-black">{label}</div>
+      {payload
+        .filter((e) => e.value > 0)
+        .map((e) => (
+          <div key={e.name} style={{ color: e.color }}>
+            {e.name}: {e.value}
+          </div>
+        ))}
     </div>
   );
 };
@@ -59,21 +55,37 @@ const LegendPill = ({ label, color }: { label: string; color: string }) => (
   </div>
 );
 
-// PROPS
-interface CollaborationUsageProps {
-  data: DeviceUtilizationPoint[];
-  interval: number;
-}
-
 export default function CollaborationUsage({
-  data,
-  interval,
-}: CollaborationUsageProps) {
-  const chartData = data.map((d) => ({
-    label: fmtDate(d.date),
-    avgConnections: d.connections,
-    avgPosts: Math.round(d.meetings * 0.8),
-  }));
+  timeRange = "7d",
+}: {
+  timeRange?: string;
+}) {
+  const { connectionsAvg, postsAvg } = useCollaborationUsageMetrics(timeRange);
+
+  const chartData = useMemo(() => {
+    if (!connectionsAvg.length && !postsAvg.length) return [];
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const map: Record<string, any> = {};
+
+    connectionsAvg.forEach((d) => {
+      if (!map[d.date]) {
+        map[d.date] = { label: formatShortDate(d.date) };
+      }
+      map[d.date].avgConnections = d.value;
+    });
+
+    postsAvg.forEach((d) => {
+      if (!map[d.date]) {
+        map[d.date] = { label: formatShortDate(d.date) };
+      }
+      map[d.date].avgPosts = d.value;
+    });
+
+    return Object.entries(map)
+      .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
+      .map(([, v]) => v);
+  }, [connectionsAvg, postsAvg]);
 
   return (
     <div className="mb-8">
@@ -92,18 +104,28 @@ export default function CollaborationUsage({
             data={chartData}
             margin={{ top: 8, right: 16, left: -20, bottom: 0 }}
           >
-            <CartesianGrid
-              strokeDasharray=""
-              stroke="#f0f0f0"
-              vertical={false}
-            />
+            <CartesianGrid stroke="#f0f0f0" vertical={false} />
 
             <XAxis
               dataKey="label"
               tick={{ fontSize: 11, fill: "#000" }}
-              interval={interval}
               axisLine={false}
               tickLine={false}
+              ticks={(() => {
+                const len = chartData.length;
+                if (len === 0) return [];
+
+                const count = 7;
+                const selected = new Set<number>([0, len - 1]);
+
+                for (let i = 1; i < count - 1; i++) {
+                  selected.add(Math.round((i / (count - 1)) * (len - 1)));
+                }
+
+                return [...selected]
+                  .sort((a, b) => a - b)
+                  .map((i) => chartData[i].label);
+              })()}
             />
 
             <YAxis
@@ -138,14 +160,8 @@ export default function CollaborationUsage({
         </ResponsiveContainer>
 
         <div className="flex gap-2 mt-3.5 flex-wrap items-center">
-          <LegendPill
-            label="Avg. connections per meeting"
-            color="#6860C8"
-          />
-          <LegendPill
-            label="Avg. posts per meeting"
-            color="#D44E80"
-          />
+          <LegendPill label="Avg. connections per meeting" color="#6860C8" />
+          <LegendPill label="Avg. posts per meeting" color="#D44E80" />
         </div>
       </div>
     </div>
