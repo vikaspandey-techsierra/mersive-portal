@@ -60,8 +60,7 @@ export default function CollaborationUsage({
 }: {
   timeRange?: string;
 }) {
-  const { connectionsAvg, postsAvg } =
-    useCollaborationUsageMetrics(timeRange);
+  const { connectionsAvg, postsAvg } = useCollaborationUsageMetrics(timeRange);
 
   const chartData = useMemo(() => {
     if (!connectionsAvg.length && !postsAvg.length) return [];
@@ -112,6 +111,21 @@ export default function CollaborationUsage({
               tick={{ fontSize: 11, fill: "#000" }}
               axisLine={false}
               tickLine={false}
+              ticks={(() => {
+                const len = chartData.length;
+                if (len === 0) return [];
+
+                const count = 7;
+                const selected = new Set<number>([0, len - 1]);
+
+                for (let i = 1; i < count - 1; i++) {
+                  selected.add(Math.round((i / (count - 1)) * (len - 1)));
+                }
+
+                return [...selected]
+                  .sort((a, b) => a - b)
+                  .map((i) => chartData[i].label);
+              })()}
             />
 
             <YAxis
@@ -146,14 +160,8 @@ export default function CollaborationUsage({
         </ResponsiveContainer>
 
         <div className="flex gap-2 mt-3.5 flex-wrap items-center">
-          <LegendPill
-            label="Avg. connections per meeting"
-            color="#6860C8"
-          />
-          <LegendPill
-            label="Avg. posts per meeting"
-            color="#D44E80"
-          />
+          <LegendPill label="Avg. connections per meeting" color="#6860C8" />
+          <LegendPill label="Avg. posts per meeting" color="#D44E80" />
         </div>
       </div>
     </div>

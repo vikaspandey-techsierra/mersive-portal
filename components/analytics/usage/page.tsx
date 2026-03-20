@@ -5,24 +5,11 @@ import DeviceUtilization from "@/components/DeviceUtilizationChart";
 import SelectedDevices from "@/components/SelectedDevices";
 import UserConnections from "@/components/UserConnectionsChart";
 import { useState } from "react";
-import {
-  AnalyticsApiResponse,
-  DAY_COUNTS,
-  generateMockData,
-  tickInterval,
-} from "@/lib/homePage";
 import React from "react";
 import LineChartSkeleton from "@/components/skeleton/LineChartSkeleton";
 import AreaChartSkeleton from "@/components/skeleton/AreaChartSkeleton";
 import { registerMetric } from "@/lib/analytics/utils/metricsManager";
-
-const MOCK: Record<string, AnalyticsApiResponse> = {
-  "7d": generateMockData(7),
-  "30d": generateMockData(30),
-  "60d": generateMockData(60),
-  "90d": generateMockData(90),
-  all: generateMockData(120),
-};
+import { useDashboardMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
 
 type TimeRange = "7d" | "30d" | "60d" | "90d" | "all";
 
@@ -34,23 +21,38 @@ const TIME_RANGES: { key: TimeRange; label: string }[] = [
   { key: "all", label: "All time" },
 ];
 
+const METRIC_API_MAP: Record<string, string> = {
+  meetings: "ts_meetings_num",
+  users: "ts_users_num",
+  hours: "ts_meetings_duration_tot",
+  connections: "ts_connections_num",
+  posts: "ts_posts_num",
+  avgLength: "ts_meetings_duration_avg",
+};
+
 export default function UsagePage() {
   const [timeRange, setTimeRange] = useState<TimeRange>("7d");
-
-  const apiData = MOCK[timeRange];
-  const days = DAY_COUNTS[timeRange];
-  const interval = tickInterval(days);
-
   const [isLoading, setIsLoading] = React.useState(true);
+
+  /**
+   * ✅ IMPORTANT: register BEFORE hook (single batch)
+   * This is just to ensure "_by_" metric is included
+   */
+  registerMetric("ts_connections_num_by_os");
 
   React.useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 1000);
     return () => clearTimeout(timer);
   }, []);
 
-  React.useEffect(() => {
-    registerMetric("ts_connections_num_by_os");
-  }, []);
+  const deviceMetricA = METRIC_API_MAP["meetings"];
+  const deviceMetricB = METRIC_API_MAP["connections"];
+
+  const { ready } = useDashboardMetrics(timeRange, {
+    deviceMetricA,
+    deviceMetricB,
+    userConnectionsMetric: "ts_connections_num_by_os",
+  });
 
   return (
     <>
@@ -74,7 +76,7 @@ export default function UsagePage() {
         </div>
       </div>
 
-      {isLoading ? (
+      {isLoading || !ready ? (
         <LineChartSkeleton
           title="Device Utilization"
           description="Compare up to two types of usage data for devices in your organization"
@@ -85,7 +87,7 @@ export default function UsagePage() {
 
       <hr className="pb-5" />
 
-      {isLoading ? (
+      {isLoading || !ready ? (
         <AreaChartSkeleton
           title="User Connections"
           description="Compare connection modes, sharing protocols, user operating systems, and types of conferencing solutions used"
@@ -100,16 +102,13 @@ export default function UsagePage() {
 
       <hr className="pb-5" />
 
-      {isLoading ? (
+      {isLoading || !ready ? (
         <LineChartSkeleton
           title="Collaboration Usage"
           description="Compare how many users connect versus how often they share a post within a meeting on average"
         />
       ) : (
-        <CollaborationUsage
-          data={apiData.deviceUtilization}
-          interval={interval}
-        />
+        <CollaborationUsage timeRange={timeRange} />
       )}
 
       <hr className="pb-5" />

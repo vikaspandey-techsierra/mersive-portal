@@ -9,7 +9,7 @@ export function setMetric(key: string, data: ChartPoint[]): void {
 
 export function getMetric(key: string): ChartPoint[] | null {
   const data = metricsStore[key];
-  console.log(data ? "Cache HIT:" : "Cache MISS:", key);
+  // console.log(data ? "Cache HIT:" : "Cache MISS:", key);
   return data ?? null;
 }
 

@@ -88,7 +88,7 @@ export async function fetchTimeseriesMetrics(
       row.date <= endDate
   );
 
-  console.log("Rows fetched:", rows.length);
+  // console.log("Rows fetched:", rows.length);
 
   //PARSE
   const parsed = parseTimeseries(
@@ -98,7 +98,7 @@ export async function fetchTimeseriesMetrics(
     missingMetrics
   );
 
-  console.log("Parsed result:", parsed);
+  // console.log("Parsed result:", parsed);
 
   // CACHE
   missingMetrics.forEach((metric) => {
