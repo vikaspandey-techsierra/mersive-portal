@@ -18,26 +18,11 @@ export type SortDir = "asc" | "desc";
 
 /** One column definition */
 export interface ColumnDef<T extends Record<string, unknown>> {
-  /** Unique key matching a field in your data row */
   key: keyof T & string;
-  /** Header label shown in <th> */
   label: string;
-  /** Whether this column is sortable (default: false) */
   sortable?: boolean;
-  /**
-   * Optional plain-text extractor used during CSV export.
-   * Provide this whenever the column has a custom `render` that returns JSX,
-   * so the CSV gets a clean string/number instead of "[object Object]".
-   * e.g. for avgDuration: (_v, row) => row.avgDuration ?? ""
-   */
   csvValue?: (value: T[keyof T], row: T) => string | number;
-  /**
-   * Custom renderer for a cell value.
-   * Receives the raw value and the full row.
-   * Defaults to String(value) or "-" when null/undefined.
-   */
   render?: (value: T[keyof T], row: T) => React.ReactNode;
-  /** Extra className applied to every <td> in this column */
   cellClassName?: string;
 }
 
@@ -61,24 +46,13 @@ export interface SelectableDataTableProps<T extends Record<string, unknown>> {
   defaultSortDir?: SortDir;
 
   // ── Selection ─────────────────────────────
-  /** Whether all rows start selected (default: true) */
   defaultAllSelected?: boolean;
-  /** Callback fired whenever the selection changes */
   onSelectionChange?: (selectedIds: Set<string>) => void;
-
-  // ── Loading ───────────────────────────────
-  /**
-   * Control loading state externally. When omitted the component starts in a
-   * 2-second simulated-load state (useful for demos / storybook).
-   */
   isLoading?: boolean;
 
   // ── CSV ───────────────────────────────────
-  /** Base filename for the downloaded CSV (without extension). Defaults to "export". */
   csvFilename?: string;
 }
-
-/** Handle exposed via ref — call exportCSV() from any parent button */
 export interface SelectableDataTableHandle {
   exportCSV: () => void;
 }

@@ -67,17 +67,8 @@ export async function fetchTimeseriesMetrics(
 
   if (!missingMetrics.length) return;
 
-  const metricsString = missingMetrics.join(",");
-
   const startDate = getStartDate(timeRange);
   const endDate = getEndDate();
-  const aggregationLevel = getAggregationLevel(timeRange);
-
-  console.log("BATCH Metrics:", missingMetrics);
-  console.log("Metrics (string):", metricsString);
-  console.log("start_date:", startDate);
-  console.log("end_date:", endDate);
-  console.log("aggregation_level:", aggregationLevel);
 
   //MOCK FILTER (simulate API)
   const rows: TimeseriesRow[] = timeseriesMock.filter(
@@ -87,8 +78,6 @@ export async function fetchTimeseriesMetrics(
       row.date <= endDate
   );
 
-  // console.log("Rows fetched:", rows.length);
-
   //PARSE
   const parsed = parseTimeseries(
     rows,
@@ -96,8 +85,6 @@ export async function fetchTimeseriesMetrics(
     getLatestMockDate(),
     missingMetrics
   );
-
-  // console.log("Parsed result:", parsed);
 
   // CACHE
   missingMetrics.forEach((metric) => {

@@ -15,8 +15,6 @@ const TABS: Tab[] = ["Usage", "Monitoring", "Email Alerts"];
 export default function AnalyticsLayout() {
   const [activeTab, setActiveTab] = useState<Tab>("Usage");
 
-  // One ref per page — only the active page's table is mounted at any time,
-  // so only one ref will be populated when the button is clicked.
   const usageTableRef = useRef<SelectableDataTableHandle>(null);
   const monitoringTableRef = useRef<SelectableDataTableHandle>(null);
 

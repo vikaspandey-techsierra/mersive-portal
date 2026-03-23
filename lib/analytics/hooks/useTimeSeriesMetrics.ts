@@ -176,9 +176,6 @@ export function useDowntimeChart(timeRange: string, ready: boolean) {
       getMetric(`ts_downtime_devices_num_tot__${timeRange}`) || [];
     const hoursRaw = getMetric(`ts_downtime_duration_tot__${timeRange}`) || [];
 
-    console.log("Downtime devices raw:", devicesRaw);
-    console.log("Downtime hours raw:", hoursRaw);
-
     if (!devicesRaw.length && !hoursRaw.length) return;
 
     const base = devicesRaw.length ? devicesRaw : hoursRaw;
@@ -193,8 +190,6 @@ export function useDowntimeChart(timeRange: string, ready: boolean) {
         devices: 0,
       };
     });
-
-    console.log("Downtime merged:", merged);
 
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setData(merged);
@@ -239,8 +234,6 @@ export function useAlertsChart(timeRange: string, ready: boolean) {
       ts_app_alerts_onboarded_num: onboarded[i]?.value ?? 0,
       ts_app_alerts_plan_assigned_num: planAssigned[i]?.value ?? 0,
     }));
-
-    console.log("Alerts merged:", merged);
 
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setData(merged);
