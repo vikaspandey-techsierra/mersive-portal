@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import DowntimeChart, { type DowntimePoint } from "@/components/DowntimeChart";
-import AlertsChart, { type AlertPoint } from "@/components/AlertChart";
+import DowntimeChart from "@/components/DowntimeChart";
+import AlertsChart from "@/components/AlertChart";
 import SelectableDataTable, {
   ColumnDef,
   SelectableDataTableHandle,
@@ -10,19 +10,21 @@ import SelectableDataTable, {
 import React from "react";
 import LineChartSkeleton from "@/components/skeleton/LineChartSkeleton";
 import AreaChartSkeleton from "@/components/skeleton/AreaChartSkeleton";
+import {
+  useAlertsChart,
+  useDowntimeChart,
+  useMonitoringMetrics,
+} from "@/lib/analytics/hooks/useTimeSeriesMetrics";
 
-/* ── Row shape ── */
 interface MonitoringDevice {
   id: string;
   name: string;
   numberOfDevices: number | null;
   totalDowntime: string | null;
-  /** Raw minutes — used for sorting totalDowntime */
   totalDowntimeMinutes: number | null;
   [key: string]: unknown;
 }
 
-/* ── Mock data ── */
 const MONITORING_DEVICES: MonitoringDevice[] = [
   {
     id: "1",
@@ -61,7 +63,6 @@ const MONITORING_DEVICES: MonitoringDevice[] = [
   },
 ];
 
-/* ── Column definitions ── */
 const MONITORING_COLUMNS: ColumnDef<MonitoringDevice>[] = [
   { key: "name", label: "Name", sortable: true },
   { key: "numberOfDevices", label: "Number of Devices", sortable: true },
@@ -69,79 +70,10 @@ const MONITORING_COLUMNS: ColumnDef<MonitoringDevice>[] = [
     key: "totalDowntimeMinutes",
     label: "Total Downtime",
     sortable: true,
-    // Sort by raw minutes, display the friendly string
     render: (_value, row) => row.totalDowntime ?? "-",
-    // Export the friendly string
     csvValue: (_value, row) => row.totalDowntime ?? "",
   },
 ];
-
-/* ── Chart data generators (unchanged from original) ── */
-export interface MonitoringApiResponse {
-  range: "7d" | "30d" | "60d" | "90d" | "all";
-  downtime: DowntimePoint[];
-  alerts: AlertPoint[];
-}
-
-function generateDowntime(days: number): DowntimePoint[] {
-  const baseDate = new Date("2024-12-16");
-  const wave = [9, 13, 3, 11, 19, 0, 0];
-  const rand = (base: number, spread = 0.2) =>
-    Math.max(0, Math.round(base + (Math.random() - 0.5) * base * spread));
-  return Array.from({ length: days }, (_, i) => {
-    const d = new Date(baseDate);
-    d.setDate(d.getDate() + i);
-    const month = d.toLocaleString("en-US", { month: "short" });
-    const p = wave[i % 7];
-    return {
-      date: `${month} ${d.getDate()}`,
-      devices: rand(p),
-      hours: Number((1 + p / 20).toFixed(2)),
-    };
-  });
-}
-
-function generateAlerts(days: number): AlertPoint[] {
-  const baseDate = new Date("2024-12-16");
-  return Array.from({ length: days }, (_, i) => {
-    const d = new Date(baseDate);
-    d.setDate(d.getDate() + i);
-    const month = d.toLocaleString("en-US", { month: "short" });
-    const factor = [8, 12, 4, 10, 18, 6, 3][i % 7];
-    return {
-      date: `${month} ${d.getDate()}`,
-      unreachable: Math.round(factor * 0.5),
-      rebooted: Math.round(factor * 0.4),
-      unassigned: Math.round(factor * 0.6),
-      usbUnplugged: Math.round(factor * 0.3),
-      usbPlugged: Math.round(factor * 0.25),
-      onboarded: Math.round(factor * 0.2),
-      planAssigned: Math.round(factor * 0.15),
-    };
-  });
-}
-
-function buildMock(days: number): MonitoringApiResponse {
-  const rangeKey: Record<number, string> = {
-    7: "7d",
-    30: "30d",
-    60: "60d",
-    90: "90d",
-  };
-  return {
-    range: (rangeKey[days] ?? "all") as MonitoringApiResponse["range"],
-    downtime: generateDowntime(days),
-    alerts: generateAlerts(days),
-  };
-}
-
-const MOCK: Record<string, MonitoringApiResponse> = {
-  "7d": buildMock(7),
-  "30d": buildMock(30),
-  "60d": buildMock(60),
-  "90d": buildMock(90),
-  all: buildMock(120),
-};
 
 type TimeRange = "7d" | "30d" | "60d" | "90d" | "all";
 
@@ -169,7 +101,6 @@ function tickInterval(days: number): number {
 }
 
 interface MonitoringPageProps {
-  /** Ref forwarded from AnalyticsLayout so the Export CSV button can call exportCSV() */
   tableRef?: React.Ref<SelectableDataTableHandle>;
 }
 
@@ -177,20 +108,22 @@ export default function MonitoringPage({ tableRef }: MonitoringPageProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>("7d");
   const [isLoading, setIsLoading] = React.useState(true);
 
-  const apiData = MOCK[timeRange];
+  const { ready } = useMonitoringMetrics(timeRange);
+  const { data: downtimeData } = useDowntimeChart(timeRange, ready);
+  const { data: alertsData } = useAlertsChart(timeRange, ready);
+
   const days = DAY_COUNTS[timeRange];
   const interval = tickInterval(days);
 
   React.useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 1000);
+    const timer = setTimeout(() => setIsLoading(false), 800);
     return () => clearTimeout(timer);
   }, []);
 
   return (
-    <div className="w-full">
+    <div className="w-full flex flex-col min-w-0">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <span className="text-xl font-bold text-black">Monitoring</span>
-
         <div className="flex flex-wrap gap-2">
           {TIME_RANGES.map(({ key, label }) => (
             <button
@@ -208,25 +141,29 @@ export default function MonitoringPage({ tableRef }: MonitoringPageProps) {
         </div>
       </div>
 
-      {isLoading ? (
-        <LineChartSkeleton
-          title="Downtime"
-          description="Monitor how many devices are down and for long the downtime lasted"
-        />
-      ) : (
-        <DowntimeChart data={apiData.downtime} interval={interval} />
-      )}
+      <div className="w-full min-w-0">
+        {isLoading || !ready ? (
+          <LineChartSkeleton
+            title="Downtime"
+            description="Monitor how many devices are down and for long the downtime lasted"
+          />
+        ) : (
+          <DowntimeChart data={downtimeData} interval={interval} />
+        )}
+      </div>
 
       <hr className="my-10 border-t border-gray-200" />
 
-      {isLoading ? (
-        <AreaChartSkeleton
-          title="Alerts"
-          description="Monitor the quantity and which types of alerts occurred in your fleet"
-        />
-      ) : (
-        <AlertsChart data={apiData.alerts} interval={interval} />
-      )}
+      <div className="w-full min-w-0">
+        {isLoading || !ready ? (
+          <AreaChartSkeleton
+            title="Alerts"
+            description="Monitor the quantity and which types of alerts occurred in your fleet"
+          />
+        ) : (
+          <AlertsChart data={alertsData} interval={interval} />
+        )}
+      </div>
 
       <hr className="my-10 border-t border-gray-200" />
 

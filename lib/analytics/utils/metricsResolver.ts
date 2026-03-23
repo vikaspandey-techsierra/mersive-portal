@@ -7,7 +7,6 @@ export const METRIC_DEPENDENCIES: Record<string, string[]> = {
   ts_downtime_devices_num_tot: ["ts_downtime_devices_num"],
 };
 
-
 export function calculateMetric(
   metric: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

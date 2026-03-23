@@ -13,14 +13,6 @@ import LineChartSkeleton from "@/components/skeleton/LineChartSkeleton";
 import AreaChartSkeleton from "@/components/skeleton/AreaChartSkeleton";
 import { registerMetric } from "@/lib/analytics/utils/metricsManager";
 import { useUsageMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
-import {
-  AnalyticsApiResponse,
-  DAY_COUNTS,
-  generateMockData,
-  tickInterval,
-} from "@/lib/homePage";
-
-/* ── Row shape ── */
 interface UsageDevice extends Record<string, unknown> {
   id: string;
   name: string;
@@ -32,7 +24,6 @@ interface UsageDevice extends Record<string, unknown> {
   avgDurationMinutes: number | null;
 }
 
-/* ── Mock data ── */
 const USAGE_DEVICES: UsageDevice[] = [
   {
     id: "1",
@@ -104,15 +95,6 @@ const USAGE_COLUMNS: ColumnDef<UsageDevice>[] = [
   },
 ];
 
-/* ── Time range config ── */
-const MOCK: Record<string, AnalyticsApiResponse> = {
-  "7d": generateMockData(7),
-  "30d": generateMockData(30),
-  "60d": generateMockData(60),
-  "90d": generateMockData(90),
-  all: generateMockData(120),
-};
-
 type TimeRange = "7d" | "30d" | "60d" | "90d" | "all";
 
 const TIME_RANGES: { key: TimeRange; label: string }[] = [
@@ -141,9 +123,6 @@ export default function UsagePage({ tableRef }: UsagePageProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>("7d");
   const [isLoading, setIsLoading] = React.useState(true);
 
-  const apiData = MOCK[timeRange];
-  const days = DAY_COUNTS[timeRange];
-  const interval = tickInterval(days);
   registerMetric("ts_connections_num_by_os");
 
   React.useEffect(() => {

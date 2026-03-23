@@ -3,8 +3,7 @@ export const METRIC_FORMULAS: Record<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (metrics: Record<string, any[]>) => any[]
 > = {
-
-//Avg meeting duration in hours
+  // Avg meeting duration in hours
   ts_meetings_duration_avg: (metrics) => {
     const meetings = metrics["ts_meetings_num"];
     const hours = metrics["ts_meetings_duration_tot"];
@@ -22,7 +21,7 @@ export const METRIC_FORMULAS: Record<
     });
   },
 
-  //Avg connections per meeting
+  // Avg connections per meeting
   ts_meetings_connection_avg: (metrics) => {
     const meetings = metrics["ts_meetings_num"];
     const connections = metrics["ts_connections_num"];
@@ -40,7 +39,7 @@ export const METRIC_FORMULAS: Record<
     });
   },
 
-  //Avg posts per meeting
+  // Avg posts per meeting
   ts_meetings_post_avg: (metrics) => {
     const meetings = metrics["ts_meetings_num"];
     const posts = metrics["ts_posts_num"];
@@ -56,5 +55,17 @@ export const METRIC_FORMULAS: Record<
         value: meetingCount ? totalPosts / meetingCount : 0,
       };
     });
+  },
+
+  // Downtime devices (derived)
+  ts_downtime_devices_num_tot: (metrics) => {
+    const hours = metrics["ts_downtime_duration_tot"];
+    if (!hours) return [];
+
+    return hours.map((h) => ({
+      date: h.date,
+      value: 0,
+      // value: h.value ? Math.max(1, Math.round(h.value / 24)) : 0,
+    }));
   },
 };
