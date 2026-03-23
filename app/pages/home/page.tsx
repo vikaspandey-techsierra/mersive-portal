@@ -56,6 +56,7 @@ export default function DashboardPage() {
   const expiredDevices = useExpiredDevicesMetric();
   const outdatedFirmware = useOutdatedFirmwareMetric();
   const otherIssues = useOtherIssuesMetric();
+  console.log("offlineDevices, offlineDevices");
 
   // STATS CARDS METRICS
   const meetingsUnderway = useMeetingsUnderwayMetric();

@@ -9,6 +9,7 @@ import {
   ReferenceLine,
   ResponsiveContainer,
 } from "recharts";
+import { formatShortDate } from "@/lib/analytics/utils/helpers";
 
 export interface DowntimePoint {
   date: string;
@@ -98,34 +99,70 @@ const CustomTooltip = ({
         <p key={p.dataKey} style={{ color: p.stroke, margin: "3px 0" }}>
           {p.dataKey === "devices"
             ? `Devices: ${p.value}`
-            : `Hours: ${p.value} hr`}
+            : `Hours: ${Number(p.value).toFixed(1)} hr`}
         </p>
       ))}
     </div>
   );
 };
 
-export default function DowntimeChart({ data, interval }: Props) {
+export default function DowntimeChart({ data }: Props) {
   const deviceTicks = [0, 6, 12, 18, 24];
 
+  // Format dates
+  const formattedData = (data || []).map((d) => ({
+    ...d,
+    label: formatShortDate(d.date),
+  }));
+
+  // Dynamic X ticks (same logic as Usage chart)
+  const xTicks = (() => {
+    const len = formattedData.length;
+    if (len === 0) return [];
+    const count = 7;
+    const selected = new Set<number>([0, len - 1]);
+
+    for (let i = 1; i < count - 1; i++) {
+      selected.add(Math.round((i / (count - 1)) * (len - 1)));
+    }
+
+    return [...selected]
+      .sort((a, b) => a - b)
+      .map((i) => formattedData[i].label);
+  })();
+
+  // Dynamic right axis scale
+  const maxHours =
+    formattedData.length > 0
+      ? Math.max(...formattedData.map((d) => d.hours), 1)
+      : 1;
+
+  const hourTicks = [
+    0,
+    Number((maxHours * 0.25).toFixed(1)),
+    Number((maxHours * 0.5).toFixed(1)),
+    Number((maxHours * 0.75).toFixed(1)),
+    Number(maxHours.toFixed(1)),
+  ];
+
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 pt-5 pb-5">
+    <div className="bg-white rounded-2xl border border-gray-200 pt-5 pb-5 w-full">
       <div className="px-6 mb-2">
         <h2 className="text-base font-bold text-black">Downtime</h2>
         <p className="text-sm text-gray-400 mt-0.5">
-          Monitor how many devices are down and for long the downtime lasted
+          Monitor how many devices are down and for how long the downtime lasted
         </p>
       </div>
 
-      <div className="w-full h-80">
+      <div className="w-full h-80 min-w-0">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart
-            data={data}
+            data={formattedData}
             margin={{ top: 10, right: 68, left: 52, bottom: 4 }}
           >
             <XAxis
-              dataKey="date"
-              interval={interval}
+              dataKey="label"
+              ticks={xTicks}
               tick={{ fontSize: 12, fill: "#9CA3AF" }}
               axisLine={false}
               tickLine={false}
@@ -147,9 +184,9 @@ export default function DowntimeChart({ data, interval }: Props) {
             <YAxis
               yAxisId="right"
               orientation="right"
-              domain={[1, 2]}
-              ticks={[1, 1.25, 1.5, 1.75, 2]}
-              tickFormatter={(v: number) => `${v} hr`}
+              domain={[0, maxHours]}
+              ticks={hourTicks}
+              tickFormatter={(v: number) => `${v.toFixed(1)} hr`}
               tick={{ fontSize: 12, fill: "#9CA3AF" }}
               axisLine={false}
               tickLine={false}
@@ -177,6 +214,7 @@ export default function DowntimeChart({ data, interval }: Props) {
               strokeWidth={2.5}
               dot={{ r: 5, fill: PURPLE, strokeWidth: 0 }}
               activeDot={{ r: 7, fill: PURPLE }}
+              isAnimationActive={false}
             />
 
             <Line
@@ -187,6 +225,7 @@ export default function DowntimeChart({ data, interval }: Props) {
               strokeWidth={2.5}
               dot={{ r: 5, fill: PINK, strokeWidth: 0 }}
               activeDot={{ r: 7, fill: PINK }}
+              isAnimationActive={false}
             />
           </LineChart>
         </ResponsiveContainer>

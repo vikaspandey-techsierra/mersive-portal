@@ -4,8 +4,9 @@ import EmailAlertsPage from "@/components/analytics/email/page";
 import MonitoringPage from "@/components/analytics/monitoring/page";
 import UsagePage from "@/components/analytics/usage/page";
 import Sidebar from "@/components/Sidebar";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Download } from "lucide-react";
+import { SelectableDataTableHandle } from "@/components/SelectedDevices";
 
 type Tab = "Usage" | "Monitoring" | "Email Alerts";
 
@@ -14,12 +15,25 @@ const TABS: Tab[] = ["Usage", "Monitoring", "Email Alerts"];
 export default function AnalyticsLayout() {
   const [activeTab, setActiveTab] = useState<Tab>("Usage");
 
+  // One ref per page — only the active page's table is mounted at any time,
+  // so only one ref will be populated when the button is clicked.
+  const usageTableRef = useRef<SelectableDataTableHandle>(null);
+  const monitoringTableRef = useRef<SelectableDataTableHandle>(null);
+
+  const handleExportCSV = () => {
+    if (activeTab === "Usage") {
+      usageTableRef.current?.exportCSV();
+    } else if (activeTab === "Monitoring") {
+      monitoringTableRef.current?.exportCSV();
+    }
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case "Usage":
-        return <UsagePage />;
+        return <UsagePage tableRef={usageTableRef} />;
       case "Monitoring":
-        return <MonitoringPage />;
+        return <MonitoringPage tableRef={monitoringTableRef} />;
       case "Email Alerts":
         return <EmailAlertsPage />;
       default:
@@ -28,7 +42,7 @@ export default function AnalyticsLayout() {
   };
 
   return (
-    <div className="flex min-h-screen w-full bg-white overflow-x-hidden ">
+    <div className="flex min-h-screen w-full bg-white overflow-x-hidden">
       {/* Sidebar */}
       <Sidebar />
 
@@ -67,15 +81,20 @@ export default function AnalyticsLayout() {
               })}
             </div>
 
-            <button className="w-full sm:w-auto flex items-center gap-2 text-sm font-medium text-black border border-gray-300 rounded-lg px-4 py-2 hover:bg-gray-50">
-              <Download size={16} />
-              Export to CSV
-            </button>
+            {activeTab !== "Email Alerts" && (
+              <button
+                onClick={handleExportCSV}
+                className="w-full sm:w-auto flex items-center gap-2 text-sm font-medium text-black border border-gray-300 rounded-lg px-4 py-2 hover:bg-gray-50 transition"
+              >
+                <Download size={16} />
+                Export to CSV
+              </button>
+            )}
           </div>
         </div>
 
         {/* Page Content */}
-        <div className=" w-full min-w-0">{renderContent()}</div>
+        <div className="w-full min-w-0">{renderContent()}</div>
       </div>
     </div>
   );
