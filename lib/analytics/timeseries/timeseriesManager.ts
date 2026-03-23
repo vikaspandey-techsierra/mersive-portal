@@ -6,11 +6,11 @@ import { TimeseriesRow } from "./timeseriesTypes";
 const pendingMetrics: Record<string, Set<string>> = {};
 
 const RANGE_DAYS: Record<string, number> = {
-  "7d":  7,
+  "7d": 7,
   "30d": 30,
   "60d": 60,
   "90d": 90,
-  "all": 120,
+  all: 120,
 };
 
 export function getLatestMockDate(): Date {
@@ -18,36 +18,47 @@ export function getLatestMockDate(): Date {
   return new Date(Math.max(...dates));
 }
 
-export function getReferenceDate(): Date {
-  return getLatestMockDate(); // swap for new Date() with real API
-}
-
 export function getStartDate(timeRange: string): string {
   const days = RANGE_DAYS[timeRange] ?? 7;
-  const ref = getLatestMockDate();
-  ref.setDate(ref.getDate() - (days - 1));
-  ref.setHours(0, 0, 0, 0);
-  return ref.toISOString().split("T")[0];
+  const end = getLatestMockDate();
+
+  const start = new Date(end);
+  start.setDate(start.getDate() - (days - 1));
+  start.setHours(0, 0, 0, 0);
+
+  return start.toISOString().split("T")[0];
+}
+
+export function getEndDate(): string {
+  const end = getLatestMockDate();
+  end.setHours(0, 0, 0, 0);
+  return end.toISOString().split("T")[0];
+}
+
+export function getAggregationLevel(timeRange: string): "day" | "week" {
+  if (timeRange === "7d" || timeRange === "30d") return "day";
+  return "week";
 }
 
 export async function fetchTimeseriesMetrics(
-  metrics: string[],
+  metrics: string[] | string,
   timeRange: string = "7d"
 ): Promise<void> {
-
   if (!pendingMetrics[timeRange]) {
     pendingMetrics[timeRange] = new Set();
   }
 
-  //collect all metrics
-  metrics.forEach((m) => pendingMetrics[timeRange].add(m));
+  const metricsArray =
+    typeof metrics === "string"
+      ? metrics.split(",").map((m) => m.trim())
+      : metrics;
 
-  //debounce batching (wait for all calls)
+  metricsArray.forEach((m) => pendingMetrics[timeRange].add(m));
+
+  // batching delay
   await new Promise((resolve) => setTimeout(resolve, 0));
 
   const allMetrics = Array.from(pendingMetrics[timeRange]);
-
-  // clear queue
   pendingMetrics[timeRange].clear();
 
   const missingMetrics = allMetrics.filter(
@@ -56,25 +67,26 @@ export async function fetchTimeseriesMetrics(
 
   if (!missingMetrics.length) return;
 
-  const metricsString = missingMetrics.join(",");
-
   const startDate = getStartDate(timeRange);
+  const endDate = getEndDate();
 
-  const metricsArray = metricsString.split(",").map((m) => m.trim());
-
+  //MOCK FILTER (simulate API)
   const rows: TimeseriesRow[] = timeseriesMock.filter(
     (row) =>
-      metricsArray.includes(row.metric_name) &&
-      row.date >= startDate
+      missingMetrics.includes(row.metric_name) &&
+      row.date >= startDate &&
+      row.date <= endDate
   );
 
+  //PARSE
   const parsed = parseTimeseries(
     rows,
     timeRange,
-    getReferenceDate(),
+    getLatestMockDate(),
     missingMetrics
   );
 
+  // CACHE
   missingMetrics.forEach((metric) => {
     const data = parsed[metric];
     if (data) {

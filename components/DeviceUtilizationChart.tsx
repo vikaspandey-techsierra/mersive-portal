@@ -14,7 +14,7 @@ import {
 import { Check } from "lucide-react";
 import { useDeviceUtilizationMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
 import { ChartPoint } from "@/lib/analytics/timeseries/timeseriesTypes";
-import { formatShortDate } from "@/lib/analytics/utils/formatDate";
+import { formatShortDate } from "@/lib/analytics/utils/helpers";
 interface DeviceUtilizationProps {
   timeRange: string;
 }
@@ -52,7 +52,7 @@ const ChartTooltip = ({
 
 type DeviceMetric =
   | "meetings"
-  | "users"
+  // | "users"
   | "hours"
   | "connections"
   | "posts"
@@ -60,7 +60,7 @@ type DeviceMetric =
 
 const METRIC_LABELS: Record<DeviceMetric, string> = {
   meetings: "Number of meetings",
-  users: "Number of users",
+  // users: "Number of users",
   hours: "Hours in use",
   connections: "Number of connections",
   posts: "Number of posts",
@@ -71,7 +71,7 @@ const METRIC_KEYS = Object.keys(METRIC_LABELS) as DeviceMetric[];
 
 const METRIC_API_MAP: Record<DeviceMetric, string> = {
   meetings: "ts_meetings_num",
-  users: "ts_users_num",
+  // users: "ts_users_num",
   hours: "ts_meetings_duration_tot",
   connections: "ts_connections_num",
   posts: "ts_posts_num",
@@ -246,7 +246,7 @@ function getNiceTicks(points: ChartPoint[]): { ticks: number[]; max: number } {
     candidates.find((c) => c >= roughStep) ?? candidates[candidates.length - 1];
   const niceMax = niceStep * 4;
   const ticks = [0, 1, 2, 3, 4].map(
-    (i) => Math.round(niceStep * i * 1e10) / 1e10
+    (i) => Math.round(niceStep * i * 1e10) / 1e10,
   );
   return { ticks, max: niceMax };
 }
@@ -256,11 +256,10 @@ export default function DeviceUtilization({
 }: DeviceUtilizationProps) {
   const [metricA, setMetricA] = useState<DeviceMetric>("meetings");
   const [metricB, setMetricB] = useState<DeviceMetric | null>("connections");
-
   const { dataA, dataB } = useDeviceUtilizationMetrics(
-    METRIC_API_MAP[metricA],
-    metricB ? METRIC_API_MAP[metricB] : "",
-    timeRange
+    metricA === "avgLength" ? "" : METRIC_API_MAP[metricA],
+    metricB === "avgLength" ? "" : metricB ? METRIC_API_MAP[metricB] : "",
+    timeRange,
   );
 
   const handleChangeA = (next: DeviceMetric | null) => {
@@ -274,8 +273,28 @@ export default function DeviceUtilization({
     setMetricB(next);
   };
 
-  const pointsA: ChartPoint[] = dataA;
-  const pointsB: ChartPoint[] = dataB;
+  const isAvgLengthA = metricA === "avgLength";
+  const isAvgLengthB = metricB === "avgLength";
+
+  const meetingsData = useDeviceUtilizationMetrics(
+    "ts_meetings_num",
+    "",
+    timeRange,
+  ).dataA;
+
+  const durationData = useDeviceUtilizationMetrics(
+    "ts_meetings_duration_tot",
+    "",
+    timeRange,
+  ).dataA;
+
+  const pointsA: ChartPoint[] = isAvgLengthA
+    ? computeAvgLength(meetingsData, durationData)
+    : dataA;
+
+  const pointsB: ChartPoint[] = isAvgLengthB
+    ? computeAvgLength(meetingsData, durationData)
+    : dataB;
 
   const hasMetricAData = pointsA.some((p) => p.value > 0);
   const hasMetricBData = pointsB.some((p) => p.value > 0);
@@ -284,8 +303,8 @@ export default function DeviceUtilization({
   const { ticks: ticksB, max: maxB } = getNiceTicks(pointsB);
 
   const leftTicks = hasMetricAData ? ticksA : ticksB;
-  const leftMax   = hasMetricAData ? maxA   : maxB;
-  const baseData  = hasMetricAData ? pointsA : pointsB;
+  const leftMax = hasMetricAData ? maxA : maxB;
+  const baseData = hasMetricAData ? pointsA : pointsB;
 
   const deviceData = baseData.map((d, i) => ({
     label: formatShortDate(d.date),
@@ -303,7 +322,22 @@ export default function DeviceUtilization({
 
   // Reference lines bind to whichever axis is active
   const refLineAxisId = hasMetricAData ? "left" : "right";
-  const refLineTicks  = hasMetricAData ? leftTicks : ticksB;
+  const refLineTicks = hasMetricAData ? leftTicks : ticksB;
+
+  function computeAvgLength(
+    meetings: ChartPoint[],
+    duration: ChartPoint[],
+  ): ChartPoint[] {
+    return meetings.map((m, i) => {
+      const meetingCount = m.value ?? 0;
+      const totalDuration = duration[i]?.value ?? 0;
+
+      return {
+        date: m.date,
+        value: meetingCount ? totalDuration / meetingCount : 0,
+      };
+    });
+  }
 
   return (
     <div className="mb-8">
@@ -325,7 +359,11 @@ export default function DeviceUtilization({
               bottom: 0,
             }}
           >
-            <CartesianGrid stroke="#f0f0f0" vertical={false} horizontal={false} />
+            <CartesianGrid
+              stroke="#f0f0f0"
+              vertical={false}
+              horizontal={false}
+            />
 
             <XAxis
               dataKey="label"

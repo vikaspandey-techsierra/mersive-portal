@@ -15,7 +15,7 @@ import PlanType from "@/components/icons/dvr.svg";
 import OverallFleetHealth from "@/components/icons/health_and_safety.svg";
 import DeviceStatus from "@/components/icons/assignment.svg";
 import Sidebar from "@/components/Sidebar";
-import { formatDate } from "@/lib/analytics/utils/formatDate";
+import { formatDate } from "@/lib/analytics/utils/helpers";
 
 // Skeletons
 import DeviceTypeDonutSkeleton from "@/components/skeleton/DeviceTypeDonutSkeleton";

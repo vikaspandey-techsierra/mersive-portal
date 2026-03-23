@@ -13,6 +13,9 @@ import AlertGraph from "@/components/AlertGraph";
 import React from "react";
 import AreaChartSkeleton from "@/components/skeleton/AreaChartSkeleton";
 
+const SHOW_ALERT_HISTORY = false; // Toggle this to show/hide the alert history section
+const SHOW_ALERT_TABLE = false; // Toggle this to show/hide the alert graph section
+
 // ─── Mock Data ───────────────────────────────────────────────────────────────
 
 const MOCK_HISTORY: AlertHistoryRow[] = [
@@ -1015,7 +1018,6 @@ export default function EmailAlertsPage() {
           </svg>
         </button>
       </div>
-
       {!collapsed && (
         <>
           {/* Tabs */}
@@ -1138,29 +1140,22 @@ export default function EmailAlertsPage() {
           )}
         </>
       )}
-
       {/* ── Divider ── */}
-      <div className="my-6 h-px bg-[#E5E7EB]" />
-
+      {SHOW_ALERT_HISTORY && <div className="my-6 h-px bg-[#E5E7EB]" />}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4" />
+      {SHOW_ALERT_HISTORY &&
+        (isLoading ? (
+          <AreaChartSkeleton
+            title={"Alert History"}
+            description={
+              "View the quantity and which types of alerts were emailed to users"
+            }
+          />
+        ) : (
+          <AlertGraph data={apiData.userConnections} interval={interval} />
+        ))}
 
-      {isLoading ? (
-        <AreaChartSkeleton
-          title={"Alert History"}
-          description={
-            "View the quantity and which types of alerts were emailed to users"
-          }
-        />
-      ) : (
-        <AlertGraph data={apiData.userConnections} interval={interval} />
-      )}
-
-      <div className="my-6 h-px bg-[#E5E7EB]" />
-
-      {/* ── Alert History ── */}
-      <div>
-        <AlertHistorySection />
-      </div>
+      {SHOW_ALERT_TABLE && <AlertHistorySection />}
     </div>
   );
 }

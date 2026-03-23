@@ -1,114 +1,243 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { getMetric, setMetric, getAllMetrics } from "../utils/metricsStore";
+import { useEffect, useMemo, useState } from "react";
+import { getMetric, hasMetric } from "../utils/metricsStore";
 import { fetchTimeseriesMetrics } from "../timeseries/timeseriesManager";
-import { calculateMetric, METRIC_DEPENDENCIES } from "../utils/metricsResolver";
 import {
   ChartPoint,
   DeviceUtilizationData,
   CollaborationUsageData,
 } from "../timeseries/timeseriesTypes";
 
-export const DEVICE_UTILIZATION_METRICS = [
-  "ts_meetings_num",
-  "ts_users_num",
-  "ts_meetings_duration_tot",
-  "ts_connections_num",
-  "ts_posts_num",
-  "ts_meetings_duration_avg",
-];
-
-export const USER_CONNECTION_METRICS = [
-  "ts_connections_num_by_mode",
-  "ts_connections_num_by_protocol",
-  "ts_connections_num_by_os",
-  "ts_connections_num_by_conference",
-];
-
-export const COLLABORATION_METRICS = [
-  "ts_meetings_connection_avg",
-  "ts_meetings_post_avg",
-];
-
-function useMetric(metric: string, timeRange: string = "7d"): ChartPoint[] {
-  const [data, setData] = useState<ChartPoint[]>([]);
+export function useUsageMetrics(
+  timeRange: string,
+  params: {
+    deviceMetricA: string;
+    deviceMetricB?: string | null;
+    userConnectionsMetric: string;
+  }
+) {
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    if (!metric) return;
-
     let cancelled = false;
 
-    async function loadMetric() {
-      const cacheKey = `${metric}__${timeRange}`;
+    async function loadAllMetrics() {
+      setReady(false);
 
-      const dependencies = METRIC_DEPENDENCIES[metric] ?? [metric];
-      const missingDeps = dependencies.filter(
-        (m) => !getMetric(`${m}__${timeRange}`)
-      );
+      const metricsSet = new Set<string>();
 
-      if (missingDeps.length) {
-        await fetchTimeseriesMetrics(missingDeps, timeRange);
+      if (params.deviceMetricA) metricsSet.add(params.deviceMetricA);
+      if (params.deviceMetricB) metricsSet.add(params.deviceMetricB);
+
+      if (params.userConnectionsMetric) {
+        metricsSet.add(params.userConnectionsMetric);
       }
 
-      if (cancelled) return;
+      metricsSet.add("ts_meetings_num");
+      metricsSet.add("ts_connections_num");
+      metricsSet.add("ts_posts_num");
+      metricsSet.add("ts_meetings_duration_tot");
 
-      let stored = getMetric(cacheKey);
+      const metricsArray = Array.from(metricsSet);
 
-      // Calculate derived metric if not directly cached
-      if (!stored || stored.length === 0) {
-        const allMetrics = getAllMetrics();
-        const scopedMetrics: Record<string, ChartPoint[]> = {};
-        Object.keys(allMetrics).forEach((key) => {
-          scopedMetrics[key.replace(`__${timeRange}`, "")] = allMetrics[key];
-        });
-
-        const calculated = calculateMetric(metric, scopedMetrics);
-        if (calculated?.length) {
-          setMetric(cacheKey, calculated);
-          stored = calculated;
-        }
-      }
+      await fetchTimeseriesMetrics(metricsArray, timeRange);
 
       if (!cancelled) {
-        setData(stored || []);
+        setReady(true);
       }
     }
 
-    loadMetric();
+    loadAllMetrics();
 
     return () => {
       cancelled = true;
     };
-  }, [metric, timeRange]);
+  }, [
+    timeRange,
+    params.deviceMetricA,
+    params.deviceMetricB,
+    params.userConnectionsMetric,
+  ]);
 
-  return metric ? data : [];
+  return { ready };
 }
 
-// DEVICE UTILIZATION CHART
+function useMetricFromStore(
+  metric: string,
+  timeRange: string = "7d"
+): ChartPoint[] {
+  const [data, setData] = useState<ChartPoint[]>([]);
+
+  useEffect(() => {
+    if (!metric) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setData([]);
+      return;
+    }
+
+    const stored = getMetric(`${metric}__${timeRange}`);
+    setData(stored || []);
+  }, [metric, timeRange]);
+
+  return data;
+}
+
 export function useDeviceUtilizationMetrics(
   metricA: string,
   metricB: string,
   timeRange: string = "7d"
 ): DeviceUtilizationData {
-  const dataA = useMetric(metricA, timeRange);
-  const dataB = useMetric(metricB, timeRange);
+  const dataA = useMetricFromStore(metricA, timeRange);
+  const dataB = useMetricFromStore(metricB, timeRange);
   return { dataA, dataB };
 }
 
-// USER CONNECTIONS CHART
 export function useUserConnectionsMetrics(
   metric: string,
   timeRange: string = "7d"
 ): ChartPoint[] {
-  return useMetric(metric, timeRange);
+  return useMetricFromStore(metric, timeRange);
 }
 
-// COLLABORATION USAGE CHART
 export function useCollaborationUsageMetrics(
   timeRange: string = "7d"
 ): CollaborationUsageData {
-  const connectionsAvg = useMetric("ts_meetings_connection_avg", timeRange);
-  const postsAvg = useMetric("ts_meetings_post_avg", timeRange);
+  const meetings = useMetricFromStore("ts_meetings_num", timeRange);
+  const connections = useMetricFromStore("ts_connections_num", timeRange);
+  const posts = useMetricFromStore("ts_posts_num", timeRange);
+
+  const connectionsAvg = useMemo(() => {
+    if (!meetings.length) return [];
+    return meetings.map((m, i) => ({
+      date: m.date,
+      value: m.value ? (connections[i]?.value ?? 0) / m.value : 0,
+    }));
+  }, [meetings, connections]);
+
+  const postsAvg = useMemo(() => {
+    if (!meetings.length) return [];
+    return meetings.map((m, i) => ({
+      date: m.date,
+      value: m.value ? (posts[i]?.value ?? 0) / m.value : 0,
+    }));
+  }, [meetings, posts]);
+
   return { connectionsAvg, postsAvg };
+}
+
+export function useMonitoringMetrics(timeRange: string) {
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadMetrics() {
+      setReady(false);
+
+      const metrics = [
+        "ts_downtime_devices_num_tot",
+        "ts_downtime_duration_tot",
+        "ts_app_alerts_unreachable_num",
+        "ts_app_alerts_rebooted_num",
+        "ts_app_alerts_template_unassigned_num",
+        "ts_app_alerts_usb_out_num",
+        "ts_app_alerts_usb_in_num",
+        "ts_app_alerts_onboarded_num",
+        "ts_app_alerts_plan_assigned_num",
+      ];
+
+      // Only fetch missing metrics
+      const missing = metrics.filter((m) => !hasMetric(`${m}__${timeRange}`));
+      if (missing.length) {
+        await fetchTimeseriesMetrics(missing, timeRange);
+      }
+      if (!cancelled) setReady(true);
+    }
+
+    loadMetrics();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [timeRange]);
+
+  return { ready };
+}
+
+export function useDowntimeChart(timeRange: string, ready: boolean) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [data, setData] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!ready) return;
+
+    const devicesRaw =
+      getMetric(`ts_downtime_devices_num_tot__${timeRange}`) || [];
+    const hoursRaw = getMetric(`ts_downtime_duration_tot__${timeRange}`) || [];
+
+    if (!devicesRaw.length && !hoursRaw.length) return;
+
+    const base = devicesRaw.length ? devicesRaw : hoursRaw;
+
+    const merged = base.map((d: ChartPoint, i: number) => {
+      const seconds = hoursRaw[i]?.value ?? 0;
+      const hours = seconds / 3600;
+
+      return {
+        date: d.date,
+        hours,
+        devices: 0,
+      };
+    });
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setData(merged);
+  }, [timeRange, ready]);
+
+  return { data };
+}
+
+export function useAlertsChart(timeRange: string, ready: boolean) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [data, setData] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!ready) return;
+
+    const unreachable =
+      getMetric(`ts_app_alerts_unreachable_num__${timeRange}`) || [];
+    const rebooted =
+      getMetric(`ts_app_alerts_rebooted_num__${timeRange}`) || [];
+    const unassigned =
+      getMetric(`ts_app_alerts_template_unassigned_num__${timeRange}`) || [];
+    const usbOut = getMetric(`ts_app_alerts_usb_out_num__${timeRange}`) || [];
+    const usbIn = getMetric(`ts_app_alerts_usb_in_num__${timeRange}`) || [];
+    const onboarded =
+      getMetric(`ts_app_alerts_onboarded_num__${timeRange}`) || [];
+    const planAssigned =
+      getMetric(`ts_app_alerts_plan_assigned_num__${timeRange}`) || [];
+
+    const base = unreachable.length
+      ? unreachable
+      : rebooted.length
+      ? rebooted
+      : [];
+
+    const merged = base.map((d: ChartPoint, i: number) => ({
+      date: d.date,
+      ts_app_alerts_unreachable_num: unreachable[i]?.value ?? 0,
+      ts_app_alerts_rebooted_num: rebooted[i]?.value ?? 0,
+      ts_app_alerts_template_unassigned_num: unassigned[i]?.value ?? 0,
+      ts_app_alerts_usb_out_num: usbOut[i]?.value ?? 0,
+      ts_app_alerts_usb_in_num: usbIn[i]?.value ?? 0,
+      ts_app_alerts_onboarded_num: onboarded[i]?.value ?? 0,
+      ts_app_alerts_plan_assigned_num: planAssigned[i]?.value ?? 0,
+    }));
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setData(merged);
+  }, [timeRange, ready]);
+
+  return { data };
 }

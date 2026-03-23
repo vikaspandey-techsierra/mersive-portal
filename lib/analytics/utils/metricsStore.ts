@@ -12,7 +12,7 @@ export function getMetric(key: string): ChartPoint[] | null {
 }
 
 export function hasMetric(key: string): boolean {
-  return key in metricsStore && metricsStore[key] !== null;
+  return key in metricsStore;
 }
 
 export function getAllMetrics(): MetricsStore {

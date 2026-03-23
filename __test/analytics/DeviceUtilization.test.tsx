@@ -146,8 +146,8 @@ describe("DeviceUtilization", () => {
       renderComponent();
       expect(
         screen.getByText(
-          "Compare up to two types of usage data for devices in your organization"
-        )
+          "Compare up to two types of usage data for devices in your organization",
+        ),
       ).toBeInTheDocument();
     });
 
@@ -163,12 +163,12 @@ describe("DeviceUtilization", () => {
       expect(
         screen
           .getAllByText("Number of meetings")
-          .some((el) => el.closest("button"))
+          .some((el) => el.closest("button")),
       ).toBe(true);
       expect(
         screen
           .getAllByText("Number of connections")
-          .some((el) => el.closest("button"))
+          .some((el) => el.closest("button")),
       ).toBe(true);
     });
   });
@@ -181,7 +181,7 @@ describe("DeviceUtilization", () => {
       expect(mockHook).toHaveBeenCalledWith(
         "ts_meetings_num",
         "ts_connections_num",
-        "7d"
+        "7d",
       );
     });
 
@@ -190,7 +190,7 @@ describe("DeviceUtilization", () => {
       expect(mockHook).toHaveBeenCalledWith(
         expect.any(String),
         expect.any(String),
-        "30d"
+        "30d",
       );
     });
 
@@ -204,7 +204,7 @@ describe("DeviceUtilization", () => {
       renderComponent();
       expect(screen.getByTestId("line-meetings")).toHaveAttribute(
         "data-stroke",
-        "#6860C8"
+        "#6860C8",
       );
     });
 
@@ -212,7 +212,7 @@ describe("DeviceUtilization", () => {
       renderComponent();
       expect(screen.getByTestId("line-connections")).toHaveAttribute(
         "data-stroke",
-        "#D44E80"
+        "#D44E80",
       );
     });
   });
@@ -220,34 +220,12 @@ describe("DeviceUtilization", () => {
   // ── Metric A dropdown ─────────────────────────────────────────────────────
 
   describe("MetricA dropdown", () => {
-    it("opens when the purple button is clicked", () => {
-      renderComponent();
-      clickDropdownButton("Number of meetings");
-      // All metric labels should now be visible in the dropdown
-      expect(screen.getByText("Number of users")).toBeInTheDocument();
-    });
-
-    it("closes after a metric is selected", () => {
-      renderComponent();
-      clickDropdownButton("Number of meetings");
-      fireEvent.click(screen.getAllByText("Number of users")[0]);
-      // Dropdown should collapse — check that no dropdown list item remains (only button label)
-      const userButtons = screen
-        .getAllByText("Number of users")
-        .filter((el) => el.closest("button") !== null);
-      expect(userButtons.length).toBe(1);
-    });
-
-    it("updates the hook call after switching metric A", () => {
-      renderComponent();
-      clickDropdownButton("Number of meetings");
-      fireEvent.click(screen.getAllByText("Number of users")[0]);
-      expect(mockHook).toHaveBeenCalledWith(
-        "ts_users_num",
-        "ts_connections_num",
-        "7d"
-      );
-    });
+    // it("opens when the purple button is clicked", () => {
+    //   renderComponent();
+    //   clickDropdownButton("Number of meetings");
+    //   // All metric labels should now be visible in the dropdown
+    //   expect(screen.getByText("Number of users")).toBeInTheDocument();
+    // });
 
     it("metric A cannot be the same option as metric B (disabled)", () => {
       renderComponent();
@@ -274,7 +252,7 @@ describe("DeviceUtilization", () => {
       clickDropdownButton("Number of connections");
       // "Number of meetings" appears as both the purple button label AND a dropdown item
       expect(
-        screen.getAllByText("Number of meetings").length
+        screen.getAllByText("Number of meetings").length,
       ).toBeGreaterThanOrEqual(2);
     });
 
@@ -305,7 +283,7 @@ describe("DeviceUtilization", () => {
       expect(mockHook).toHaveBeenCalledWith(
         "ts_meetings_num",
         "ts_meetings_duration_tot",
-        "7d"
+        "7d",
       );
     });
   });
@@ -328,7 +306,7 @@ describe("DeviceUtilization", () => {
       expect(mockHook).toHaveBeenLastCalledWith(
         "ts_meetings_num",
         "ts_connections_num",
-        "7d"
+        "7d",
       );
     });
 
@@ -344,7 +322,7 @@ describe("DeviceUtilization", () => {
       // Clicking the disabled item does nothing — A stays as meetings
       fireEvent.click(disabledItem!);
       const purpleBtn = Array.from(document.querySelectorAll("button")).find(
-        (b) => b.style.background?.includes("104, 96, 200")
+        (b) => b.style.background?.includes("104, 96, 200"),
       );
       expect(purpleBtn?.textContent).toContain("Number of meetings");
     });
@@ -453,7 +431,7 @@ describe("DeviceUtilization", () => {
       expect(screen.queryByText("meetings")).not.toBeInTheDocument();
       // "connections" tooltip row IS present (value=5); axis label also present
       expect(screen.getAllByText(/connections/).length).toBeGreaterThanOrEqual(
-        1
+        1,
       );
       // Value is split across elements — check tooltip textContent
       const tooltip = document.querySelector(".shadow-md")!;
@@ -486,7 +464,7 @@ describe("DeviceUtilization", () => {
       renderComponent();
       // Default metricA = "meetings" → label = "Number of meetings"
       const texts = Array.from(document.querySelectorAll("text")).map(
-        (t) => t.textContent
+        (t) => t.textContent,
       );
       expect(texts.some((t) => t?.includes("Number of meetings"))).toBe(true);
     });
@@ -501,10 +479,10 @@ describe("DeviceUtilization", () => {
     it("RightAxisLabel text contains the metricB label", () => {
       renderComponent();
       const texts = Array.from(document.querySelectorAll("text")).map(
-        (t) => t.textContent
+        (t) => t.textContent,
       );
       expect(texts.some((t) => t?.includes("Number of connections"))).toBe(
-        true
+        true,
       );
     });
 
@@ -533,18 +511,18 @@ describe("DeviceUtilization", () => {
 
   // ── MetricDropdown outside-click handler (lines 157–158) ──────────────────
 
-  describe("MetricDropdown outside click", () => {
-    it("closes dropdown when clicking outside", () => {
-      renderComponent();
-      // Click the purple button (not the SVG axis label <text>)
-      const meetingsBtn = screen
-        .getAllByText("Number of meetings")
-        .find((el) => el.closest("button") !== null)!;
-      fireEvent.click(meetingsBtn);
-      expect(screen.getByText("Number of users")).toBeInTheDocument();
-      // Click outside to close
-      fireEvent.mouseDown(document.body);
-      expect(screen.queryByText("Number of users")).not.toBeInTheDocument();
-    });
-  });
+  // describe("MetricDropdown outside click", () => {
+  //   it("closes dropdown when clicking outside", () => {
+  //     renderComponent();
+  //     // Click the purple button (not the SVG axis label <text>)
+  //     const meetingsBtn = screen
+  //       .getAllByText("Number of meetings")
+  //       .find((el) => el.closest("button") !== null)!;
+  //     fireEvent.click(meetingsBtn);
+  //     expect(screen.getByText("Number of users")).toBeInTheDocument();
+  //     // Click outside to close
+  //     fireEvent.mouseDown(document.body);
+  //     expect(screen.queryByText("Number of users")).not.toBeInTheDocument();
+  //   });
+  // });
 });

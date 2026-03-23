@@ -10,16 +10,17 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { useState } from "react";
+import { formatShortDate } from "@/lib/analytics/utils/helpers";
 
 export interface AlertPoint {
   date: string;
-  unreachable: number;
-  rebooted: number;
-  unassigned: number;
-  usbUnplugged: number;
-  usbPlugged: number;
-  onboarded: number;
-  planAssigned: number;
+  ts_app_alerts_unreachable_num: number;
+  ts_app_alerts_rebooted_num: number;
+  ts_app_alerts_template_unassigned_num: number;
+  ts_app_alerts_usb_out_num: number;
+  ts_app_alerts_usb_in_num: number;
+  ts_app_alerts_onboarded_num: number;
+  ts_app_alerts_plan_assigned_num: number;
 }
 
 interface Props {
@@ -28,14 +29,88 @@ interface Props {
 }
 
 const SERIES = [
-  { key: "unreachable", label: "Unreachable", color: "#5B5BD6" },
-  { key: "rebooted", label: "Rebooted", color: "#C34F7D" },
-  { key: "unassigned", label: "Unassigned from template", color: "#5F87C2" },
-  { key: "usbUnplugged", label: "USB unplugged", color: "#8B1A00" },
-  { key: "usbPlugged", label: "USB plugged in", color: "#8A9B2F" },
-  { key: "onboarded", label: "Onboarded", color: "#D47A00" },
-  { key: "planAssigned", label: "Plan assigned", color: "#8E56C2" },
+  {
+    key: "ts_app_alerts_unreachable_num",
+    label: "Unreachable",
+    color: "#5B5BD6",
+  },
+  {
+    key: "ts_app_alerts_rebooted_num",
+    label: "Rebooted",
+    color: "#C34F7D",
+  },
+  {
+    key: "ts_app_alerts_template_unassigned_num",
+    label: "Unassigned from template",
+    color: "#5F87C2",
+  },
+  {
+    key: "ts_app_alerts_usb_out_num",
+    label: "USB unplugged",
+    color: "#8B1A00",
+  },
+  {
+    key: "ts_app_alerts_usb_in_num",
+    label: "USB plugged in",
+    color: "#8A9B2F",
+  },
+  {
+    key: "ts_app_alerts_onboarded_num",
+    label: "Onboarded",
+    color: "#D47A00",
+  },
+  {
+    key: "ts_app_alerts_plan_assigned_num",
+    label: "Plan assigned",
+    color: "#8E56C2",
+  },
 ];
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null;
+
+  return (
+    <div
+      style={{
+        background: "#fff",
+        border: "1px solid #E5E7EB",
+        borderRadius: 12,
+        padding: "12px 14px",
+        boxShadow: "0 4px 18px rgba(0,0,0,0.12)",
+        fontSize: 13,
+      }}
+    >
+      <div
+        style={{
+          fontWeight: 600,
+          marginBottom: 6,
+          color: "#111",
+        }}
+      >
+        {label}
+      </div>
+
+      {/* VALUES */}
+      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+      {payload.map((p: any) => {
+        const series = SERIES.find((s) => s.key === p.dataKey);
+        return (
+          <div
+            key={p.dataKey}
+            style={{
+              color: series?.color,
+              fontWeight: 500,
+              marginBottom: 2,
+            }}
+          >
+            {series?.label}: {p.value}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 
 export default function AlertsChart({ data, interval }: Props) {
   const [active, setActive] = useState<Record<string, boolean>>(
@@ -44,6 +119,20 @@ export default function AlertsChart({ data, interval }: Props) {
 
   const toggle = (key: string) =>
     setActive((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const formattedData = (data || []).map((d) => ({
+    ...d,
+    label: formatShortDate(d.date),
+  }));
+
+  if (!formattedData.length) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="text-black font-semibold">Alerts</div>
+        <div className="text-gray-400 text-sm mt-1">No data available</div>
+      </div>
+    );
+  }
 
   return (
     <div className="mb-8">
@@ -54,65 +143,45 @@ export default function AlertsChart({ data, interval }: Props) {
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 p-6 pb-4">
-        <ResponsiveContainer width="100%" height={300}>
-          <AreaChart
-            data={data}
-            margin={{ top: 10, right: 20, left: 10, bottom: 0 }}
-          >
-            <CartesianGrid stroke="#E5E7EB" vertical={false} />
+        <div className="w-full h-80 min-w-0">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={formattedData}>
+              <CartesianGrid stroke="#E5E7EB" vertical={false} />
 
-            <XAxis
-              dataKey="date"
-              interval={interval}
-              tick={{ fontSize: 12, fill: "#374151" }}
-              axisLine={false}
-              tickLine={false}
-              padding={{ left: 10, right: 10 }}
-            />
-            <YAxis
-              tickCount={5}
-              tick={{ fontSize: 11, fill: "#000" }}
-              axisLine={false}
-              tickLine={false}
-            />
+              <XAxis
+                dataKey="label"
+                interval={interval}
+                tick={{ fontSize: 12 }}
+                axisLine={false}
+                tickLine={false}
+              />
 
-            <Tooltip
-              content={({ active, payload, label }) => {
-                if (!active || !payload?.length) return null;
-                const items = [...payload].reverse();
+              <YAxis
+                tick={{ fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
+              />
 
-                return (
-                  <div className="bg-white border border-gray-200 rounded-md px-3 py-2 text-sm shadow-md">
-                    <div className="font-semibold text-black mb-1">{label}</div>
-                    {items
-                      .filter((e) => e.value && e.value > 0)
-                      .map((e) => (
-                        <div key={e.dataKey} style={{ color: e.color }}>
-                          {e.name}: {e.value}
-                        </div>
-                      ))}
-                  </div>
-                );
-              }}
-            />
+              <Tooltip content={<CustomTooltip />} />
 
-            {SERIES.map(
-              (s) =>
-                active[s.key] && (
-                  <Area
-                    key={s.key}
-                    type="linear"
-                    dataKey={s.key}
-                    name={s.label}
-                    stackId="1"
-                    stroke="none"
-                    fill={s.color}
-                    fillOpacity={0.95}
-                  />
-                )
-            )}
-          </AreaChart>
-        </ResponsiveContainer>
+              {SERIES.map(
+                (s) =>
+                  active[s.key] && (
+                    <Area
+                      key={s.key}
+                      type="monotone"
+                      dataKey={s.key}
+                      name={s.label}
+                      stackId="1"
+                      stroke={s.color}
+                      fill={s.color}
+                      fillOpacity={0.85}
+                    />
+                  )
+              )}
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
 
         <div className="flex flex-wrap gap-4 mt-6">
           {SERIES.map((s) => (
@@ -134,15 +203,13 @@ export default function AlertsChart({ data, interval }: Props) {
                       d="M1 4L3.5 6.5L9 1"
                       stroke="#fff"
                       strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
                     />
                   </svg>
                 )}
               </span>
 
               <span
-                className="rounded px-3 py-1 text-xs font-medium whitespace-nowrap"
+                className="rounded px-3 py-1 text-xs font-medium"
                 style={{
                   background: s.color,
                   color: "#fff",
