@@ -1,6 +1,5 @@
 "use client";
 
-import { useCollaborationUsageMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
 import {
   LineChart,
   Line,
@@ -12,15 +11,15 @@ import {
 } from "recharts";
 import { useMemo } from "react";
 import { formatShortDate } from "@/lib/analytics/utils/helpers";
+import { useFilteredCollaborationMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
 
-// TOOLTIP
 interface TEntry {
   name: string;
   value: number;
   color: string;
 }
 
-export const ChartTooltip = ({
+const ChartTooltip = ({
   active,
   payload,
   label,
@@ -30,7 +29,6 @@ export const ChartTooltip = ({
   label?: string;
 }) => {
   if (!active || !payload?.length) return null;
-
   return (
     <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-[13px] shadow-md">
       <div className="font-semibold mb-1 text-black">{label}</div>
@@ -45,7 +43,6 @@ export const ChartTooltip = ({
   );
 };
 
-// LEGEND
 const LegendPill = ({ label, color }: { label: string; color: string }) => (
   <div
     className="inline-flex items-center text-white rounded-md px-3 py-1 text-xs font-medium whitespace-nowrap"
@@ -57,10 +54,16 @@ const LegendPill = ({ label, color }: { label: string; color: string }) => (
 
 export default function CollaborationUsage({
   timeRange = "7d",
+  selectedDeviceNames = [],
 }: {
   timeRange?: string;
+  selectedDeviceNames?: string[];
 }) {
-  const { connectionsAvg, postsAvg } = useCollaborationUsageMetrics(timeRange);
+  // Hook handles both the store-fallback and per-device filtering
+  const { connectionsAvg, postsAvg } = useFilteredCollaborationMetrics(
+    timeRange,
+    selectedDeviceNames,
+  );
 
   const chartData = useMemo(() => {
     if (!connectionsAvg.length && !postsAvg.length) return [];
@@ -69,16 +72,12 @@ export default function CollaborationUsage({
     const map: Record<string, any> = {};
 
     connectionsAvg.forEach((d) => {
-      if (!map[d.date]) {
-        map[d.date] = { label: formatShortDate(d.date) };
-      }
+      if (!map[d.date]) map[d.date] = { label: formatShortDate(d.date) };
       map[d.date].avgConnections = d.value;
     });
 
     postsAvg.forEach((d) => {
-      if (!map[d.date]) {
-        map[d.date] = { label: formatShortDate(d.date) };
-      }
+      if (!map[d.date]) map[d.date] = { label: formatShortDate(d.date) };
       map[d.date].avgPosts = d.value;
     });
 
@@ -92,7 +91,6 @@ export default function CollaborationUsage({
       <div className="font-semibold text-[15px] text-black mb-0.5">
         Collaboration Usage
       </div>
-
       <div className="text-[13px] text-gray-400 mb-3">
         Compare how many users connect versus how often they share a post within
         a meeting on average
@@ -114,15 +112,11 @@ export default function CollaborationUsage({
               ticks={(() => {
                 const len = chartData.length;
                 if (len === 0) return [];
-
                 const count = 7;
-                const selected = new Set<number>([0, len - 1]);
-
-                for (let i = 1; i < count - 1; i++) {
-                  selected.add(Math.round((i / (count - 1)) * (len - 1)));
-                }
-
-                return [...selected]
+                const sel = new Set<number>([0, len - 1]);
+                for (let i = 1; i < count - 1; i++)
+                  sel.add(Math.round((i / (count - 1)) * (len - 1)));
+                return [...sel]
                   .sort((a, b) => a - b)
                   .map((i) => chartData[i].label);
               })()}
@@ -134,7 +128,6 @@ export default function CollaborationUsage({
               tickLine={false}
               tickCount={5}
             />
-
             <Tooltip content={<ChartTooltip />} />
 
             <Line

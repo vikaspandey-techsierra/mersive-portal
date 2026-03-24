@@ -16,71 +16,49 @@ import loading from "../components/icons/loading.svg";
 
 export type SortDir = "asc" | "desc";
 
-/** One column definition */
 export interface ColumnDef<T extends Record<string, unknown>> {
-  /** Unique key matching a field in your data row */
   key: keyof T & string;
-  /** Header label shown in <th> */
   label: string;
-  /** Whether this column is sortable (default: false) */
   sortable?: boolean;
   /**
-   * Optional plain-text extractor used during CSV export.
-   * Provide this whenever the column has a custom `render` that returns JSX,
-   * so the CSV gets a clean string/number instead of "[object Object]".
-   * e.g. for avgDuration: (_v, row) => row.avgDuration ?? ""
+   * Plain-text value for CSV export.
+   * Required when `render` returns JSX — otherwise the CSV will contain "[object Object]".
    */
   csvValue?: (value: T[keyof T], row: T) => string | number;
-  /**
-   * Custom renderer for a cell value.
-   * Receives the raw value and the full row.
-   * Defaults to String(value) or "-" when null/undefined.
-   */
   render?: (value: T[keyof T], row: T) => React.ReactNode;
-  /** Extra className applied to every <td> in this column */
   cellClassName?: string;
 }
 
 export interface SelectableDataTableProps<T extends Record<string, unknown>> {
-  // ── Content ──────────────────────────────
-  /** Bold heading at the top */
   heading: string;
-  /** Muted subheading below the heading */
   subheading: string;
-  /** Search input placeholder */
   searchPlaceholder?: string;
 
-  // ── Data ─────────────────────────────────
   rows: T[];
-  /** Field used as a stable unique identifier (e.g. "id") */
   rowKey: keyof T & string;
   columns: ColumnDef<T>[];
 
-  // ── Sorting ───────────────────────────────
   defaultSortKey?: keyof T & string;
   defaultSortDir?: SortDir;
 
-  // ── Selection ─────────────────────────────
-  /** Whether all rows start selected (default: true) */
   defaultAllSelected?: boolean;
-  /** Callback fired whenever the selection changes */
-  onSelectionChange?: (selectedIds: Set<string>) => void;
-
-  // ── Loading ───────────────────────────────
   /**
-   * Control loading state externally. When omitted the component starts in a
-   * 2-second simulated-load state (useful for demos / storybook).
+   * Fired whenever the selection changes.
+   * Receives the Set of selected row-key values AND the array of selected row objects.
    */
-  isLoading?: boolean;
+  onSelectionChange?: (selectedIds: Set<string>, selectedRows: T[]) => void;
 
-  // ── CSV ───────────────────────────────────
-  /** Base filename for the downloaded CSV (without extension). Defaults to "export". */
+  isLoading?: boolean;
   csvFilename?: string;
 }
 
-/** Handle exposed via ref — call exportCSV() from any parent button */
+/** Handle exposed via ref */
 export interface SelectableDataTableHandle {
   exportCSV: () => void;
+  /** IDs (rowKey values) of currently checked rows */
+  selectedIds: Set<string>;
+  /** Full row objects for currently checked rows */
+  selectedRows: unknown[];
 }
 
 /* ─────────────────────────────────────────────
@@ -168,7 +146,7 @@ const Checkbox = ({
 );
 
 /* ─────────────────────────────────────────────
-   INNER COMPONENT  (generic, wrapped by forwardRef below)
+   INNER COMPONENT
 ───────────────────────────────────────────── */
 
 function SelectableDataTableInner<T extends Record<string, unknown>>(
@@ -197,7 +175,7 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
     () => new Set(defaultAllSelected ? rows.map((r) => String(r[rowKey])) : []),
   );
 
-  // Internal simulated loading (only used when prop is not provided)
+  // Internal simulated loading
   const [internalLoading, setInternalLoading] = useState(
     isLoadingProp === undefined,
   );
@@ -209,7 +187,7 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
 
   const isLoading = isLoadingProp ?? internalLoading;
 
-  // Sync selection when rows change (e.g. data fetched after mount)
+  // Re-select all when rows change (e.g. after data fetch)
   useEffect(() => {
     if (defaultAllSelected) {
       setSelected(new Set(rows.map((r) => String(r[rowKey]))));
@@ -217,10 +195,35 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows]);
 
-  // Notify parent
+  /* ── Derived selected rows ── */
+  const selectedRows = useMemo(
+    () => rows.filter((r) => selected.has(String(r[rowKey]))),
+    [rows, selected, rowKey],
+  );
+
+  /**
+   * Effective selection for charts:
+   * When ALL rows are unchecked, treat it as if all are selected
+   * so charts never go blank.
+   */
+  const effectiveSelectedIds = useMemo(() => {
+    if (selected.size === 0) return new Set(rows.map((r) => String(r[rowKey])));
+    return selected;
+  }, [selected, rows, rowKey]);
+
+  const effectiveSelectedRows = useMemo(
+    () =>
+      selected.size === 0
+        ? rows
+        : rows.filter((r) => selected.has(String(r[rowKey]))),
+    [selected, rows, rowKey],
+  );
+
+  // Notify parent on selection change (uses effective values for chart updates)
   useEffect(() => {
-    onSelectionChange?.(selected);
-  }, [selected, onSelectionChange]);
+    onSelectionChange?.(effectiveSelectedIds, effectiveSelectedRows);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveSelectedIds]);
 
   /* ── Filter ── */
   const filtered = useMemo(
@@ -253,16 +256,12 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
 
   /* ── CSV Export ── */
   const exportCSV = () => {
-    // Only include currently-selected rows
-    const selectedRows = sorted.filter((r) => selected.has(String(r[rowKey])));
-
+    const rowsToExport = sorted.filter((r) => selected.has(String(r[rowKey])));
     const header = columns.map((c) => escapeCSV(c.label)).join(",");
-
-    const body = selectedRows
+    const body = rowsToExport
       .map((row) =>
         columns
           .map((col) => {
-            // Use csvValue extractor if provided, otherwise fall back to the raw field
             const raw = col.csvValue
               ? col.csvValue(row[col.key], row)
               : row[col.key];
@@ -283,9 +282,16 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
     URL.revokeObjectURL(url);
   };
 
-  /* ── Expose handle to parent ── */
-  // Re-create the handle whenever the data it closes over changes
-  useImperativeHandle(ref, () => ({ exportCSV }), [sorted, selected, columns]);
+  /* ── Expose handle ── */
+  useImperativeHandle(
+    ref,
+    () => ({
+      exportCSV,
+      selectedIds: selected,
+      selectedRows,
+    }),
+    [sorted, selected, columns, selectedRows],
+  );
 
   /* ── Selection handlers ── */
   const handleSort = (key: string) => {
@@ -297,14 +303,22 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
     }
   };
 
-  const allSelected = sorted.every((r) => selected.has(String(r[rowKey])));
-  const someSelected =
-    sorted.some((r) => selected.has(String(r[rowKey]))) && !allSelected;
+  /**
+   * Header checkbox logic per spec:
+   * - Checked ONLY when ALL rows are checked
+   * - Unchecking header → uncheck all rows
+   * - Checking header → check all rows
+   * No indeterminate state for the header.
+   */
+  const allSelected =
+    sorted.length > 0 && sorted.every((r) => selected.has(String(r[rowKey])));
 
   const toggleAll = () => {
     if (allSelected) {
+      // Uncheck all
       setSelected(new Set());
     } else {
+      // Check all
       setSelected(new Set(sorted.map((r) => String(r[rowKey]))));
     }
   };
@@ -320,13 +334,11 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
   /* ── Render ── */
   return (
     <div className="mb-8 w-full min-w-0">
-      {/* Header */}
       <div className="font-bold text-lg text-black mb-1">
         {heading} ({selected.size})
       </div>
       <div className="text-sm text-gray-400 mb-4">{subheading}</div>
 
-      {/* Search */}
       <div className="mb-6">
         <div className="inline-flex items-center border border-gray-200 rounded-lg px-3 py-2 bg-white w-full sm:w-60">
           <input
@@ -339,7 +351,6 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
         </div>
       </div>
 
-      {/* Table */}
       <div className="relative w-full overflow-x-auto overflow-y-auto max-h-80 border border-gray-200 rounded-lg">
         {isLoading && (
           <div className="absolute inset-0 z-20 mt-15 flex items-center justify-center bg-white rounded-lg">
@@ -357,9 +368,10 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
           <thead className="sticky top-0 z-10 bg-white">
             <tr className="border-b border-gray-200">
               <th className="px-6 py-3 w-12">
+                {/* Header checkbox: checked only when ALL rows are checked */}
                 <Checkbox
                   checked={allSelected}
-                  indeterminate={someSelected}
+                  indeterminate={false}
                   onChange={toggleAll}
                 />
               </th>
@@ -421,7 +433,7 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
               );
             })}
 
-            {sorted.length === 0 && (
+            {sorted.length === 0 && !isLoading && (
               <tr>
                 <td
                   colSpan={columns.length + 1}
@@ -439,7 +451,7 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
 }
 
 /* ─────────────────────────────────────────────
-   EXPORT  — cast preserves the generic type param through forwardRef
+   EXPORT — cast preserves generic T through forwardRef
 ───────────────────────────────────────────── */
 
 const SelectableDataTable = forwardRef(SelectableDataTableInner) as <

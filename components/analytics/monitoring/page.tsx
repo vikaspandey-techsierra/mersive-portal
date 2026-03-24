@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import DowntimeChart from "@/components/DowntimeChart";
 import AlertsChart from "@/components/AlertChart";
 import SelectableDataTable, {
@@ -15,64 +15,24 @@ import {
   useDowntimeChart,
   useMonitoringMetrics,
 } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
+import {
+  useMonitoringDeviceRows,
+  MonitoringDeviceRow,
+} from "@/lib/analytics/hooks/useDeviceTableRows";
 
-interface MonitoringDevice {
-  id: string;
-  name: string;
-  numberOfDevices: number | null;
-  totalDowntime: string | null;
-  totalDowntimeMinutes: number | null;
-  [key: string]: unknown;
-}
-
-const MONITORING_DEVICES: MonitoringDevice[] = [
-  {
-    id: "1",
-    name: "Board Room",
-    numberOfDevices: 3,
-    totalDowntime: "1 hr 20 min",
-    totalDowntimeMinutes: 80,
-  },
-  {
-    id: "2",
-    name: "Corner Conference",
-    numberOfDevices: 2,
-    totalDowntime: "45 min",
-    totalDowntimeMinutes: 45,
-  },
-  {
-    id: "3",
-    name: "Hallway",
-    numberOfDevices: 1,
-    totalDowntime: "2 hrs",
-    totalDowntimeMinutes: 120,
-  },
-  {
-    id: "4",
-    name: "John's Office",
-    numberOfDevices: 1,
-    totalDowntime: "30 min",
-    totalDowntimeMinutes: 30,
-  },
-  {
-    id: "5",
-    name: "Temp Office",
-    numberOfDevices: null,
-    totalDowntime: null,
-    totalDowntimeMinutes: null,
-  },
-];
-
-const MONITORING_COLUMNS: ColumnDef<MonitoringDevice>[] = [
+/* ── Column definitions ── */
+const MONITORING_COLUMNS: ColumnDef<MonitoringDeviceRow>[] = [
   { key: "name", label: "Name", sortable: true },
-  { key: "numberOfDevices", label: "Number of Devices", sortable: true },
   {
-    key: "totalDowntimeMinutes",
-    label: "Total Downtime",
+    key: "downtime",
+    label: "Downtime (hrs)",
     sortable: true,
-    render: (_value, row) => row.totalDowntime ?? "-",
-    csvValue: (_value, row) => row.totalDowntime ?? "",
+    render: (_value, row) => row.downtimeLabel ?? "-",
+    csvValue: (_value, row) => row.downtimeLabel ?? "",
   },
+  { key: "unreachable", label: "Unreachable", sortable: true },
+  { key: "rebooted", label: "Rebooted", sortable: true },
+  { key: "totalEvents", label: "Total Events", sortable: true },
 ];
 
 type TimeRange = "7d" | "30d" | "60d" | "90d" | "all";
@@ -107,8 +67,11 @@ interface MonitoringPageProps {
 export default function MonitoringPage({ tableRef }: MonitoringPageProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>("7d");
   const [isLoading, setIsLoading] = React.useState(true);
+  const [selectedDeviceNames, setSelectedDeviceNames] = useState<string[]>([]);
 
   const { ready } = useMonitoringMetrics(timeRange);
+
+  // These give us the base fleet-total data used as the fallback when no device filter
   const { data: downtimeData } = useDowntimeChart(timeRange, ready);
   const { data: alertsData } = useAlertsChart(timeRange, ready);
 
@@ -119,6 +82,15 @@ export default function MonitoringPage({ tableRef }: MonitoringPageProps) {
     const timer = setTimeout(() => setIsLoading(false), 800);
     return () => clearTimeout(timer);
   }, []);
+
+  const deviceRows = useMonitoringDeviceRows(timeRange, ready);
+
+  const handleSelectionChange = useCallback(
+    (_ids: Set<string>, rows: MonitoringDeviceRow[]) => {
+      setSelectedDeviceNames(rows.map((r) => r.name));
+    },
+    [],
+  );
 
   return (
     <div className="w-full flex flex-col min-w-0">
@@ -148,7 +120,14 @@ export default function MonitoringPage({ tableRef }: MonitoringPageProps) {
             description="Monitor how many devices are down and for long the downtime lasted"
           />
         ) : (
-          <DowntimeChart data={downtimeData} interval={interval} />
+          /* timeRange + ready forwarded so the chart's filtered hook knows the date window */
+          <DowntimeChart
+            data={downtimeData}
+            interval={interval}
+            timeRange={timeRange}
+            ready={ready}
+            selectedDeviceNames={selectedDeviceNames}
+          />
         )}
       </div>
 
@@ -161,24 +140,31 @@ export default function MonitoringPage({ tableRef }: MonitoringPageProps) {
             description="Monitor the quantity and which types of alerts occurred in your fleet"
           />
         ) : (
-          <AlertsChart data={alertsData} interval={interval} />
+          <AlertsChart
+            data={alertsData}
+            interval={interval}
+            timeRange={timeRange}
+            ready={ready}
+            selectedDeviceNames={selectedDeviceNames}
+          />
         )}
       </div>
 
       <hr className="my-10 border-t border-gray-200" />
 
-      <SelectableDataTable
+      <SelectableDataTable<MonitoringDeviceRow>
         ref={tableRef}
         heading="Selected Devices"
         subheading="Select all or narrow the data down to a specific group of devices"
-        rows={MONITORING_DEVICES}
+        rows={deviceRows}
         rowKey="id"
         columns={MONITORING_COLUMNS}
-        defaultSortKey="name"
-        defaultSortDir="asc"
+        defaultSortKey="downtime"
+        defaultSortDir="desc"
         defaultAllSelected
-        isLoading={isLoading}
+        isLoading={isLoading || !ready}
         csvFilename="monitoring-devices"
+        onSelectionChange={handleSelectionChange}
       />
     </div>
   );

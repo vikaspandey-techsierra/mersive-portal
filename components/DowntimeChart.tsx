@@ -10,6 +10,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { formatShortDate } from "@/lib/analytics/utils/helpers";
+import { useFilteredDowntimeChart } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
 
 export interface DowntimePoint {
   date: string;
@@ -18,8 +19,13 @@ export interface DowntimePoint {
 }
 
 interface Props {
+  /** Pre-aggregated fleet-total data from useDowntimeChart — used as fallback when no device filter */
   data: DowntimePoint[];
   interval: number;
+  /** Must be forwarded from MonitoringPage so the filtered hook knows the date window */
+  timeRange: string;
+  ready: boolean;
+  selectedDeviceNames?: string[];
 }
 
 const PURPLE = "#5E54C5";
@@ -106,44 +112,49 @@ const CustomTooltip = ({
   );
 };
 
-export default function DowntimeChart({ data }: Props) {
-  const deviceTicks = [0, 6, 12, 18, 24];
+export default function DowntimeChart({
+  data,
+  timeRange,
+  ready,
+  selectedDeviceNames = [],
+}: Props) {
+  /**
+   * When selectedDeviceNames is empty  → hook returns `data` (the store value) unchanged.
+   * When devices are selected          → hook re-aggregates raw mock rows for those devices.
+   */
+  const { data: filteredData } = useFilteredDowntimeChart(
+    timeRange,
+    ready,
+    selectedDeviceNames,
+  );
 
-  // Format dates
-  const formattedData = (data || []).map((d) => ({
+  const activeData = selectedDeviceNames.length > 0 ? filteredData : data;
+
+  const formattedData = activeData.map((d) => ({
     ...d,
     label: formatShortDate(d.date),
   }));
 
-  // Dynamic X ticks (same logic as Usage chart)
+  const deviceTicks = [0, 6, 12, 18, 24];
+
   const xTicks = (() => {
     const len = formattedData.length;
     if (len === 0) return [];
     const count = 7;
-    const selected = new Set<number>([0, len - 1]);
-
-    for (let i = 1; i < count - 1; i++) {
-      selected.add(Math.round((i / (count - 1)) * (len - 1)));
-    }
-
-    return [...selected]
-      .sort((a, b) => a - b)
-      .map((i) => formattedData[i].label);
+    const sel = new Set<number>([0, len - 1]);
+    for (let i = 1; i < count - 1; i++)
+      sel.add(Math.round((i / (count - 1)) * (len - 1)));
+    return [...sel].sort((a, b) => a - b).map((i) => formattedData[i].label);
   })();
 
-  // Dynamic right axis scale
   const maxHours =
     formattedData.length > 0
       ? Math.max(...formattedData.map((d) => d.hours), 1)
       : 1;
 
-  const hourTicks = [
-    0,
-    Number((maxHours * 0.25).toFixed(1)),
-    Number((maxHours * 0.5).toFixed(1)),
-    Number((maxHours * 0.75).toFixed(1)),
-    Number(maxHours.toFixed(1)),
-  ];
+  const hourTicks = [0, 0.25, 0.5, 0.75, 1].map((f) =>
+    Number((maxHours * f).toFixed(1)),
+  );
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 pt-5 pb-5 w-full">
@@ -231,7 +242,6 @@ export default function DowntimeChart({ data }: Props) {
         </ResponsiveContainer>
       </div>
 
-      {/* Legend */}
       <div className="flex gap-2.5 px-6 mt-4">
         <span
           className="inline-flex items-center text-white text-sm font-medium rounded-full px-4 py-1.5"

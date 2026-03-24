@@ -13,8 +13,10 @@ import AlertGraph from "@/components/AlertGraph";
 import React from "react";
 import AreaChartSkeleton from "@/components/skeleton/AreaChartSkeleton";
 
-const SHOW_ALERT_HISTORY = false; // Toggle this to show/hide the alert history section
-const SHOW_ALERT_TABLE = false; // Toggle this to show/hide the alert graph section
+const SHOW_ALERT_HISTORY =
+  process.env.NEXT_PUBLIC_FEATURE_FLAG_SHOW_ALERT_HISTORY === "true"; // Toggle this to show/hide the alert history section
+const SHOW_ALERT_TABLE =
+  process.env.NEXT_PUBLIC_FEATURE_FLAG_SHOW_ALERT_TABLE === "true"; // Toggle this to show/hide the alert graph section
 
 // ─── Mock Data ───────────────────────────────────────────────────────────────
 

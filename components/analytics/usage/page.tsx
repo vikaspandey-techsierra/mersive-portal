@@ -7,94 +7,40 @@ import SelectableDataTable, {
   SelectableDataTableHandle,
 } from "@/components/SelectedDevices";
 import UserConnections from "@/components/UserConnectionsChart";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import React from "react";
 import LineChartSkeleton from "@/components/skeleton/LineChartSkeleton";
 import AreaChartSkeleton from "@/components/skeleton/AreaChartSkeleton";
 import { registerMetric } from "@/lib/analytics/utils/metricsManager";
 import { useUsageMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
-interface UsageDevice extends Record<string, unknown> {
-  id: string;
-  name: string;
-  meetings: number | null;
-  totalConnections: number | null;
-  hoursInUse: number | null;
-  contentItems: number | null;
-  avgDuration: string | null;
-  avgDurationMinutes: number | null;
-}
-
-const USAGE_DEVICES: UsageDevice[] = [
-  {
-    id: "1",
-    name: "Board Room",
-    meetings: 2,
-    totalConnections: 3,
-    hoursInUse: 2,
-    contentItems: 1,
-    avgDuration: "1 hr",
-    avgDurationMinutes: 60,
-  },
-  {
-    id: "2",
-    name: "Corner Conference",
-    meetings: 1,
-    totalConnections: 2,
-    hoursInUse: 0.5,
-    contentItems: 2,
-    avgDuration: "30 min",
-    avgDurationMinutes: 30,
-  },
-  {
-    id: "3",
-    name: "Hallway",
-    meetings: 1,
-    totalConnections: 1,
-    hoursInUse: 0.75,
-    contentItems: 1,
-    avgDuration: "45 min",
-    avgDurationMinutes: 45,
-  },
-  {
-    id: "4",
-    name: "John's Office",
-    meetings: 2,
-    totalConnections: 1,
-    hoursInUse: 4,
-    contentItems: 4,
-    avgDuration: "2 hrs",
-    avgDurationMinutes: 120,
-  },
-  {
-    id: "5",
-    name: "Temp Office",
-    meetings: null,
-    totalConnections: null,
-    hoursInUse: null,
-    contentItems: null,
-    avgDuration: null,
-    avgDurationMinutes: null,
-  },
-];
+import {
+  useUsageDeviceRows,
+  UsageDeviceRow,
+} from "@/lib/analytics/hooks/useDeviceTableRows";
 
 /* ── Column definitions ── */
-const USAGE_COLUMNS: ColumnDef<UsageDevice>[] = [
+const USAGE_COLUMNS: ColumnDef<UsageDeviceRow>[] = [
   { key: "name", label: "Name", sortable: true },
   { key: "meetings", label: "Meetings", sortable: true },
-  { key: "totalConnections", label: "Total Connections", sortable: true },
-  { key: "hoursInUse", label: "Hours in Use", sortable: true },
-  { key: "contentItems", label: "Content Items", sortable: true },
+  { key: "connections", label: "Connections", sortable: true },
+  { key: "posts", label: "Posts", sortable: true },
+  {
+    key: "totalHours",
+    label: "Total Hours",
+    sortable: true,
+    render: (value) => (value === null ? "-" : (value as number).toFixed(2)),
+    csvValue: (value) => (value === null ? "" : (value as number).toFixed(2)),
+  },
   {
     key: "avgDurationMinutes",
     label: "Avg. Duration",
     sortable: true,
-    // Sort by raw minutes, display the friendly string in the UI
-    render: (_value, row) => row.avgDuration ?? "-",
-    // Export the friendly string instead of the raw minutes number
-    csvValue: (_value, row) => row.avgDuration ?? "",
+    render: (_value, row) => row.avgDurationLabel ?? "-",
+    csvValue: (_value, row) => row.avgDurationLabel ?? "",
   },
 ];
 
+/* ── Time range config ── */
 type TimeRange = "7d" | "30d" | "60d" | "90d" | "all";
 
 const TIME_RANGES: { key: TimeRange; label: string }[] = [
@@ -105,23 +51,21 @@ const TIME_RANGES: { key: TimeRange; label: string }[] = [
   { key: "all", label: "All time" },
 ];
 
-interface UsagePageProps {
-  /** Ref forwarded from AnalyticsLayout so the Export CSV button can call exportCSV() */
-  tableRef?: React.Ref<SelectableDataTableHandle>;
-}
-
 const METRIC_API_MAP: Record<string, string> = {
   meetings: "ts_meetings_num",
-  users: "ts_users_num",
-  hours: "ts_meetings_duration_tot",
   connections: "ts_connections_num",
-  posts: "ts_posts_num",
-  avgLength: "ts_meetings_duration_avg",
 };
+
+interface UsagePageProps {
+  tableRef?: React.Ref<SelectableDataTableHandle>;
+}
 
 export default function UsagePage({ tableRef }: UsagePageProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>("7d");
   const [isLoading, setIsLoading] = React.useState(true);
+
+  // Device names currently checked in the table (empty = treat all as selected)
+  const [selectedDeviceNames, setSelectedDeviceNames] = useState<string[]>([]);
 
   registerMetric("ts_connections_num_by_os");
 
@@ -138,6 +82,16 @@ export default function UsagePage({ tableRef }: UsagePageProps) {
     deviceMetricB,
     userConnectionsMetric: "ts_connections_num_by_os",
   });
+
+  // Dynamic rows built from timeseries data — default sort: Meetings desc
+  const deviceRows = useUsageDeviceRows(timeRange, ready);
+
+  const handleSelectionChange = useCallback(
+    (_ids: Set<string>, rows: UsageDeviceRow[]) => {
+      setSelectedDeviceNames(rows.map((r) => r.name));
+    },
+    [],
+  );
 
   return (
     <>
@@ -167,7 +121,10 @@ export default function UsagePage({ tableRef }: UsagePageProps) {
           description="Compare up to two types of usage data for devices in your organization"
         />
       ) : (
-        <DeviceUtilization timeRange={timeRange} />
+        <DeviceUtilization
+          timeRange={timeRange}
+          selectedDeviceNames={selectedDeviceNames}
+        />
       )}
 
       <hr className="pb-5" />
@@ -180,6 +137,7 @@ export default function UsagePage({ tableRef }: UsagePageProps) {
       ) : (
         <UserConnections
           timeRange={timeRange}
+          selectedDeviceNames={selectedDeviceNames}
           title="User Connections"
           subtitle="Compare connection modes, sharing protocols, user operating systems, and types of conferencing solutions used"
         />
@@ -193,23 +151,27 @@ export default function UsagePage({ tableRef }: UsagePageProps) {
           description="Compare how many users connect versus how often they share a post within a meeting on average"
         />
       ) : (
-        <CollaborationUsage timeRange={timeRange} />
+        <CollaborationUsage
+          timeRange={timeRange}
+          selectedDeviceNames={selectedDeviceNames}
+        />
       )}
 
       <hr className="pb-5" />
 
-      <SelectableDataTable
+      <SelectableDataTable<UsageDeviceRow>
         ref={tableRef}
         heading="Selected Devices"
         subheading="Select all or narrow the data down to a specific group of devices"
-        rows={USAGE_DEVICES}
+        rows={deviceRows}
         rowKey="id"
         columns={USAGE_COLUMNS}
-        defaultSortKey="name"
-        defaultSortDir="asc"
+        defaultSortKey="meetings"
+        defaultSortDir="desc"
         defaultAllSelected
-        isLoading={isLoading}
+        isLoading={isLoading || !ready}
         csvFilename="usage-devices"
+        onSelectionChange={handleSelectionChange}
       />
     </>
   );

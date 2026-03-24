@@ -9,8 +9,9 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { formatShortDate } from "@/lib/analytics/utils/helpers";
+import { useFilteredAlertsChart } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
 
 export interface AlertPoint {
   date: string;
@@ -20,43 +21,27 @@ export interface AlertPoint {
 interface Props {
   data: AlertPoint[];
   interval: number;
+  timeRange: string;
+  ready: boolean;
+  selectedDeviceNames?: string[];
 }
 
 const SERIES_CONFIG: Record<string, { label: string; color: string }> = {
-  ts_app_alerts_unreachable_num: {
-    label: "Unreachable",
-    color: "#5B5BD6",
-  },
-  ts_app_alerts_rebooted_num: {
-    label: "Rebooted",
-    color: "#C34F7D",
-  },
+  ts_app_alerts_unreachable_num: { label: "Unreachable", color: "#5B5BD6" },
+  ts_app_alerts_rebooted_num: { label: "Rebooted", color: "#C34F7D" },
   ts_app_alerts_template_unassigned_num: {
     label: "Unassigned from template",
     color: "#5F87C2",
   },
-  ts_app_alerts_usb_out_num: {
-    label: "USB unplugged",
-    color: "#8B1A00",
-  },
-  ts_app_alerts_usb_in_num: {
-    label: "USB plugged in",
-    color: "#8A9B2F",
-  },
-  ts_app_alerts_onboarded_num: {
-    label: "Onboarded",
-    color: "#D47A00",
-  },
-  ts_app_alerts_plan_assigned_num: {
-    label: "Plan assigned",
-    color: "#8E56C2",
-  },
+  ts_app_alerts_usb_out_num: { label: "USB unplugged", color: "#8B1A00" },
+  ts_app_alerts_usb_in_num: { label: "USB plugged in", color: "#8A9B2F" },
+  ts_app_alerts_onboarded_num: { label: "Onboarded", color: "#D47A00" },
+  ts_app_alerts_plan_assigned_num: { label: "Plan assigned", color: "#8E56C2" },
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
-
   return (
     <div
       style={{
@@ -71,7 +56,6 @@ const CustomTooltip = ({ active, payload, label }: any) => {
       <div style={{ fontWeight: 600, marginBottom: 6, color: "#111" }}>
         {label}
       </div>
-      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
       {payload.map((p: any) => {
         const config = SERIES_CONFIG[p.dataKey];
         return (
@@ -87,42 +71,60 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   );
 };
 
-export default function AlertsChart({ data, interval }: Props) {
-  // Dynamically detect which ts_app_alerts_* keys are present in the data
-  const availableSeries = useMemo(() => {
-    if (!data?.length) return [];
+export default function AlertsChart({
+  data,
+  timeRange,
+  ready,
+  selectedDeviceNames = [],
+}: Props) {
+  const { data: filteredData } = useFilteredAlertsChart(
+    timeRange,
+    ready,
+    selectedDeviceNames,
+  );
 
-    const allKeys = new Set<string>();
-    data.forEach((row) => {
+  const activeData = selectedDeviceNames?.length > 0 ? filteredData : data;
+
+  // ✅ FIX: memoized to prevent infinite loop
+  const availableSeries = useMemo(() => {
+    if (!activeData?.length) return [];
+    const keys = new Set<string>();
+    activeData.forEach((row) => {
       Object.keys(row).forEach((k) => {
-        if (k.startsWith("ts_app_alerts_")) allKeys.add(k);
+        if (k.startsWith("ts_app_alerts_")) keys.add(k);
       });
     });
-
-    return Array.from(allKeys);
-  }, [data]);
+    return Array.from(keys);
+  }, [activeData]);
 
   const [active, setActive] = useState<Record<string, boolean>>({});
 
+  // ✅ FIX: avoid unnecessary updates
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setActive((prev) => {
       const next: Record<string, boolean> = {};
+      let changed = false;
+
       availableSeries.forEach((key) => {
-        // Preserve existing toggle state; default new keys to true
-        next[key] = prev[key] ?? true;
+        const value = prev[key] ?? true;
+        next[key] = value;
+        if (prev[key] !== value) changed = true;
       });
-      return next;
+
+      return changed ? next : prev;
     });
   }, [availableSeries]);
 
   const toggle = (key: string) =>
     setActive((prev) => ({ ...prev, [key]: !prev[key] }));
 
-  const formattedData = (data || []).map((d) => ({
-    ...d,
-    label: formatShortDate(d.date),
-  }));
+  // ✅ performance improvement
+  const formattedData = useMemo(() => {
+    return (activeData || []).map((d) => ({
+      ...d,
+      label: formatShortDate(d.date as string),
+    }));
+  }, [activeData]);
 
   if (!formattedData.length) {
     return (
@@ -136,7 +138,6 @@ export default function AlertsChart({ data, interval }: Props) {
   return (
     <div className="mb-8">
       <div className="font-semibold text-[15px] text-black mb-0.5">Alerts</div>
-
       <div className="text-[13px] text-gray-400 mb-4">
         Monitor the quantity and which types of alerts occurred in your fleet
       </div>
@@ -149,10 +150,21 @@ export default function AlertsChart({ data, interval }: Props) {
 
               <XAxis
                 dataKey="label"
-                interval={interval}
                 tick={{ fontSize: 12 }}
                 axisLine={false}
                 tickLine={false}
+                ticks={(() => {
+                  const len = formattedData.length;
+                  if (len === 0) return [];
+                  const count = 7;
+                  const sel = new Set<number>([0, len - 1]);
+                  for (let i = 1; i < count - 1; i++) {
+                    sel.add(Math.round((i / (count - 1)) * (len - 1)));
+                  }
+                  return [...sel]
+                    .sort((a, b) => a - b)
+                    .map((i) => formattedData[i].label);
+                })()}
               />
 
               <YAxis
@@ -166,8 +178,8 @@ export default function AlertsChart({ data, interval }: Props) {
               {availableSeries.map((key) => {
                 if (!active[key]) return null;
                 const config = SERIES_CONFIG[key];
-                // Fallback color for any unknown ts_app_alerts_* metric
                 const color = config?.color ?? "#94A3B8";
+
                 return (
                   <Area
                     key={key}
@@ -184,12 +196,13 @@ export default function AlertsChart({ data, interval }: Props) {
             </AreaChart>
           </ResponsiveContainer>
         </div>
-        \{" "}
+
         <div className="flex flex-wrap gap-4 mt-6">
           {availableSeries.map((key) => {
             const config = SERIES_CONFIG[key];
             const color = config?.color ?? "#94A3B8";
             const label = config?.label ?? key;
+
             return (
               <div
                 key={key}

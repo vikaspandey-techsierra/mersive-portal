@@ -10,8 +10,17 @@ import { SelectableDataTableHandle } from "@/components/SelectedDevices";
 
 type Tab = "Usage" | "Monitoring" | "Email Alerts";
 
-const TABS: Tab[] = ["Usage", "Monitoring", "Email Alerts"];
+const SHOW_EXPORT_CSV =
+  process.env.NEXT_PUBLIC_FEATURE_FLAG_SHOW_EXPORT_CSV_ON_EMAIL_TABLE ===
+  "true"; // Toggle this to show/hide the alert graph section
+const SHOW_ALERT_PAGE =
+  process.env.NEXT_PUBLIC_FEATURE_FLAG_SHOW_ALERT_PAGE === "true"; // Toggle this to show/hide the alert graph section
 
+const TABS: Tab[] = [
+  "Usage",
+  "Monitoring",
+  ...(SHOW_ALERT_PAGE ? (["Email Alerts"] as Tab[]) : []),
+];
 export default function AnalyticsLayout() {
   const [activeTab, setActiveTab] = useState<Tab>("Usage");
 
@@ -25,6 +34,8 @@ export default function AnalyticsLayout() {
       usageTableRef.current?.exportCSV();
     } else if (activeTab === "Monitoring") {
       monitoringTableRef.current?.exportCSV();
+    } else if (activeTab === "Email Alerts" && SHOW_EXPORT_CSV) {
+      // Handle export for Email Alerts tab if needed
     }
   };
 
@@ -35,7 +46,7 @@ export default function AnalyticsLayout() {
       case "Monitoring":
         return <MonitoringPage tableRef={monitoringTableRef} />;
       case "Email Alerts":
-        return <EmailAlertsPage />;
+        return SHOW_ALERT_PAGE ? <EmailAlertsPage /> : null;
       default:
         return null;
     }
@@ -81,7 +92,7 @@ export default function AnalyticsLayout() {
               })}
             </div>
 
-            {activeTab !== "Email Alerts" && (
+            {(activeTab !== "Email Alerts" || SHOW_EXPORT_CSV) && (
               <button
                 onClick={handleExportCSV}
                 className="w-full sm:w-auto flex items-center gap-2 text-sm font-medium text-black border border-gray-300 rounded-lg px-4 py-2 hover:bg-gray-50 transition"
