@@ -9,18 +9,12 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { formatShortDate } from "@/lib/analytics/utils/helpers";
 
 export interface AlertPoint {
   date: string;
-  ts_app_alerts_unreachable_num: number;
-  ts_app_alerts_rebooted_num: number;
-  ts_app_alerts_template_unassigned_num: number;
-  ts_app_alerts_usb_out_num: number;
-  ts_app_alerts_usb_in_num: number;
-  ts_app_alerts_onboarded_num: number;
-  ts_app_alerts_plan_assigned_num: number;
+  [key: string]: number | string;
 }
 
 interface Props {
@@ -28,43 +22,36 @@ interface Props {
   interval: number;
 }
 
-const SERIES = [
-  {
-    key: "ts_app_alerts_unreachable_num",
+const SERIES_CONFIG: Record<string, { label: string; color: string }> = {
+  ts_app_alerts_unreachable_num: {
     label: "Unreachable",
     color: "#5B5BD6",
   },
-  {
-    key: "ts_app_alerts_rebooted_num",
+  ts_app_alerts_rebooted_num: {
     label: "Rebooted",
     color: "#C34F7D",
   },
-  {
-    key: "ts_app_alerts_template_unassigned_num",
+  ts_app_alerts_template_unassigned_num: {
     label: "Unassigned from template",
     color: "#5F87C2",
   },
-  {
-    key: "ts_app_alerts_usb_out_num",
+  ts_app_alerts_usb_out_num: {
     label: "USB unplugged",
     color: "#8B1A00",
   },
-  {
-    key: "ts_app_alerts_usb_in_num",
+  ts_app_alerts_usb_in_num: {
     label: "USB plugged in",
     color: "#8A9B2F",
   },
-  {
-    key: "ts_app_alerts_onboarded_num",
+  ts_app_alerts_onboarded_num: {
     label: "Onboarded",
     color: "#D47A00",
   },
-  {
-    key: "ts_app_alerts_plan_assigned_num",
+  ts_app_alerts_plan_assigned_num: {
     label: "Plan assigned",
     color: "#8E56C2",
   },
-];
+};
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -81,30 +68,18 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         fontSize: 13,
       }}
     >
-      <div
-        style={{
-          fontWeight: 600,
-          marginBottom: 6,
-          color: "#111",
-        }}
-      >
+      <div style={{ fontWeight: 600, marginBottom: 6, color: "#111" }}>
         {label}
       </div>
-
-      {/* VALUES */}
       {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
       {payload.map((p: any) => {
-        const series = SERIES.find((s) => s.key === p.dataKey);
+        const config = SERIES_CONFIG[p.dataKey];
         return (
           <div
             key={p.dataKey}
-            style={{
-              color: series?.color,
-              fontWeight: 500,
-              marginBottom: 2,
-            }}
+            style={{ color: config?.color, fontWeight: 500, marginBottom: 2 }}
           >
-            {series?.label}: {p.value}
+            {config?.label ?? p.dataKey}: {p.value}
           </div>
         );
       })}
@@ -113,9 +88,33 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function AlertsChart({ data, interval }: Props) {
-  const [active, setActive] = useState<Record<string, boolean>>(
-    Object.fromEntries(SERIES.map((s) => [s.key, true]))
-  );
+  // Dynamically detect which ts_app_alerts_* keys are present in the data
+  const availableSeries = useMemo(() => {
+    if (!data?.length) return [];
+
+    const allKeys = new Set<string>();
+    data.forEach((row) => {
+      Object.keys(row).forEach((k) => {
+        if (k.startsWith("ts_app_alerts_")) allKeys.add(k);
+      });
+    });
+
+    return Array.from(allKeys);
+  }, [data]);
+
+  const [active, setActive] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setActive((prev) => {
+      const next: Record<string, boolean> = {};
+      availableSeries.forEach((key) => {
+        // Preserve existing toggle state; default new keys to true
+        next[key] = prev[key] ?? true;
+      });
+      return next;
+    });
+  }, [availableSeries]);
 
   const toggle = (key: string) =>
     setActive((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -164,62 +163,70 @@ export default function AlertsChart({ data, interval }: Props) {
 
               <Tooltip content={<CustomTooltip />} />
 
-              {SERIES.map(
-                (s) =>
-                  active[s.key] && (
-                    <Area
-                      key={s.key}
-                      type="monotone"
-                      dataKey={s.key}
-                      name={s.label}
-                      stackId="1"
-                      stroke={s.color}
-                      fill={s.color}
-                      fillOpacity={0.85}
-                    />
-                  )
-              )}
+              {availableSeries.map((key) => {
+                if (!active[key]) return null;
+                const config = SERIES_CONFIG[key];
+                // Fallback color for any unknown ts_app_alerts_* metric
+                const color = config?.color ?? "#94A3B8";
+                return (
+                  <Area
+                    key={key}
+                    type="monotone"
+                    dataKey={key}
+                    name={config?.label ?? key}
+                    stackId="1"
+                    stroke={color}
+                    fill={color}
+                    fillOpacity={0.85}
+                  />
+                );
+              })}
             </AreaChart>
           </ResponsiveContainer>
         </div>
-
+        \{" "}
         <div className="flex flex-wrap gap-4 mt-6">
-          {SERIES.map((s) => (
-            <div
-              key={s.key}
-              className="flex items-center gap-2 cursor-pointer"
-              onClick={() => toggle(s.key)}
-            >
-              <span
-                className="w-4 h-4 rounded border-2 flex items-center justify-center"
-                style={{
-                  borderColor: active[s.key] ? s.color : "#D1D5DB",
-                  background: active[s.key] ? s.color : "#fff",
-                }}
+          {availableSeries.map((key) => {
+            const config = SERIES_CONFIG[key];
+            const color = config?.color ?? "#94A3B8";
+            const label = config?.label ?? key;
+            return (
+              <div
+                key={key}
+                className="flex items-center gap-2 cursor-pointer"
+                onClick={() => toggle(key)}
               >
-                {active[s.key] && (
-                  <svg width="10" height="8" viewBox="0 0 10 8">
-                    <path
-                      d="M1 4L3.5 6.5L9 1"
-                      stroke="#fff"
-                      strokeWidth="1.8"
-                    />
-                  </svg>
-                )}
-              </span>
+                <span
+                  className="w-4 h-4 rounded border-2 flex items-center justify-center"
+                  style={{
+                    borderColor: active[key] ? color : "#D1D5DB",
+                    background: active[key] ? color : "#fff",
+                  }}
+                >
+                  {active[key] && (
+                    <svg width="10" height="8" viewBox="0 0 10 8">
+                      <path
+                        d="M1 4L3.5 6.5L9 1"
+                        stroke="#fff"
+                        strokeWidth="1.8"
+                      />
+                    </svg>
+                  )}
+                </span>
 
-              <span
-                className="rounded px-3 py-1 text-xs font-medium"
-                style={{
-                  background: s.color,
-                  color: "#fff",
-                  opacity: active[s.key] ? 1 : 0.45,
-                }}
-              >
-                {s.label}
-              </span>
-            </div>
-          ))}
+                <span
+                  className="rounded px-3 py-1 text-xs font-medium"
+                  style={{
+                    background: color,
+                    color: "#fff",
+                    opacity: active[key] ? 1 : 0.45,
+                  }}
+                >
+                  {label}
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

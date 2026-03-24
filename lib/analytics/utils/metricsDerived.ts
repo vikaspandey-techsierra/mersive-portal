@@ -59,13 +59,27 @@ export const METRIC_FORMULAS: Record<
 
   // Downtime devices (derived)
   ts_downtime_devices_num_tot: (metrics) => {
-    const hours = metrics["ts_downtime_duration_tot"];
-    if (!hours) return [];
+    const duration = metrics["ts_downtime_duration_tot"];
+    if (!duration) return [];
 
-    return hours.map((h) => ({
-      date: h.date,
-      value: 0,
-      // value: h.value ? Math.max(1, Math.round(h.value / 24)) : 0,
+    const devicesPerDay: Record<string, Set<string>> = {};
+
+    duration.forEach((row) => {
+      const date = row.date;
+      const device = row.device_name;
+
+      if (!devicesPerDay[date]) {
+        devicesPerDay[date] = new Set();
+      }
+
+      if (device) {
+        devicesPerDay[date].add(device);
+      }
+    });
+
+    return Object.keys(devicesPerDay).map((date) => ({
+      date,
+      value: devicesPerDay[date].size,
     }));
   },
 };

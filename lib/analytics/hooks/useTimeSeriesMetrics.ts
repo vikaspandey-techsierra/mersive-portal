@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { getMetric, hasMetric } from "../utils/metricsStore";
+import { getAllMetrics, getMetric } from "../utils/metricsStore";
 import { fetchTimeseriesMetrics } from "../timeseries/timeseriesManager";
 import {
   ChartPoint,
@@ -135,23 +135,14 @@ export function useMonitoringMetrics(timeRange: string) {
     async function loadMetrics() {
       setReady(false);
 
-      const metrics = [
+      // Request metric groups, not individual alert metrics
+      const metricsToFetch = [
         "ts_downtime_devices_num_tot",
         "ts_downtime_duration_tot",
-        "ts_app_alerts_unreachable_num",
-        "ts_app_alerts_rebooted_num",
-        "ts_app_alerts_template_unassigned_num",
-        "ts_app_alerts_usb_out_num",
-        "ts_app_alerts_usb_in_num",
-        "ts_app_alerts_onboarded_num",
-        "ts_app_alerts_plan_assigned_num",
+        "ts_app_alerts_*", // group metrics for alerts chart
       ];
+      await fetchTimeseriesMetrics(metricsToFetch, timeRange);
 
-      // Only fetch missing metrics
-      const missing = metrics.filter((m) => !hasMetric(`${m}__${timeRange}`));
-      if (missing.length) {
-        await fetchTimeseriesMetrics(missing, timeRange);
-      }
       if (!cancelled) setReady(true);
     }
 
@@ -178,20 +169,24 @@ export function useDowntimeChart(timeRange: string, ready: boolean) {
 
     if (!devicesRaw.length && !hoursRaw.length) return;
 
-    const base = devicesRaw.length ? devicesRaw : hoursRaw;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const map = new Map<string, any>();
 
-    const merged = base.map((d: ChartPoint, i: number) => {
-      const seconds = hoursRaw[i]?.value ?? 0;
-      const hours = seconds / 3600;
-
-      return {
-        date: d.date,
-        hours,
-        devices: 0,
-      };
+    devicesRaw.forEach((d: ChartPoint) => {
+      if (!map.has(d.date)) {
+        map.set(d.date, { date: d.date, devices: 0, hours: 0 });
+      }
+      map.get(d.date).devices = d.value;
     });
 
-    // console.log("Downtime merged:", merged);
+    hoursRaw.forEach((h: ChartPoint) => {
+      if (!map.has(h.date)) {
+        map.set(h.date, { date: h.date, devices: 0, hours: 0 });
+      }
+      map.get(h.date).hours = h.value;
+    });
+
+    const merged = Array.from(map.values());
 
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setData(merged);
@@ -207,39 +202,50 @@ export function useAlertsChart(timeRange: string, ready: boolean) {
   useEffect(() => {
     if (!ready) return;
 
-    const unreachable =
-      getMetric(`ts_app_alerts_unreachable_num__${timeRange}`) || [];
-    const rebooted =
-      getMetric(`ts_app_alerts_rebooted_num__${timeRange}`) || [];
-    const unassigned =
-      getMetric(`ts_app_alerts_template_unassigned_num__${timeRange}`) || [];
-    const usbOut = getMetric(`ts_app_alerts_usb_out_num__${timeRange}`) || [];
-    const usbIn = getMetric(`ts_app_alerts_usb_in_num__${timeRange}`) || [];
-    const onboarded =
-      getMetric(`ts_app_alerts_onboarded_num__${timeRange}`) || [];
-    const planAssigned =
-      getMetric(`ts_app_alerts_plan_assigned_num__${timeRange}`) || [];
+    const allMetrics = getAllMetrics();
 
-    const base = unreachable.length
-      ? unreachable
-      : rebooted.length
-      ? rebooted
-      : [];
+    // Get all alert metrics dynamically
+    const alertMetrics = Object.keys(allMetrics)
+      .filter(
+        (key) =>
+          key.startsWith("ts_app_alerts_") && key.endsWith(`__${timeRange}`)
+      )
+      .map((key) => key.replace(`__${timeRange}`, ""));
 
-    const merged = base.map((d: ChartPoint, i: number) => ({
-      date: d.date,
-      ts_app_alerts_unreachable_num: unreachable[i]?.value ?? 0,
-      ts_app_alerts_rebooted_num: rebooted[i]?.value ?? 0,
-      ts_app_alerts_template_unassigned_num: unassigned[i]?.value ?? 0,
-      ts_app_alerts_usb_out_num: usbOut[i]?.value ?? 0,
-      ts_app_alerts_usb_in_num: usbIn[i]?.value ?? 0,
-      ts_app_alerts_onboarded_num: onboarded[i]?.value ?? 0,
-      ts_app_alerts_plan_assigned_num: planAssigned[i]?.value ?? 0,
-    }));
+    const metricsMap: Record<string, ChartPoint[]> = {};
 
+    alertMetrics.forEach((metric) => {
+      metricsMap[metric] = getMetric(`${metric}__${timeRange}`) || [];
+    });
+
+    const activeMetrics = Object.entries(metricsMap)
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      .filter(([_, arr]) => arr.some((p) => p.value > 0))
+      .map(([key]) => key);
+
+    if (!activeMetrics.length) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setData([]);
+      return;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const dateMap = new Map<string, any>();
+
+    activeMetrics.forEach((metric) => {
+      metricsMap[metric].forEach((point) => {
+        if (!dateMap.has(point.date)) {
+          dateMap.set(point.date, { date: point.date });
+        }
+        dateMap.get(point.date)[metric] = point.value;
+      });
+    });
+
+    const merged = Array.from(dateMap.values());
+
+    // console.log("Active alert metrics:", activeMetrics);
     // console.log("Alerts merged:", merged);
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setData(merged);
   }, [timeRange, ready]);
 

@@ -55,31 +55,44 @@ export async function fetchTimeseriesMetrics(
 
   metricsArray.forEach((m) => pendingMetrics[timeRange].add(m));
 
-  // batching delay
   await new Promise((resolve) => setTimeout(resolve, 0));
 
   const allMetrics = Array.from(pendingMetrics[timeRange]);
   pendingMetrics[timeRange].clear();
 
-  const missingMetrics = allMetrics.filter(
+  const startDate = getStartDate(timeRange);
+  const endDate = getEndDate();
+
+  let expandedMetrics: string[] = [];
+
+  // Handle wildcard alert metrics
+  if (allMetrics.includes("ts_app_alerts_*")) {
+    const alertRows = timeseriesMock.filter(
+      (row) =>
+        row.metric_name.startsWith("ts_app_alerts_") &&
+        row.date >= startDate &&
+        row.date <= endDate
+    );
+
+    const alertMetricSet = new Set<string>();
+    alertRows.forEach((row) => alertMetricSet.add(row.metric_name));
+
+    expandedMetrics = [
+      ...allMetrics.filter((m) => m !== "ts_app_alerts_*"),
+      ...Array.from(alertMetricSet),
+    ];
+  } else {
+    expandedMetrics = allMetrics;
+  }
+
+  const missingMetrics = expandedMetrics.filter(
     (metric) => !getMetric(`${metric}__${timeRange}`)
   );
 
   if (!missingMetrics.length) return;
 
-  const metricsString = missingMetrics.join(",");
-
-  const startDate = getStartDate(timeRange);
-  const endDate = getEndDate();
-  const aggregationLevel = getAggregationLevel(timeRange);
-
   console.log("BATCH Metrics:", missingMetrics);
-  console.log("Metrics (string):", metricsString);
-  console.log("start_date:", startDate);
-  console.log("end_date:", endDate);
-  console.log("aggregation_level:", aggregationLevel);
 
-  //MOCK FILTER (simulate API)
   const rows: TimeseriesRow[] = timeseriesMock.filter(
     (row) =>
       missingMetrics.includes(row.metric_name) &&
@@ -87,9 +100,8 @@ export async function fetchTimeseriesMetrics(
       row.date <= endDate
   );
 
-  // console.log("Rows fetched:", rows.length);
+  console.log("RAW rows:", rows);
 
-  //PARSE
   const parsed = parseTimeseries(
     rows,
     timeRange,
@@ -97,9 +109,7 @@ export async function fetchTimeseriesMetrics(
     missingMetrics
   );
 
-  // console.log("Parsed result:", parsed);
-
-  // CACHE
+  // Cache REAL metrics (not wildcard)
   missingMetrics.forEach((metric) => {
     const data = parsed[metric];
     if (data) {
