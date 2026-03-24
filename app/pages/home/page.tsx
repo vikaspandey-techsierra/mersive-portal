@@ -37,19 +37,30 @@ import {
   useAvgMeetingLengthMetric,
   useBusiestTimeMetric,
 } from "@/lib/analytics/hooks/useSnapshotMetric";
+import { useState } from "react";
 
 export default function DashboardPage() {
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleRefresh = () => {
+    setRefreshKey((prev) => prev + 1);
+  };
+
   // DEVICE BREAKDOWN METRICS
   const {
     data: deviceTypeData,
     createdAt,
     loading: typeLoading,
-  } = useDeviceTypeMetric();
+  } = useDeviceTypeMetric(refreshKey);
+
   const { data: deviceStatusData, loading: statusLoading } =
-    useDeviceStatusMetric();
-  const { data: planTypeData, loading: planLoading } = usePlanTypeMetric();
+    useDeviceStatusMetric(refreshKey);
+
+  const { data: planTypeData, loading: planLoading } =
+    usePlanTypeMetric(refreshKey);
+
   const { data: fleetHealthData, loading: fleetLoading } =
-    useFleetHealthMetric();
+    useFleetHealthMetric(refreshKey);
 
   // BANNER METRICS
   const offlineDevices = useOfflineDevicesMetric();
@@ -108,12 +119,15 @@ export default function DashboardPage() {
           <UpdatesSection release={release} faqs={faqs} />
           {/* DEVICE BREAKDOWN */}
           <div className="p-8 bg-white text-black">
-            <div className="text-2xl font-semibold mb-6 flex gap-2 items-baseline">
+            <div className="text-2xl font-semibold mb-6 flex gap-2 items-center">
+              {" "}
               Device Breakdown
               <span className="text-[16px] font-normal text-[#93949C]">
                 {createdAt ? formatDate(createdAt) : ""}
               </span>
-              <Image src={Replay} alt="Replay icon" width={24} height={24} />
+              <button onClick={handleRefresh}>
+                <Image src={Replay} alt="Replay icon" width={24} height={24} />
+              </button>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* DEVICE TYPE */}
