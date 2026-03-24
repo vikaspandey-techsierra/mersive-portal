@@ -99,21 +99,16 @@ export default function AlertsChart({
 
   const [active, setActive] = useState<Record<string, boolean>>({});
 
-  // ✅ FIX: avoid unnecessary updates
-  useEffect(() => {
-    setActive((prev) => {
-      const next: Record<string, boolean> = {};
-      let changed = false;
+  // ✅ derived state (no effect)
+  const mergedActive = useMemo(() => {
+    const next: Record<string, boolean> = {};
 
-      availableSeries.forEach((key) => {
-        const value = prev[key] ?? true;
-        next[key] = value;
-        if (prev[key] !== value) changed = true;
-      });
-
-      return changed ? next : prev;
+    availableSeries.forEach((key) => {
+      next[key] = active[key] ?? true;
     });
-  }, [availableSeries]);
+
+    return next;
+  }, [availableSeries, active]);
 
   const toggle = (key: string) =>
     setActive((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -176,7 +171,7 @@ export default function AlertsChart({
               <Tooltip content={<CustomTooltip />} />
 
               {availableSeries.map((key) => {
-                if (!active[key]) return null;
+                if (!mergedActive[key]) return null;
                 const config = SERIES_CONFIG[key];
                 const color = config?.color ?? "#94A3B8";
 
@@ -212,8 +207,8 @@ export default function AlertsChart({
                 <span
                   className="w-4 h-4 rounded border-2 flex items-center justify-center"
                   style={{
-                    borderColor: active[key] ? color : "#D1D5DB",
-                    background: active[key] ? color : "#fff",
+                    borderColor: mergedActive[key] ? color : "#D1D5DB",
+                    background: mergedActive[key] ? color : "#fff",
                   }}
                 >
                   {active[key] && (
@@ -232,7 +227,7 @@ export default function AlertsChart({
                   style={{
                     background: color,
                     color: "#fff",
-                    opacity: active[key] ? 1 : 0.45,
+                    opacity: mergedActive[key] ? 1 : 0.45,
                   }}
                 >
                   {label}
