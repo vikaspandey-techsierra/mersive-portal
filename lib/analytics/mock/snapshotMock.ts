@@ -5,9 +5,7 @@ import { FleetHealthRow, SnapshotRow } from "../snapshot/snapshotTypes";
 export async function mockSnapshotCloudFunction(
   metric: string
 ): Promise<SnapshotRow[]> {
-
   const mockDB: Record<string, SnapshotRow[]> = {
-  
     cs_devices_num_by_type: [
       {
         org_id: "aVRMM99r6Q6KdR5Bu3gB-7m0i9",
@@ -79,7 +77,6 @@ export async function mockSnapshotCloudFunction(
         created_at: "2026-03-05 02:57:59",
       },
     ],
-    
   };
 
   return mockDB[metric] ?? [];
