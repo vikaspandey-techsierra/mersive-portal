@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDownIcon, ChevronUpIcon, ExternalLinkIcon} from "lucide-react";
+import { ChevronDownIcon, ChevronUpIcon, ExternalLinkIcon } from "lucide-react";
 import HelpIcon from "@/components/icons/help.svg";
 import FeedIcon from "@/components/icons/feed.svg";
 import Image from "next/image";
@@ -13,13 +13,14 @@ interface ReleaseNote {
 interface FaqItem {
   question: string;
   answer?: string;
+  link?: string;
 }
 
 const UpdatesSection = ({
   release,
   faqs,
 }: {
-  release: ReleaseNote;
+  release?: ReleaseNote;
   faqs: FaqItem[];
 }) => {
   const [open, setOpen] = useState(true);
@@ -29,7 +30,7 @@ const UpdatesSection = ({
     <div className="px-8 text-[#090814]">
       {/* Header */}
       <button
-        className="w-full flex items-center justify-between py-4"
+        className="w-full flex items-center justify-between py-8"
         onClick={() => setOpen((v) => !v)}
       >
         <span className="text-2xl font-medium">Updates</span>
@@ -41,48 +42,49 @@ const UpdatesSection = ({
       {open && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Latest Updates */}
-          <div className="bg-white p-6 border border-gray-200 rounded-lg">
-            <div className="flex items-center gap-2">
-              <span className="text-gray-500">
-                <Image src={FeedIcon} alt="Feed icon" width={24} height={24} />
-              </span>
-              <span className="text-[16px] font-semibold ">
-                Latest Updates
-              </span>
+          {release && (
+            <div className="bg-white p-6 border border-gray-200 rounded-lg">
+              <div className="flex items-center gap-2">
+                <span className="text-gray-500">
+                  <Image
+                    src={FeedIcon}
+                    alt="Feed icon"
+                    width={24}
+                    height={24}
+                  />
+                </span>
+                <span className="text-[16px] font-semibold ">
+                  Latest Updates
+                </span>
+              </div>
+              <div className="my-6">
+                <div className="text-[16px] font-semibold ">
+                  {release?.version}
+                </div>
+                <div className="text-[11px] text-[#93949C]  mt-0.5 mb-4">
+                  {release?.date}
+                </div>
+                <ul className="">
+                  {release?.bullets.map((b, i) => (
+                    <li key={i} className="flex items-start gap-2 text-[13px] ">
+                      <span className="mt-2 w-1 h-1 rounded-full bg-[#090814] shrink-0" />
+                      {b}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <button className="mt-5 flex items-center gap-1 text-[11px] text-[#5E54C5] font-medium">
+                See all release notes <ExternalLinkIcon size={12} />
+              </button>
             </div>
-           <div className="my-6">
-             <div className="text-[16px] font-semibold ">
-              {release.version}
-            </div>
-            <div className="text-[11px] text-[#93949C]  mt-0.5 mb-4">
-              {release.date}
-            </div>
-            <ul className="">
-              {release.bullets.map((b, i) => (
-                <li
-                  key={i}
-                  className="flex items-start gap-2 text-[13px] "
-                >
-                  <span className="mt-2 w-1 h-1 rounded-full bg-[#090814] shrink-0" />
-                  {b}
-                </li>
-              ))}
-            </ul>
-           </div>
-            <button className="mt-5 flex items-center gap-1 text-[11px] text-[#5E54C5] font-medium">
-              See all release notes <ExternalLinkIcon size={12} />
-            </button>
-          </div>
-
+          )}
           {/* FAQ */}
           <div className="bg-white p-6 border border-gray-200 rounded-lg">
             <div className="flex items-center gap-2 mb-4">
               <span className="text-gray-500">
                 <Image src={HelpIcon} alt="Help icon" width={24} height={24} />
               </span>
-              <span className="text-[16px] ">
-                Frequently Asked Questions
-              </span>
+              <span className="text-[16px] ">Frequently Asked Questions</span>
             </div>
             <div className="">
               {faqs.map((faq, i) => (
@@ -97,9 +99,22 @@ const UpdatesSection = ({
                     </span>
                   </button>
                   {openFaqIdx === i && (
-                    <div className=" text-[13px] pl-1">
-                      {faq.answer ??
-                        "Answer content will appear here once available from the API."}
+                    <div className="text-[13px] pl-1 mt-1 space-y-1">
+                      <div>
+                        {faq.answer ??
+                          "Answer content will appear here once available from the API."}
+                      </div>
+
+                      {faq.link && (
+                        <a
+                          href={faq.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-[#5E54C5] text-[12px] font-medium"
+                        >
+                          Learn more <ExternalLinkIcon size={12} />
+                        </a>
+                      )}
                     </div>
                   )}
                 </div>
@@ -110,6 +125,6 @@ const UpdatesSection = ({
       )}
     </div>
   );
-}
+};
 
 export default UpdatesSection;
