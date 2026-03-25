@@ -116,8 +116,12 @@ export default function AlertsChart({ data, interval }: Props) {
     });
   }, [availableSeries]);
 
-  const toggle = (key: string) =>
+  const toggle = (key: string) => {
+    const activeCount = Object.values(active).filter(Boolean).length;
+    // Prevent unchecking the last active item
+    if (active[key] && activeCount === 1) return;
     setActive((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   const formattedData = (data || []).map((d) => ({
     ...d,
@@ -132,6 +136,8 @@ export default function AlertsChart({ data, interval }: Props) {
       </div>
     );
   }
+
+  const activeCount = Object.values(active).filter(Boolean).length;
 
   return (
     <div className="mb-8">
@@ -166,12 +172,11 @@ export default function AlertsChart({ data, interval }: Props) {
               {availableSeries.map((key) => {
                 if (!active[key]) return null;
                 const config = SERIES_CONFIG[key];
-                // Fallback color for any unknown ts_app_alerts_* metric
                 const color = config?.color ?? "#94A3B8";
                 return (
                   <Area
                     key={key}
-                    type="monotone"
+                    type="linear"
                     dataKey={key}
                     name={config?.label ?? key}
                     stackId="1"
@@ -184,16 +189,20 @@ export default function AlertsChart({ data, interval }: Props) {
             </AreaChart>
           </ResponsiveContainer>
         </div>
-        \{" "}
+
         <div className="flex flex-wrap gap-4 mt-6">
           {availableSeries.map((key) => {
             const config = SERIES_CONFIG[key];
             const color = config?.color ?? "#94A3B8";
             const label = config?.label ?? key;
+            const isLastActive = active[key] && activeCount === 1;
+
             return (
               <div
                 key={key}
-                className="flex items-center gap-2 cursor-pointer"
+                className={`flex items-center gap-2 ${
+                  isLastActive ? "cursor-not-allowed" : "cursor-pointer"
+                }`}
                 onClick={() => toggle(key)}
               >
                 <span
@@ -201,6 +210,7 @@ export default function AlertsChart({ data, interval }: Props) {
                   style={{
                     borderColor: active[key] ? color : "#D1D5DB",
                     background: active[key] ? color : "#fff",
+                    opacity: isLastActive ? 0.6 : 1,
                   }}
                 >
                   {active[key] && (
@@ -219,7 +229,7 @@ export default function AlertsChart({ data, interval }: Props) {
                   style={{
                     background: color,
                     color: "#fff",
-                    opacity: active[key] ? 1 : 0.45,
+                    opacity: active[key] ? (isLastActive ? 0.6 : 1) : 0.45,
                   }}
                 >
                   {label}

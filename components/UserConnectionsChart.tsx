@@ -33,13 +33,7 @@ function fmtDate(dateStr: string): string {
 }
 
 // COLORS
-const COLOR_PALETTE = [
-  "#6860C8",
-  "#D44E80",
-  "#4D9EC4",
-  "#7E9E2E",
-  "#E8902A",
-];
+const COLOR_PALETTE = ["#6860C8", "#D44E80", "#4D9EC4", "#7E9E2E", "#E8902A"];
 
 // TOOLTIP
 const CustomTooltip = ({
@@ -107,9 +101,9 @@ export default function UserConnections({
     return rawData ?? [];
   }, [rawData]);
 
-  const [activeSegments, setActiveSegments] = useState<
-    Record<string, boolean>
-  >({});
+  const [activeSegments, setActiveSegments] = useState<Record<string, boolean>>(
+    {}
+  );
 
   // ✅ SEGMENTS FROM segment_1_value
   const segments = useMemo(() => {
@@ -176,13 +170,9 @@ export default function UserConnections({
   return (
     <div className="mb-8 w-full">
       {/* HEADER */}
-      <div className="text-[15px] font-semibold text-black mb-1">
-        {title}
-      </div>
+      <div className="text-[15px] font-semibold text-black mb-1">{title}</div>
 
-      <div className="text-[13px] text-gray-400 mb-3">
-        {subtitle}
-      </div>
+      <div className="text-[13px] text-gray-400 mb-3">{subtitle}</div>
 
       {/* CARD */}
       <div className="bg-white rounded-xl p-5 border border-gray-200">
@@ -248,30 +238,40 @@ export default function UserConnections({
           </select>
 
           {/* LEGEND */}
-          {segments.map((segment) => (
-            <label
-              key={segment}
-              className="flex items-center gap-2 cursor-pointer"
-            >
-              <input
-                type="checkbox"
-                checked={activeSegments[segment] ?? true}
-                onChange={() =>
-                  setActiveSegments((prev) => ({
-                    ...prev,
-                    [segment]: !prev[segment],
-                  }))
-                }
-              />
+          {segments.map((segment) => {
+            const activeCount =
+              Object.values(activeSegments).filter(Boolean).length;
+            const isChecked = activeSegments[segment] ?? true;
+            const isLastActive = isChecked && activeCount === 1;
 
-              <span
-                className="px-3 py-1 rounded-full text-white text-xs font-medium"
-                style={{ backgroundColor: segmentColorMap[segment] }}
+            return (
+              <label
+                key={segment}
+                className={`flex items-center gap-2 ${
+                  isLastActive ? "cursor-not-allowed" : "cursor-pointer"
+                }`}
               >
-                {segment}
-              </span>
-            </label>
-          ))}
+                <input
+                  type="checkbox"
+                  checked={isChecked}
+                  disabled={isLastActive}
+                  onChange={() =>
+                    setActiveSegments((prev) => ({
+                      ...prev,
+                      [segment]: !prev[segment],
+                    }))
+                  }
+                />
+
+                <span
+                  className="px-3 py-1 rounded-full text-white text-xs font-medium"
+                  style={{ backgroundColor: segmentColorMap[segment] }}
+                >
+                  {segment}
+                </span>
+              </label>
+            );
+          })}
         </div>
       </div>
     </div>
