@@ -9,21 +9,28 @@ import {
   ReferenceLine,
   ResponsiveContainer,
 } from "recharts";
+import { useMemo } from "react";
 import { formatShortDate } from "@/lib/analytics/utils/helpers";
+import { useFilteredDowntimePoints } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
 
-export interface DowntimePoint {
-  date: string;
-  devices: number;
-  hours: number;
-}
+/* ─────────────────────────────────────────────
+   TYPES
+───────────────────────────────────────────── */
 
 interface Props {
-  data: DowntimePoint[];
-  interval: number;
+  timeRange: string;
+  /** Set of device_name strings currently checked in the Monitoring table */
+  selectedDevices: Set<string>;
+  /** X-axis tick interval (kept for API compatibility) */
+  interval?: number;
 }
 
 const PURPLE = "#5E54C5";
 const PINK = "#C55483";
+
+/* ─────────────────────────────────────────────
+   AXIS LABELS
+───────────────────────────────────────────── */
 
 const LeftAxisLabel = ({
   viewBox,
@@ -71,6 +78,10 @@ const RightAxisLabel = ({
   );
 };
 
+/* ─────────────────────────────────────────────
+   TOOLTIP
+───────────────────────────────────────────── */
+
 const CustomTooltip = ({
   active,
   payload,
@@ -106,36 +117,43 @@ const CustomTooltip = ({
   );
 };
 
-export default function DowntimeChart({ data }: Props) {
+/* ─────────────────────────────────────────────
+   MAIN COMPONENT
+───────────────────────────────────────────── */
+
+export default function DowntimeChart({ timeRange, selectedDevices }: Props) {
+  // Filtered data from mock — respects selectedDevices and timeRange
+  const rawData = useFilteredDowntimePoints(timeRange, selectedDevices);
+
+  const formattedData = useMemo(
+    () => rawData.map((d) => ({ ...d, label: formatShortDate(d.date) })),
+    [rawData],
+  );
+
   const deviceTicks = [0, 6, 12, 18, 24];
 
-  // Format dates
-  const formattedData = (data || []).map((d) => ({
-    ...d,
-    label: formatShortDate(d.date),
-  }));
-
-  // Dynamic X ticks (same logic as Usage chart)
-  const xTicks = (() => {
+  // Dynamic X ticks
+  const xTicks = useMemo(() => {
     const len = formattedData.length;
     if (len === 0) return [];
     const count = 7;
     const selected = new Set<number>([0, len - 1]);
-
     for (let i = 1; i < count - 1; i++) {
       selected.add(Math.round((i / (count - 1)) * (len - 1)));
     }
-
     return [...selected]
       .sort((a, b) => a - b)
       .map((i) => formattedData[i].label);
-  })();
+  }, [formattedData]);
 
-  // Dynamic right axis scale
-  const maxHours =
-    formattedData.length > 0
-      ? Math.max(...formattedData.map((d) => d.hours), 1)
-      : 1;
+  // Dynamic right-axis scale
+  const maxHours = useMemo(
+    () =>
+      formattedData.length > 0
+        ? Math.max(...formattedData.map((d) => d.hours), 1)
+        : 1,
+    [formattedData],
+  );
 
   const hourTicks = [
     0,

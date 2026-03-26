@@ -27,3 +27,17 @@ export function formatShortDate(dateString?: string): string {
 export function isDerivedMetric(metric: string) {
   return metric in METRIC_DEPENDENCIES;
 }
+
+export function getDateCutoff(timeRange: string): Date | null {
+  const now = new Date();
+  const days: Record<string, number> = { "7d": 7, "30d": 30, "60d": 60, "90d": 90 };
+  if (!days[timeRange]) return null; // "all"
+  const cutoff = new Date(now);
+  cutoff.setDate(now.getDate() - days[timeRange]);
+  return cutoff;
+}
+
+export function rowInRange(dateStr: string, cutoff: Date | null): boolean {
+  if (!cutoff) return true;
+  return new Date(dateStr) >= cutoff;
+}

@@ -9,6 +9,7 @@ import {
   useImperativeHandle,
 } from "react";
 import loading from "../components/icons/loading.svg";
+import { timeseriesMock } from "@/lib/analytics/mock/timeseriesMock";
 
 /* ─────────────────────────────────────────────
    TYPES
@@ -16,43 +17,27 @@ import loading from "../components/icons/loading.svg";
 
 export type SortDir = "asc" | "desc";
 
-/** One column definition */
 export interface ColumnDef<T extends Record<string, unknown>> {
-  /** Unique key matching a field in your data row */
   key: keyof T & string;
-  /** Header label shown in <th> */
   label: string;
-  /** Whether this column is sortable (default: false) */
   sortable?: boolean;
-  /**
-   * Optional plain-text extractor used during CSV export.
-   * Provide this whenever the column has a custom `render` that returns JSX,
-   * so the CSV gets a clean string/number instead of "[object Object]".
-   * e.g. for avgDuration: (_v, row) => row.avgDuration ?? ""
-   */
   csvValue?: (value: T[keyof T], row: T) => string | number;
-  /**
-   * Custom renderer for a cell value.
-   * Receives the raw value and the full row.
-   * Defaults to String(value) or "-" when null/undefined.
-   */
   render?: (value: T[keyof T], row: T) => React.ReactNode;
-  /** Extra className applied to every <td> in this column */
   cellClassName?: string;
 }
 
 export interface SelectableDataTableProps<T extends Record<string, unknown>> {
   // ── Content ──────────────────────────────
-  /** Bold heading at the top */
   heading: string;
-  /** Muted subheading below the heading */
   subheading: string;
-  /** Search input placeholder */
   searchPlaceholder?: string;
 
   // ── Data ─────────────────────────────────
-  rows: T[];
-  /** Field used as a stable unique identifier (e.g. "id") */
+  /**
+   * Static rows. When omitted, rows are derived dynamically from
+   * timeseriesMock using the current timeRange.
+   */
+  rows?: T[];
   rowKey: keyof T & string;
   columns: ColumnDef<T>[];
 
@@ -61,30 +46,129 @@ export interface SelectableDataTableProps<T extends Record<string, unknown>> {
   defaultSortDir?: SortDir;
 
   // ── Selection ─────────────────────────────
-  /** Whether all rows start selected (default: true) */
   defaultAllSelected?: boolean;
-  /** Callback fired whenever the selection changes */
+  /**
+   * Fired whenever the selection changes.
+   *
+   * IMPORTANT: when every row is unchecked this fires with an EMPTY Set.
+   * The parent is responsible for treating an empty Set as "all selected"
+   * in its chart-filtering logic (to avoid blank charts).
+   */
   onSelectionChange?: (selectedIds: Set<string>) => void;
 
+  // ── Time Range ────────────────────────────
+  /** Drives dynamic row derivation and column value aggregation. */
+  timeRange?: string;
+
   // ── Loading ───────────────────────────────
-  /**
-   * Control loading state externally. When omitted the component starts in a
-   * 2-second simulated-load state (useful for demos / storybook).
-   */
   isLoading?: boolean;
 
   // ── CSV ───────────────────────────────────
-  /** Base filename for the downloaded CSV (without extension). Defaults to "export". */
   csvFilename?: string;
 }
 
-/** Handle exposed via ref — call exportCSV() from any parent button */
 export interface SelectableDataTableHandle {
   exportCSV: () => void;
 }
 
 /* ─────────────────────────────────────────────
-   INTERNAL HELPERS
+   DYNAMIC ROW DERIVATION
+───────────────────────────────────────────── */
+
+export interface DeviceTableRow extends Record<string, unknown> {
+  id: string;
+  name: string;
+  meetings: number | null;
+  totalConnections: number | null;
+  hoursInUse: number | null;
+  contentItems: number | null;
+  avgDuration: string | null;
+  avgDurationMinutes: number | null;
+}
+
+function getDateCutoff(timeRange: string): Date | null {
+  const days: Record<string, number> = {
+    "7d": 7,
+    "30d": 30,
+    "60d": 60,
+    "90d": 90,
+  };
+  if (!days[timeRange]) return null;
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days[timeRange]);
+  return cutoff;
+}
+
+function deriveDeviceRows(timeRange: string): DeviceTableRow[] {
+  const cutoff = getDateCutoff(timeRange);
+
+  const map = new Map<
+    string,
+    { meetings: number; connections: number; hours: number; posts: number }
+  >();
+
+  timeseriesMock.forEach((row) => {
+    if (!row.device_name) return;
+    if (cutoff && new Date(row.date) < cutoff) return;
+    if (row.segment_1_name) return;
+
+    if (!map.has(row.device_name)) {
+      map.set(row.device_name, {
+        meetings: 0,
+        connections: 0,
+        hours: 0,
+        posts: 0,
+      });
+    }
+
+    const acc = map.get(row.device_name)!;
+    const val = parseFloat(row.metric_value) || 0;
+
+    switch (row.metric_name) {
+      case "ts_meetings_num":
+        acc.meetings += val;
+        break;
+      case "ts_connections_num":
+        acc.connections += val;
+        break;
+      case "ts_meetings_duration_tot":
+        acc.hours += val;
+        break;
+      case "ts_posts_num":
+        acc.posts += val;
+        break;
+    }
+  });
+
+  return Array.from(map.entries()).map(([name, acc]) => {
+    const avgMins =
+      acc.meetings > 0 ? Math.round((acc.hours * 60) / acc.meetings) : null;
+
+    let avgDuration: string | null = null;
+    if (avgMins !== null) {
+      const hrs = Math.floor(avgMins / 60);
+      const mins = avgMins % 60;
+      if (hrs > 0 && mins > 0)
+        avgDuration = `${hrs} hr${hrs > 1 ? "s" : ""} ${mins} min`;
+      else if (hrs > 0) avgDuration = `${hrs} hr${hrs > 1 ? "s" : ""}`;
+      else avgDuration = `${mins} min`;
+    }
+
+    return {
+      id: name,
+      name,
+      meetings: acc.meetings || null,
+      totalConnections: acc.connections || null,
+      hoursInUse: acc.hours ? parseFloat(acc.hours.toFixed(2)) : null,
+      contentItems: acc.posts || null,
+      avgDuration,
+      avgDurationMinutes: avgMins,
+    };
+  });
+}
+
+/* ─────────────────────────────────────────────
+   HELPERS
 ───────────────────────────────────────────── */
 
 const defaultRender = (value: unknown): React.ReactNode =>
@@ -128,32 +212,28 @@ const SortIcon = ({ active, dir }: { active: boolean; dir: SortDir }) => (
 
 /* ─────────────────────────────────────────────
    CHECKBOX
+   No indeterminate state — spec requires:
+     Header: checked = ALL rows checked, unchecked = anything less than all
+     Row:    standard checked / unchecked
 ───────────────────────────────────────────── */
 
 const Checkbox = ({
   checked,
   onChange,
-  indeterminate,
 }: {
   checked: boolean;
   onChange: () => void;
-  indeterminate?: boolean;
 }) => (
   <span
     onClick={(e) => {
       e.stopPropagation();
       onChange();
     }}
-    className={`w-5 h-5 rounded-md border-2 flex items-center justify-center cursor-pointer shrink-0 transition-colors
-      ${
-        checked || indeterminate
-          ? "bg-[#6860C8] border-[#6860C8]"
-          : "bg-white border-gray-300"
-      }`}
+    className={`w-5 h-5 rounded-md border-2 flex items-center justify-center cursor-pointer shrink-0 transition-colors ${
+      checked ? "bg-[#6860C8] border-[#6860C8]" : "bg-white border-gray-300"
+    }`}
   >
-    {indeterminate && !checked ? (
-      <span className="w-2.5 h-0.5 bg-white rounded-sm" />
-    ) : checked ? (
+    {checked && (
       <svg width="11" height="9" viewBox="0 0 11 9">
         <path
           d="M1 4.5L4 7.5L10 1"
@@ -163,12 +243,12 @@ const Checkbox = ({
           strokeLinejoin="round"
         />
       </svg>
-    ) : null}
+    )}
   </span>
 );
 
 /* ─────────────────────────────────────────────
-   INNER COMPONENT  (generic, wrapped by forwardRef below)
+   INNER COMPONENT
 ───────────────────────────────────────────── */
 
 function SelectableDataTableInner<T extends Record<string, unknown>>(
@@ -176,13 +256,14 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
     heading,
     subheading,
     searchPlaceholder = "Search",
-    rows,
+    rows: rowsProp,
     rowKey,
     columns,
     defaultSortKey,
     defaultSortDir = "asc",
     defaultAllSelected = true,
     onSelectionChange,
+    timeRange = "7d",
     isLoading: isLoadingProp,
     csvFilename = "export",
   }: SelectableDataTableProps<T>,
@@ -193,11 +274,24 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
     defaultSortKey ?? columns[0]?.key ?? "",
   );
   const [sortDir, setSortDir] = useState<SortDir>(defaultSortDir);
+
+  // ── Rows: static prop takes priority, else derive from mock ──
+  const dynamicRows = useMemo(() => {
+    if (rowsProp !== undefined) return null;
+    return deriveDeviceRows(timeRange) as unknown as T[];
+  }, [rowsProp, timeRange]);
+
+  const rows: T[] = rowsProp ?? dynamicRows ?? [];
+
+  // ── Selection state ──
+  // Stores exactly what the user has explicitly chosen.
+  // Empty Set = user unchecked everything. Parent interprets this as
+  // "show all devices" to prevent blank charts.
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set(defaultAllSelected ? rows.map((r) => String(r[rowKey])) : []),
   );
 
-  // Internal simulated loading (only used when prop is not provided)
+  // Internal loading fallback
   const [internalLoading, setInternalLoading] = useState(
     isLoadingProp === undefined,
   );
@@ -209,7 +303,7 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
 
   const isLoading = isLoadingProp ?? internalLoading;
 
-  // Sync selection when rows change (e.g. data fetched after mount)
+  // ── Re-select all when rows change (time range switch, fresh data) ──
   useEffect(() => {
     if (defaultAllSelected) {
       setSelected(new Set(rows.map((r) => String(r[rowKey]))));
@@ -217,9 +311,9 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows]);
 
-  // Notify parent
+  // ── Notify parent on every selection change ──
   useEffect(() => {
-    onSelectionChange?.(selected);
+    onSelectionChange?.(new Set(selected));
   }, [selected, onSelectionChange]);
 
   /* ── Filter ── */
@@ -236,33 +330,33 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
   );
 
   /* ── Sort ── */
-  const sorted = useMemo(() => {
-    return [...filtered].sort((a, b) => {
-      const av = a[sortKey];
-      const bv = b[sortKey];
-      if (av === null || av === undefined) return 1;
-      if (bv === null || bv === undefined) return -1;
-      if (typeof av === "string" && typeof bv === "string") {
-        return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
-      }
-      return sortDir === "asc"
-        ? (av as number) - (bv as number)
-        : (bv as number) - (av as number);
-    });
-  }, [filtered, sortKey, sortDir]);
+  const sorted = useMemo(
+    () =>
+      [...filtered].sort((a, b) => {
+        const av = a[sortKey];
+        const bv = b[sortKey];
+        if (av === null || av === undefined) return 1;
+        if (bv === null || bv === undefined) return -1;
+        if (typeof av === "string" && typeof bv === "string") {
+          return sortDir === "asc"
+            ? av.localeCompare(bv)
+            : bv.localeCompare(av);
+        }
+        return sortDir === "asc"
+          ? (av as number) - (bv as number)
+          : (bv as number) - (av as number);
+      }),
+    [filtered, sortKey, sortDir],
+  );
 
   /* ── CSV Export ── */
   const exportCSV = () => {
-    // Only include currently-selected rows
     const selectedRows = sorted.filter((r) => selected.has(String(r[rowKey])));
-
     const header = columns.map((c) => escapeCSV(c.label)).join(",");
-
     const body = selectedRows
       .map((row) =>
         columns
           .map((col) => {
-            // Use csvValue extractor if provided, otherwise fall back to the raw field
             const raw = col.csvValue
               ? col.csvValue(row[col.key], row)
               : row[col.key];
@@ -271,7 +365,6 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
           .join(","),
       )
       .join("\n");
-
     const blob = new Blob([`${header}\n${body}`], {
       type: "text/csv;charset=utf-8;",
     });
@@ -283,11 +376,9 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
     URL.revokeObjectURL(url);
   };
 
-  /* ── Expose handle to parent ── */
-  // Re-create the handle whenever the data it closes over changes
   useImperativeHandle(ref, () => ({ exportCSV }), [sorted, selected, columns]);
 
-  /* ── Selection handlers ── */
+  /* ── Sort handler ── */
   const handleSort = (key: string) => {
     if (sortKey === key) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -297,12 +388,20 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
     }
   };
 
-  const allSelected = sorted.every((r) => selected.has(String(r[rowKey])));
-  const someSelected =
-    sorted.some((r) => selected.has(String(r[rowKey]))) && !allSelected;
+  /* ── Header checkbox ──
+     Checked = every visible row is in the selected set.
+     Unchecked = anything less than all (including zero).
+     No indeterminate per spec.
+  ── */
+  const allVisibleSelected =
+    sorted.length > 0 && sorted.every((r) => selected.has(String(r[rowKey])));
 
+  /* ── Header toggle ──
+     all checked   → clicking unchecks all (set to empty)
+     anything else → clicking checks all visible rows
+  ── */
   const toggleAll = () => {
-    if (allSelected) {
+    if (allVisibleSelected) {
       setSelected(new Set());
     } else {
       setSelected(new Set(sorted.map((r) => String(r[rowKey]))));
@@ -356,12 +455,9 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
         <table className="min-w-max w-full">
           <thead className="sticky top-0 z-10 bg-white">
             <tr className="border-b border-gray-200">
+              {/* Header checkbox: checked only when ALL rows are checked */}
               <th className="px-6 py-3 w-12">
-                <Checkbox
-                  checked={allSelected}
-                  indeterminate={someSelected}
-                  onChange={toggleAll}
-                />
+                <Checkbox checked={allVisibleSelected} onChange={toggleAll} />
               </th>
               {columns.map((col) => (
                 <th
@@ -439,7 +535,7 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
 }
 
 /* ─────────────────────────────────────────────
-   EXPORT  — cast preserves the generic type param through forwardRef
+   EXPORT
 ───────────────────────────────────────────── */
 
 const SelectableDataTable = forwardRef(SelectableDataTableInner) as <

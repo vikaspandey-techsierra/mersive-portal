@@ -11,52 +11,44 @@ import {
 } from "recharts";
 import { useState, useMemo, useEffect } from "react";
 import { formatShortDate } from "@/lib/analytics/utils/helpers";
+import { useFilteredAlertsPoints } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
 
-export interface AlertPoint {
-  date: string;
-  [key: string]: number | string;
-}
+/* ─────────────────────────────────────────────
+   TYPES
+───────────────────────────────────────────── */
 
 interface Props {
-  data: AlertPoint[];
-  interval: number;
+  timeRange: string;
+  /** Set of device_name strings currently checked in the Monitoring table */
+  selectedDevices: Set<string>;
+  /** X-axis tick interval (kept for API compatibility) */
+  interval?: number;
 }
 
+/* ─────────────────────────────────────────────
+   SERIES CONFIG
+───────────────────────────────────────────── */
+
 const SERIES_CONFIG: Record<string, { label: string; color: string }> = {
-  ts_app_alerts_unreachable_num: {
-    label: "Unreachable",
-    color: "#5B5BD6",
-  },
-  ts_app_alerts_rebooted_num: {
-    label: "Rebooted",
-    color: "#C34F7D",
-  },
+  ts_app_alerts_unreachable_num: { label: "Unreachable", color: "#5B5BD6" },
+  ts_app_alerts_rebooted_num: { label: "Rebooted", color: "#C34F7D" },
   ts_app_alerts_template_unassigned_num: {
     label: "Unassigned from template",
     color: "#5F87C2",
   },
-  ts_app_alerts_usb_out_num: {
-    label: "USB unplugged",
-    color: "#8B1A00",
-  },
-  ts_app_alerts_usb_in_num: {
-    label: "USB plugged in",
-    color: "#8A9B2F",
-  },
-  ts_app_alerts_onboarded_num: {
-    label: "Onboarded",
-    color: "#D47A00",
-  },
-  ts_app_alerts_plan_assigned_num: {
-    label: "Plan assigned",
-    color: "#8E56C2",
-  },
+  ts_app_alerts_usb_out_num: { label: "USB unplugged", color: "#8B1A00" },
+  ts_app_alerts_usb_in_num: { label: "USB plugged in", color: "#8A9B2F" },
+  ts_app_alerts_onboarded_num: { label: "Onboarded", color: "#D47A00" },
+  ts_app_alerts_plan_assigned_num: { label: "Plan assigned", color: "#8E56C2" },
 };
+
+/* ─────────────────────────────────────────────
+   TOOLTIP
+───────────────────────────────────────────── */
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
-
   return (
     <div
       style={{
@@ -87,21 +79,36 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   );
 };
 
-export default function AlertsChart({ data, interval }: Props) {
-  // Dynamically detect which ts_app_alerts_* keys are present in the data
-  const availableSeries = useMemo(() => {
-    if (!data?.length) return [];
+/* ─────────────────────────────────────────────
+   MAIN COMPONENT
+───────────────────────────────────────────── */
 
+export default function AlertsChart({
+  timeRange,
+  selectedDevices,
+  interval,
+}: Props) {
+  // Filtered data from mock — respects selectedDevices and timeRange
+  const rawData = useFilteredAlertsPoints(timeRange, selectedDevices);
+
+  const formattedData = useMemo(
+    () => rawData.map((d) => ({ ...d, label: formatShortDate(d.date) })),
+    [rawData],
+  );
+
+  // Dynamically detect which ts_app_alerts_* keys are present in filtered data
+  const availableSeries = useMemo(() => {
+    if (!formattedData.length) return [];
     const allKeys = new Set<string>();
-    data.forEach((row) => {
+    formattedData.forEach((row) => {
       Object.keys(row).forEach((k) => {
         if (k.startsWith("ts_app_alerts_")) allKeys.add(k);
       });
     });
-
     return Array.from(allKeys);
-  }, [data]);
+  }, [formattedData]);
 
+  // Active toggle state per series — resets when available series changes
   const [active, setActive] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -109,7 +116,6 @@ export default function AlertsChart({ data, interval }: Props) {
     setActive((prev) => {
       const next: Record<string, boolean> = {};
       availableSeries.forEach((key) => {
-        // Preserve existing toggle state; default new keys to true
         next[key] = prev[key] ?? true;
       });
       return next;
@@ -118,15 +124,9 @@ export default function AlertsChart({ data, interval }: Props) {
 
   const toggle = (key: string) => {
     const activeCount = Object.values(active).filter(Boolean).length;
-    // Prevent unchecking the last active item
-    if (active[key] && activeCount === 1) return;
+    if (active[key] && activeCount === 1) return; // prevent unchecking last
     setActive((prev) => ({ ...prev, [key]: !prev[key] }));
   };
-
-  const formattedData = (data || []).map((d) => ({
-    ...d,
-    label: formatShortDate(d.date),
-  }));
 
   if (!formattedData.length) {
     return (
@@ -142,7 +142,6 @@ export default function AlertsChart({ data, interval }: Props) {
   return (
     <div className="mb-8">
       <div className="font-semibold text-[15px] text-black mb-0.5">Alerts</div>
-
       <div className="text-[13px] text-gray-400 mb-4">
         Monitor the quantity and which types of alerts occurred in your fleet
       </div>
@@ -190,6 +189,7 @@ export default function AlertsChart({ data, interval }: Props) {
           </ResponsiveContainer>
         </div>
 
+        {/* Legend + toggles */}
         <div className="flex flex-wrap gap-4 mt-6">
           {availableSeries.map((key) => {
             const config = SERIES_CONFIG[key];

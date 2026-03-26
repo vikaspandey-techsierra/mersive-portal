@@ -5,80 +5,21 @@ import DeviceUtilization from "@/components/DeviceUtilizationChart";
 import SelectableDataTable, {
   ColumnDef,
   SelectableDataTableHandle,
+  DeviceTableRow,
 } from "@/components/SelectedDevices";
 import UserConnections from "@/components/UserConnectionsChart";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import React from "react";
 import LineChartSkeleton from "@/components/skeleton/LineChartSkeleton";
 import AreaChartSkeleton from "@/components/skeleton/AreaChartSkeleton";
 import { registerMetric } from "@/lib/analytics/utils/metricsManager";
 import { useUsageMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
-interface UsageDevice extends Record<string, unknown> {
-  id: string;
-  name: string;
-  meetings: number | null;
-  totalConnections: number | null;
-  hoursInUse: number | null;
-  contentItems: number | null;
-  avgDuration: string | null;
-  avgDurationMinutes: number | null;
-}
 
-const USAGE_DEVICES: UsageDevice[] = [
-  {
-    id: "1",
-    name: "Board Room",
-    meetings: 2,
-    totalConnections: 3,
-    hoursInUse: 2,
-    contentItems: 1,
-    avgDuration: "1 hr",
-    avgDurationMinutes: 60,
-  },
-  {
-    id: "2",
-    name: "Corner Conference",
-    meetings: 1,
-    totalConnections: 2,
-    hoursInUse: 0.5,
-    contentItems: 2,
-    avgDuration: "30 min",
-    avgDurationMinutes: 30,
-  },
-  {
-    id: "3",
-    name: "Hallway",
-    meetings: 1,
-    totalConnections: 1,
-    hoursInUse: 0.75,
-    contentItems: 1,
-    avgDuration: "45 min",
-    avgDurationMinutes: 45,
-  },
-  {
-    id: "4",
-    name: "John's Office",
-    meetings: 2,
-    totalConnections: 1,
-    hoursInUse: 4,
-    contentItems: 4,
-    avgDuration: "2 hrs",
-    avgDurationMinutes: 120,
-  },
-  {
-    id: "5",
-    name: "Temp Office",
-    meetings: null,
-    totalConnections: null,
-    hoursInUse: null,
-    contentItems: null,
-    avgDuration: null,
-    avgDurationMinutes: null,
-  },
-];
+/* ─────────────────────────────────────────────
+   COLUMNS
+───────────────────────────────────────────── */
 
-/* ── Column definitions ── */
-const USAGE_COLUMNS: ColumnDef<UsageDevice>[] = [
+const USAGE_COLUMNS: ColumnDef<DeviceTableRow>[] = [
   { key: "name", label: "Name", sortable: true },
   { key: "meetings", label: "Meetings", sortable: true },
   { key: "totalConnections", label: "Total Connections", sortable: true },
@@ -88,12 +29,14 @@ const USAGE_COLUMNS: ColumnDef<UsageDevice>[] = [
     key: "avgDurationMinutes",
     label: "Avg. Duration",
     sortable: true,
-    // Sort by raw minutes, display the friendly string in the UI
-    render: (_value, row) => row.avgDuration ?? "-",
-    // Export the friendly string instead of the raw minutes number
-    csvValue: (_value, row) => row.avgDuration ?? "",
+    render: (_v, row) => row.avgDuration ?? "-",
+    csvValue: (_v, row) => row.avgDuration ?? "",
   },
 ];
+
+/* ─────────────────────────────────────────────
+   TIME RANGE
+───────────────────────────────────────────── */
 
 type TimeRange = "7d" | "30d" | "60d" | "90d" | "all";
 
@@ -105,23 +48,32 @@ const TIME_RANGES: { key: TimeRange; label: string }[] = [
   { key: "all", label: "All time" },
 ];
 
-interface UsagePageProps {
-  /** Ref forwarded from AnalyticsLayout so the Export CSV button can call exportCSV() */
-  tableRef?: React.Ref<SelectableDataTableHandle>;
-}
-
 const METRIC_API_MAP: Record<string, string> = {
   meetings: "ts_meetings_num",
-  users: "ts_users_num",
   hours: "ts_meetings_duration_tot",
   connections: "ts_connections_num",
   posts: "ts_posts_num",
   avgLength: "ts_meetings_duration_avg",
 };
 
+/* ─────────────────────────────────────────────
+   PAGE
+───────────────────────────────────────────── */
+
+interface UsagePageProps {
+  tableRef?: React.Ref<SelectableDataTableHandle>;
+}
+
 export default function UsagePage({ tableRef }: UsagePageProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>("7d");
   const [isLoading, setIsLoading] = React.useState(true);
+  /**
+   * Empty Set = user unchecked all rows.
+   * The filtered hooks treat an empty Set as "all devices" so charts never blank out.
+   */
+  const [selectedDevices, setSelectedDevices] = useState<Set<string>>(
+    new Set(),
+  );
 
   registerMetric("ts_connections_num_by_os");
 
@@ -130,20 +82,21 @@ export default function UsagePage({ tableRef }: UsagePageProps) {
     return () => clearTimeout(timer);
   }, []);
 
-  const deviceMetricA = METRIC_API_MAP["meetings"];
-  const deviceMetricB = METRIC_API_MAP["connections"];
-
   const { ready } = useUsageMetrics(timeRange, {
-    deviceMetricA,
-    deviceMetricB,
+    deviceMetricA: METRIC_API_MAP["meetings"],
+    deviceMetricB: METRIC_API_MAP["connections"],
     userConnectionsMetric: "ts_connections_num_by_os",
   });
 
+  const handleSelectionChange = useCallback((ids: Set<string>) => {
+    setSelectedDevices(new Set(ids));
+  }, []);
+
   return (
     <>
+      {/* Time range */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
         <span className="text-xl font-bold text-black">Usage</span>
-
         <div className="flex flex-wrap gap-2">
           {TIME_RANGES.map(({ key, label }) => (
             <button
@@ -167,7 +120,10 @@ export default function UsagePage({ tableRef }: UsagePageProps) {
           description="Compare up to two types of usage data for devices in your organization"
         />
       ) : (
-        <DeviceUtilization timeRange={timeRange} />
+        <DeviceUtilization
+          timeRange={timeRange}
+          selectedDevices={selectedDevices}
+        />
       )}
 
       <hr className="pb-5" />
@@ -180,6 +136,7 @@ export default function UsagePage({ tableRef }: UsagePageProps) {
       ) : (
         <UserConnections
           timeRange={timeRange}
+          selectedDevices={selectedDevices}
           title="User Connections"
           subtitle="Compare connection modes, sharing protocols, user operating systems, and types of conferencing solutions used"
         />
@@ -193,21 +150,31 @@ export default function UsagePage({ tableRef }: UsagePageProps) {
           description="Compare how many users connect versus how often they share a post within a meeting on average"
         />
       ) : (
-        <CollaborationUsage timeRange={timeRange} />
+        <CollaborationUsage
+          timeRange={timeRange}
+          selectedDevices={selectedDevices}
+        />
       )}
 
       <hr className="pb-5" />
 
+      {/*
+        No `rows` prop → derives device names from timeseriesMock.
+        `timeRange` drives both row derivation and column aggregation.
+        `onSelectionChange` lifts selection state up to this page.
+        Empty selection → hooks treat as "all selected" (no blank charts).
+      */}
       <SelectableDataTable
         ref={tableRef}
         heading="Selected Devices"
         subheading="Select all or narrow the data down to a specific group of devices"
-        rows={USAGE_DEVICES}
         rowKey="id"
         columns={USAGE_COLUMNS}
         defaultSortKey="name"
         defaultSortDir="asc"
         defaultAllSelected
+        timeRange={timeRange}
+        onSelectionChange={handleSelectionChange}
         isLoading={isLoading}
         csvFilename="usage-devices"
       />
