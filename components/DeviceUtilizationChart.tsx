@@ -14,11 +14,7 @@ import {
 import { Check } from "lucide-react";
 import { useFilteredChartPoints } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
 import { ChartPoint } from "@/lib/analytics/timeseries/timeseriesTypes";
-import { formatShortDate } from "@/lib/analytics/utils/helpers";
-
-/* ─────────────────────────────────────────────
-   TYPES
-───────────────────────────────────────────── */
+import { formatShortDate, getSevenTicks } from "@/lib/analytics/utils/helpers";
 
 interface DeviceUtilizationProps {
   timeRange: string;
@@ -31,17 +27,8 @@ interface TEntry {
   color: string;
 }
 
-/* ─────────────────────────────────────────────
-   PURE HELPERS  (module-level — no component deps)
-   Must be outside the component so React Compiler
-   can statically analyse useMemo dependencies.
-───────────────────────────────────────────── */
+/* ─── pure helpers ─── */
 
-/**
- * Derives average meeting-length points from two pre-filtered series.
- * Uses a date-keyed map so order differences between the two arrays
- * never cause index-misalignment bugs.
- */
 function computeAvgLength(
   meetings: ChartPoint[],
   duration: ChartPoint[],
@@ -54,7 +41,7 @@ function computeAvgLength(
 }
 
 function getNiceTicks(points: ChartPoint[]): { ticks: number[]; max: number } {
-  if (!points.length) return { ticks: [0, 3, 6, 9, 12], max: 12 };
+  if (!points.length) return { ticks: [0, 1, 2, 3, 4], max: 4 };
   const rawMax = Math.max(...points.map((p) => p.value));
   if (rawMax === 0) return { ticks: [0, 1, 2, 3, 4], max: 4 };
   const roughStep = rawMax / 4;
@@ -69,9 +56,7 @@ function getNiceTicks(points: ChartPoint[]): { ticks: number[]; max: number } {
   return { ticks, max: niceMax };
 }
 
-/* ─────────────────────────────────────────────
-   METRIC CONFIG
-───────────────────────────────────────────── */
+/* ─── metric config ─── */
 
 type DeviceMetric =
   | "meetings"
@@ -100,9 +85,7 @@ const METRIC_API_MAP: Record<Exclude<DeviceMetric, "avgLength">, string> = {
 const PURPLE = "#6860C8";
 const PINK = "#D44E80";
 
-/* ─────────────────────────────────────────────
-   TOOLTIP
-───────────────────────────────────────────── */
+/* ─── tooltip ─── */
 
 const ChartTooltip = ({
   active,
@@ -126,9 +109,7 @@ const ChartTooltip = ({
   );
 };
 
-/* ─────────────────────────────────────────────
-   AXIS LABELS
-───────────────────────────────────────────── */
+/* ─── axis labels ─── */
 
 const LeftAxisLabel = ({
   viewBox,
@@ -180,9 +161,7 @@ const RightAxisLabel = ({
   );
 };
 
-/* ─────────────────────────────────────────────
-   METRIC DROPDOWN
-───────────────────────────────────────────── */
+/* ─── dropdown ─── */
 
 const MetricDropdown = ({
   value,
@@ -227,7 +206,6 @@ const MetricDropdown = ({
           />
         </svg>
       </button>
-
       {open && (
         <div className="absolute left-0 top-full mt-1.5 bg-white border border-gray-200 rounded-xl shadow-lg min-w-55 z-999 py-1.5">
           {showNone && (
@@ -283,9 +261,7 @@ const MetricDropdown = ({
   );
 };
 
-/* ─────────────────────────────────────────────
-   MAIN COMPONENT
-───────────────────────────────────────────── */
+/* ─── main component ─── */
 
 export default function DeviceUtilization({
   timeRange,
@@ -294,7 +270,6 @@ export default function DeviceUtilization({
   const [metricA, setMetricA] = useState<DeviceMetric>("meetings");
   const [metricB, setMetricB] = useState<DeviceMetric | null>("connections");
 
-  // Always fetch meetings + duration so avgLength can be derived for either axis
   const filteredMeetings = useFilteredChartPoints(
     "ts_meetings_num",
     timeRange,
@@ -321,9 +296,6 @@ export default function DeviceUtilization({
     selectedDevices,
   );
 
-  // computeAvgLength is defined at module scope so React Compiler can
-  // statically verify it has no hidden component-level dependencies and
-  // safely preserve these useMemo calls.
   const pointsA: ChartPoint[] = useMemo(
     () =>
       metricA === "avgLength"
@@ -340,40 +312,35 @@ export default function DeviceUtilization({
     [metricB, rawB, filteredMeetings, filteredDuration],
   );
 
-  const hasMetricAData = pointsA.length > 0;
-  const hasMetricBData = pointsB.length > 0;
+  // Use the longer array as the date spine; fall back to the other
+  const baseData = pointsA.length >= pointsB.length ? pointsA : pointsB;
 
+  // Always show both axes — use nice ticks regardless of whether data is all-zero
   const { ticks: ticksA, max: maxA } = getNiceTicks(pointsA);
   const { ticks: ticksB, max: maxB } = getNiceTicks(pointsB);
 
-  const leftTicks = hasMetricAData ? ticksA : ticksB;
-  const leftMax = hasMetricAData ? maxA : maxB;
-  const baseData = hasMetricAData ? pointsA : pointsB;
+  const hasTwoMetrics = metricB !== null;
+  // Show right axis whenever metricB is selected (even if data is zero)
+  const showRightAxis = hasTwoMetrics;
 
   const deviceData = useMemo(
     () =>
       baseData.map((d, i) => ({
         label: formatShortDate(d.date),
-        ...(hasMetricAData && { [metricA]: pointsA[i]?.value ?? null }),
-        ...(metricB &&
-          hasMetricBData && { [metricB]: pointsB[i]?.value ?? null }),
+        // Always include values (even 0) so lines always render on both axes
+        [metricA]: pointsA[i]?.value ?? 0,
+        ...(metricB !== null && { [metricB]: pointsB[i]?.value ?? 0 }),
       })),
-    [
-      baseData,
-      hasMetricAData,
-      hasMetricBData,
-      metricA,
-      metricB,
-      pointsA,
-      pointsB,
-    ],
+    [baseData, metricA, metricB, pointsA, pointsB],
   );
 
-  const hasTwoMetrics = metricB !== null;
-  const showRightAxis = hasTwoMetrics && hasMetricBData;
-  const metricBAxisId = showRightAxis ? "right" : "left";
-  const refLineAxisId = hasMetricAData ? "left" : "right";
-  const refLineTicks = hasMetricAData ? leftTicks : ticksB;
+  // Always exactly 7 X-axis labels
+  const xTicks = useMemo(
+    () => getSevenTicks(deviceData.map((d) => d.label)),
+    [deviceData],
+  );
+
+  const refLineTicks = ticksA;
 
   const handleChangeA = (next: DeviceMetric | null) => {
     if (next === null) return;
@@ -394,7 +361,6 @@ export default function DeviceUtilization({
       <div className="text-[13px] text-gray-400 mb-3">
         Compare up to two types of usage data for devices in your organization
       </div>
-
       <div className="bg-white rounded-xl py-5 pb-4 border border-gray-200">
         <ResponsiveContainer width="100%" height={280}>
           <LineChart
@@ -417,19 +383,10 @@ export default function DeviceUtilization({
               tick={{ fontSize: 11, fill: "#000" }}
               axisLine={{ stroke: "#f0f0f0" }}
               tickLine={false}
-              ticks={(() => {
-                const len = deviceData.length;
-                if (len === 0) return [];
-                const count = 7;
-                const sel = new Set<number>([0, len - 1]);
-                for (let i = 1; i < count - 1; i++)
-                  sel.add(Math.round((i / (count - 1)) * (len - 1)));
-                return [...sel]
-                  .sort((a, b) => a - b)
-                  .map((i) => deviceData[i].label);
-              })()}
+              ticks={xTicks}
             />
 
+            {/* Left axis always present */}
             <YAxis
               yAxisId="left"
               orientation="left"
@@ -437,17 +394,18 @@ export default function DeviceUtilization({
               axisLine={false}
               tickLine={false}
               width={30}
-              domain={[0, leftMax]}
-              ticks={leftTicks}
+              domain={[0, maxA]}
+              ticks={ticksA}
               allowDecimals
               tickFormatter={(v: number) => {
-                const m = hasMetricAData ? metricA : metricB!;
-                if (m === "hours") return `${v % 1 === 0 ? v : v.toFixed(1)}hr`;
+                if (metricA === "hours")
+                  return `${v % 1 === 0 ? v : v.toFixed(1)}hr`;
                 return v % 1 === 0 ? `${v}` : `${parseFloat(v.toFixed(2))}`;
               }}
               label={<LeftAxisLabel label={METRIC_LABELS[metricA]} />}
             />
 
+            {/* Right axis always present when metricB is selected */}
             {showRightAxis && (
               <YAxis
                 yAxisId="right"
@@ -471,7 +429,7 @@ export default function DeviceUtilization({
             {refLineTicks.map((v) => (
               <ReferenceLine
                 key={v}
-                yAxisId={refLineAxisId}
+                yAxisId="left"
                 y={v}
                 stroke="#f0f0f0"
                 strokeWidth={1}
@@ -480,23 +438,23 @@ export default function DeviceUtilization({
 
             <Tooltip content={<ChartTooltip />} />
 
-            {hasMetricAData && (
-              <Line
-                yAxisId="left"
-                type="linear"
-                dataKey={metricA}
-                stroke={PURPLE}
-                strokeWidth={2}
-                dot={{ r: 4, fill: PURPLE, strokeWidth: 0 }}
-                activeDot={{ r: 5 }}
-              />
-            )}
+            {/* Always render metricA line */}
+            <Line
+              yAxisId="left"
+              type="linear"
+              dataKey={metricA}
+              stroke={PURPLE}
+              strokeWidth={2}
+              dot={{ r: 4, fill: PURPLE, strokeWidth: 0 }}
+              activeDot={{ r: 5 }}
+            />
 
-            {hasTwoMetrics && hasMetricBData && (
+            {/* Always render metricB line when selected */}
+            {hasTwoMetrics && (
               <Line
-                yAxisId={metricBAxisId}
+                yAxisId={showRightAxis ? "right" : "left"}
                 type="linear"
-                dataKey={metricB}
+                dataKey={metricB!}
                 stroke={PINK}
                 strokeWidth={2}
                 dot={{ r: 4, fill: PINK, strokeWidth: 0 }}

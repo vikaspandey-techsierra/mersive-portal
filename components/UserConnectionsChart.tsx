@@ -13,6 +13,7 @@ import {
 } from "recharts";
 import { timeseriesMock } from "@/lib/analytics/mock/timeseriesMock";
 import { useFilteredSegmentedPoints } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
+import { getSevenTicks } from "@/lib/analytics/utils/helpers";
 
 type ChartRow = { label: string; [key: string]: string | number };
 
@@ -32,6 +33,7 @@ const CustomTooltip = ({
   label,
 }: {
   active?: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   payload?: any[];
   label?: string;
 }) => {
@@ -39,13 +41,12 @@ const CustomTooltip = ({
   return (
     <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-[13px] shadow-md">
       <div className="font-semibold mb-1 text-black">{label}</div>
-      {payload
-        .filter((e) => e.value > 0)
-        .map((e) => (
-          <div key={e.name} style={{ color: e.color }}>
-            {e.name}: {e.value}
-          </div>
-        ))}
+      {/* Show all segments, including those with value 0 */}
+      {payload.map((e) => (
+        <div key={e.name} style={{ color: e.color }}>
+          {e.name}: {e.value ?? 0}
+        </div>
+      ))}
     </div>
   );
 };
@@ -78,6 +79,7 @@ export default function UserConnections({
 }) {
   const [selectedMetric, setSelectedMetric] = useState<string>("");
   const selected = selectedMetric || AVAILABLE_DIMENSIONS[0]?.metric || "";
+
   const metricData = useFilteredSegmentedPoints(
     selected,
     timeRange,
@@ -118,14 +120,17 @@ export default function UserConnections({
   const chartData = useMemo<ChartRow[]>(() => {
     if (!metricData.length || segments.length === 0) return [];
     const map: Record<string, ChartRow> = {};
+
     metricData.forEach((row) => {
       if (!map[row.date]) {
         map[row.date] = { label: fmtDate(row.date) };
+        // Pre-fill all segments with 0 so inactive ones still appear in tooltip
         segments.forEach((seg) => {
           map[row.date][seg] = 0;
         });
       }
     });
+
     metricData.forEach((row) => {
       if (!row.segment) return;
       if (activeSegments[row.segment] ?? true) {
@@ -133,10 +138,17 @@ export default function UserConnections({
           ((map[row.date][row.segment] as number) || 0) + row.value;
       }
     });
+
     return Object.entries(map)
       .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
       .map(([, v]) => v);
   }, [metricData, segments, activeSegments]);
+
+  // Always exactly 7 X-axis labels
+  const xTicks = useMemo(
+    () => getSevenTicks(chartData.map((d) => d.label as string)),
+    [chartData],
+  );
 
   return (
     <div className="mb-8 w-full">
@@ -151,17 +163,7 @@ export default function UserConnections({
               tick={{ fontSize: 11, fill: "#000" }}
               axisLine={false}
               tickLine={false}
-              ticks={(() => {
-                const len = chartData.length;
-                if (len === 0) return [];
-                const count = 7;
-                const sel = new Set<number>([0, len - 1]);
-                for (let i = 1; i < count - 1; i++)
-                  sel.add(Math.round((i / (count - 1)) * (len - 1)));
-                return [...sel]
-                  .sort((a, b) => a - b)
-                  .map((i) => chartData[i].label);
-              })()}
+              ticks={xTicks}
             />
             <YAxis
               tick={{ fontSize: 11, fill: "#000" }}
@@ -169,6 +171,7 @@ export default function UserConnections({
               tickLine={false}
             />
             <Tooltip content={<CustomTooltip />} />
+            {/* Always render all active segment areas — they sit at y=0 when no data */}
             {segments.map((segment) => (
               <Area
                 key={segment}

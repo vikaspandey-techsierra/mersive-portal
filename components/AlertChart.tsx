@@ -10,24 +10,14 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { useState, useMemo, useEffect } from "react";
-import { formatShortDate } from "@/lib/analytics/utils/helpers";
+import { formatShortDate, getSevenTicks } from "@/lib/analytics/utils/helpers";
 import { useFilteredAlertsPoints } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
-
-/* ─────────────────────────────────────────────
-   TYPES
-───────────────────────────────────────────── */
 
 interface Props {
   timeRange: string;
-  /** Set of device_name strings currently checked in the Monitoring table */
   selectedDevices: Set<string>;
-  /** X-axis tick interval (kept for API compatibility) */
   interval?: number;
 }
-
-/* ─────────────────────────────────────────────
-   SERIES CONFIG
-───────────────────────────────────────────── */
 
 const SERIES_CONFIG: Record<string, { label: string; color: string }> = {
   ts_app_alerts_unreachable_num: { label: "Unreachable", color: "#5B5BD6" },
@@ -41,10 +31,6 @@ const SERIES_CONFIG: Record<string, { label: string; color: string }> = {
   ts_app_alerts_onboarded_num: { label: "Onboarded", color: "#D47A00" },
   ts_app_alerts_plan_assigned_num: { label: "Plan assigned", color: "#8E56C2" },
 };
-
-/* ─────────────────────────────────────────────
-   TOOLTIP
-───────────────────────────────────────────── */
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -63,6 +49,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
       <div style={{ fontWeight: 600, marginBottom: 6, color: "#111" }}>
         {label}
       </div>
+      {/* Show all series including zero values */}
       {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
       {payload.map((p: any) => {
         const config = SERIES_CONFIG[p.dataKey];
@@ -79,16 +66,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   );
 };
 
-/* ─────────────────────────────────────────────
-   MAIN COMPONENT
-───────────────────────────────────────────── */
-
-export default function AlertsChart({
-  timeRange,
-  selectedDevices,
-  interval,
-}: Props) {
-  // Filtered data from mock — respects selectedDevices and timeRange
+export default function AlertsChart({ timeRange, selectedDevices }: Props) {
   const rawData = useFilteredAlertsPoints(timeRange, selectedDevices);
 
   const formattedData = useMemo(
@@ -96,7 +74,6 @@ export default function AlertsChart({
     [rawData],
   );
 
-  // Dynamically detect which ts_app_alerts_* keys are present in filtered data
   const availableSeries = useMemo(() => {
     if (!formattedData.length) return [];
     const allKeys = new Set<string>();
@@ -108,7 +85,6 @@ export default function AlertsChart({
     return Array.from(allKeys);
   }, [formattedData]);
 
-  // Active toggle state per series — resets when available series changes
   const [active, setActive] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -122,9 +98,15 @@ export default function AlertsChart({
     });
   }, [availableSeries]);
 
+  // Always exactly 7 X-axis labels
+  const xTicks = useMemo(
+    () => getSevenTicks(formattedData.map((d) => d.label as string)),
+    [formattedData],
+  );
+
   const toggle = (key: string) => {
     const activeCount = Object.values(active).filter(Boolean).length;
-    if (active[key] && activeCount === 1) return; // prevent unchecking last
+    if (active[key] && activeCount === 1) return;
     setActive((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
@@ -145,29 +127,25 @@ export default function AlertsChart({
       <div className="text-[13px] text-gray-400 mb-4">
         Monitor the quantity and which types of alerts occurred in your fleet
       </div>
-
       <div className="bg-white rounded-xl border border-gray-200 p-6 pb-4">
         <div className="w-full h-80 min-w-0">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={formattedData}>
               <CartesianGrid stroke="#E5E7EB" vertical={false} />
-
               <XAxis
                 dataKey="label"
-                interval={interval}
+                ticks={xTicks}
                 tick={{ fontSize: 12 }}
                 axisLine={false}
                 tickLine={false}
               />
-
               <YAxis
                 tick={{ fontSize: 11 }}
                 axisLine={false}
                 tickLine={false}
               />
-
               <Tooltip content={<CustomTooltip />} />
-
+              {/* Always render active areas — they sit at y=0 when no data */}
               {availableSeries.map((key) => {
                 if (!active[key]) return null;
                 const config = SERIES_CONFIG[key];
@@ -189,20 +167,16 @@ export default function AlertsChart({
           </ResponsiveContainer>
         </div>
 
-        {/* Legend + toggles */}
         <div className="flex flex-wrap gap-4 mt-6">
           {availableSeries.map((key) => {
             const config = SERIES_CONFIG[key];
             const color = config?.color ?? "#94A3B8";
             const label = config?.label ?? key;
             const isLastActive = active[key] && activeCount === 1;
-
             return (
               <div
                 key={key}
-                className={`flex items-center gap-2 ${
-                  isLastActive ? "cursor-not-allowed" : "cursor-pointer"
-                }`}
+                className={`flex items-center gap-2 ${isLastActive ? "cursor-not-allowed" : "cursor-pointer"}`}
                 onClick={() => toggle(key)}
               >
                 <span
@@ -223,7 +197,6 @@ export default function AlertsChart({
                     </svg>
                   )}
                 </span>
-
                 <span
                   className="rounded px-3 py-1 text-xs font-medium"
                   style={{

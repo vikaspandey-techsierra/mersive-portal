@@ -11,7 +11,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { useFilteredCollaborationMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
-import { formatShortDate } from "@/lib/analytics/utils/helpers";
+import { formatShortDate, getSevenTicks } from "@/lib/analytics/utils/helpers";
 
 interface TEntry {
   name: string;
@@ -32,7 +32,6 @@ const ChartTooltip = ({
   return (
     <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-[13px] shadow-md">
       <div className="font-semibold mb-1 text-black">{label}</div>
-
       {payload.map((e) => (
         <div key={e.name} className="mt-1" style={{ color: e.color }}>
           {e.name}: {e.value ?? 0}
@@ -65,20 +64,31 @@ export default function CollaborationUsage({
 
   const chartData = useMemo(() => {
     if (!connectionsAvg.length && !postsAvg.length) return [];
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const map: Record<string, any> = {};
+
     connectionsAvg.forEach((d) => {
       if (!map[d.date]) map[d.date] = { label: formatShortDate(d.date) };
+      // Always include value (even 0) so both lines always render
       map[d.date].avgConnections = d.value;
     });
+
     postsAvg.forEach((d) => {
       if (!map[d.date]) map[d.date] = { label: formatShortDate(d.date) };
       map[d.date].avgPosts = d.value;
     });
+
     return Object.entries(map)
       .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
       .map(([, v]) => v);
   }, [connectionsAvg, postsAvg]);
+
+  // Always exactly 7 X-axis labels
+  const xTicks = useMemo(
+    () => getSevenTicks(chartData.map((d) => d.label)),
+    [chartData],
+  );
 
   return (
     <div className="mb-8">
@@ -101,17 +111,7 @@ export default function CollaborationUsage({
               tick={{ fontSize: 11, fill: "#000" }}
               axisLine={false}
               tickLine={false}
-              ticks={(() => {
-                const len = chartData.length;
-                if (len === 0) return [];
-                const count = 7;
-                const sel = new Set<number>([0, len - 1]);
-                for (let i = 1; i < count - 1; i++)
-                  sel.add(Math.round((i / (count - 1)) * (len - 1)));
-                return [...sel]
-                  .sort((a, b) => a - b)
-                  .map((i) => chartData[i].label);
-              })()}
+              ticks={xTicks}
             />
             <YAxis
               tick={{ fontSize: 11, fill: "#000" }}
@@ -120,6 +120,7 @@ export default function CollaborationUsage({
               tickCount={5}
             />
             <Tooltip content={<ChartTooltip />} />
+            {/* Always render both lines — they sit at y=0 when no data */}
             <Line
               type="linear"
               dataKey="avgConnections"

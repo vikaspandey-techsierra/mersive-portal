@@ -10,27 +10,17 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { useMemo } from "react";
-import { formatShortDate } from "@/lib/analytics/utils/helpers";
+import { formatShortDate, getSevenTicks } from "@/lib/analytics/utils/helpers";
 import { useFilteredDowntimePoints } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
-
-/* ─────────────────────────────────────────────
-   TYPES
-───────────────────────────────────────────── */
 
 interface Props {
   timeRange: string;
-  /** Set of device_name strings currently checked in the Monitoring table */
   selectedDevices: Set<string>;
-  /** X-axis tick interval (kept for API compatibility) */
   interval?: number;
 }
 
 const PURPLE = "#5E54C5";
 const PINK = "#C55483";
-
-/* ─────────────────────────────────────────────
-   AXIS LABELS
-───────────────────────────────────────────── */
 
 const LeftAxisLabel = ({
   viewBox,
@@ -78,10 +68,6 @@ const RightAxisLabel = ({
   );
 };
 
-/* ─────────────────────────────────────────────
-   TOOLTIP
-───────────────────────────────────────────── */
-
 const CustomTooltip = ({
   active,
   payload,
@@ -117,12 +103,7 @@ const CustomTooltip = ({
   );
 };
 
-/* ─────────────────────────────────────────────
-   MAIN COMPONENT
-───────────────────────────────────────────── */
-
 export default function DowntimeChart({ timeRange, selectedDevices }: Props) {
-  // Filtered data from mock — respects selectedDevices and timeRange
   const rawData = useFilteredDowntimePoints(timeRange, selectedDevices);
 
   const formattedData = useMemo(
@@ -132,21 +113,12 @@ export default function DowntimeChart({ timeRange, selectedDevices }: Props) {
 
   const deviceTicks = [0, 6, 12, 18, 24];
 
-  // Dynamic X ticks
-  const xTicks = useMemo(() => {
-    const len = formattedData.length;
-    if (len === 0) return [];
-    const count = 7;
-    const selected = new Set<number>([0, len - 1]);
-    for (let i = 1; i < count - 1; i++) {
-      selected.add(Math.round((i / (count - 1)) * (len - 1)));
-    }
-    return [...selected]
-      .sort((a, b) => a - b)
-      .map((i) => formattedData[i].label);
-  }, [formattedData]);
+  // Always exactly 7 X-axis labels
+  const xTicks = useMemo(
+    () => getSevenTicks(formattedData.map((d) => d.label)),
+    [formattedData],
+  );
 
-  // Dynamic right-axis scale
   const maxHours = useMemo(
     () =>
       formattedData.length > 0
@@ -186,7 +158,6 @@ export default function DowntimeChart({ timeRange, selectedDevices }: Props) {
               tickLine={false}
               dy={8}
             />
-
             <YAxis
               yAxisId="left"
               orientation="left"
@@ -198,7 +169,6 @@ export default function DowntimeChart({ timeRange, selectedDevices }: Props) {
               width={36}
               label={<LeftAxisLabel />}
             />
-
             <YAxis
               yAxisId="right"
               orientation="right"
@@ -211,7 +181,6 @@ export default function DowntimeChart({ timeRange, selectedDevices }: Props) {
               width={52}
               label={<RightAxisLabel />}
             />
-
             {deviceTicks.map((tick) => (
               <ReferenceLine
                 key={tick}
@@ -221,9 +190,8 @@ export default function DowntimeChart({ timeRange, selectedDevices }: Props) {
                 strokeWidth={1}
               />
             ))}
-
             <Tooltip content={<CustomTooltip />} />
-
+            {/* Always render both lines — they sit at y=0 when no data */}
             <Line
               yAxisId="left"
               type="linear"
@@ -234,7 +202,6 @@ export default function DowntimeChart({ timeRange, selectedDevices }: Props) {
               activeDot={{ r: 7, fill: PURPLE }}
               isAnimationActive={false}
             />
-
             <Line
               yAxisId="right"
               type="linear"
@@ -249,7 +216,6 @@ export default function DowntimeChart({ timeRange, selectedDevices }: Props) {
         </ResponsiveContainer>
       </div>
 
-      {/* Legend */}
       <div className="flex gap-2.5 px-6 mt-4">
         <span
           className="inline-flex items-center text-white text-sm font-medium rounded-full px-4 py-1.5"

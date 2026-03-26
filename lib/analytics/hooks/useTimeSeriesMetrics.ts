@@ -9,6 +9,30 @@ import {
   DeviceUtilizationData,
   CollaborationUsageData,
 } from "../timeseries/timeseriesTypes";
+import {
+  fillDateGaps,
+  fillSegmentedDateGaps,
+} from "../utils/helpers";
+
+/* ─────────────────────────────────────────────
+   TYPE: Raw timeseries row
+───────────────────────────────────────────── */
+
+interface TimeseriesRow {
+  date: string;
+  metric_name: string;
+  metric_value: string;
+  device_name?: string;
+  segment_1_name?: string;
+  segment_1_value?: string;
+}
+
+/* ─────────────────────────────────────────────
+   DATA SOURCE — swap this function when your API is ready
+───────────────────────────────────────────── */
+function getTimeseriesRows(_timeRange?: string): TimeseriesRow[] {
+  return timeseriesMock as TimeseriesRow[];
+}
 
 /* ─────────────────────────────────────────────
    HELPERS
@@ -32,15 +56,10 @@ function rowInRange(dateStr: string, cutoff: Date | null): boolean {
   return new Date(dateStr) >= cutoff;
 }
 
-/**
- * Returns ALL unique device names present in timeseriesMock for a given
- * time range. Used to expand an empty selectedDevices set to "all devices"
- * so charts never go blank when everything is unchecked.
- */
 export function getAllDeviceNames(timeRange: string): Set<string> {
   const cutoff = getDateCutoff(timeRange);
   const names = new Set<string>();
-  timeseriesMock.forEach((row) => {
+  getTimeseriesRows(timeRange).forEach((row) => {
     if (!row.device_name) return;
     if (!rowInRange(row.date, cutoff)) return;
     names.add(row.device_name);
@@ -48,13 +67,9 @@ export function getAllDeviceNames(timeRange: string): Set<string> {
   return names;
 }
 
-/**
- * Resolves the effective device set for chart filtering.
- * Rule: if selectedDevices is empty (user unchecked all), treat as all devices.
- */
 function resolveDevices(
   selectedDevices: Set<string>,
-  timeRange: string
+  timeRange: string,
 ): Set<string> {
   if (selectedDevices.size > 0) return selectedDevices;
   return getAllDeviceNames(timeRange);
@@ -70,7 +85,7 @@ export function useUsageMetrics(
     deviceMetricA: string;
     deviceMetricB?: string | null;
     userConnectionsMetric: string;
-  }
+  },
 ) {
   const [ready, setReady] = useState(false);
 
@@ -95,7 +110,9 @@ export function useUsageMetrics(
     }
 
     loadAllMetrics();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [
     timeRange,
     params.deviceMetricA,
@@ -108,7 +125,7 @@ export function useUsageMetrics(
 
 function useMetricFromStore(
   metric: string,
-  timeRange: string = "7d"
+  timeRange: string = "7d",
 ): ChartPoint[] {
   const [data, setData] = useState<ChartPoint[]>([]);
 
@@ -128,7 +145,7 @@ function useMetricFromStore(
 export function useDeviceUtilizationMetrics(
   metricA: string,
   metricB: string,
-  timeRange: string = "7d"
+  timeRange: string = "7d",
 ): DeviceUtilizationData {
   const dataA = useMetricFromStore(metricA, timeRange);
   const dataB = useMetricFromStore(metricB, timeRange);
@@ -137,17 +154,17 @@ export function useDeviceUtilizationMetrics(
 
 export function useUserConnectionsMetrics(
   metric: string,
-  timeRange: string = "7d"
+  timeRange: string = "7d",
 ): ChartPoint[] {
   return useMetricFromStore(metric, timeRange);
 }
 
 export function useCollaborationUsageMetrics(
-  timeRange: string = "7d"
+  timeRange: string = "7d",
 ): CollaborationUsageData {
-  const meetings    = useMetricFromStore("ts_meetings_num", timeRange);
+  const meetings = useMetricFromStore("ts_meetings_num", timeRange);
   const connections = useMetricFromStore("ts_connections_num", timeRange);
-  const posts       = useMetricFromStore("ts_posts_num", timeRange);
+  const posts = useMetricFromStore("ts_posts_num", timeRange);
 
   const connectionsAvg = useMemo(() => {
     if (!meetings.length) return [];
@@ -186,7 +203,9 @@ export function useMonitoringMetrics(timeRange: string) {
     }
 
     loadMetrics();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [timeRange]);
 
   return { ready };
@@ -199,18 +218,21 @@ export function useDowntimeChart(timeRange: string, ready: boolean) {
   useEffect(() => {
     if (!ready) return;
 
-    const devicesRaw = getMetric(`ts_downtime_devices_num_tot__${timeRange}`) || [];
-    const hoursRaw   = getMetric(`ts_downtime_duration_tot__${timeRange}`) || [];
+    const devicesRaw =
+      getMetric(`ts_downtime_devices_num_tot__${timeRange}`) || [];
+    const hoursRaw = getMetric(`ts_downtime_duration_tot__${timeRange}`) || [];
     if (!devicesRaw.length && !hoursRaw.length) return;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const map = new Map<string, any>();
     devicesRaw.forEach((d: ChartPoint) => {
-      if (!map.has(d.date)) map.set(d.date, { date: d.date, devices: 0, hours: 0 });
+      if (!map.has(d.date))
+        map.set(d.date, { date: d.date, devices: 0, hours: 0 });
       map.get(d.date).devices = d.value;
     });
     hoursRaw.forEach((h: ChartPoint) => {
-      if (!map.has(h.date)) map.set(h.date, { date: h.date, devices: 0, hours: 0 });
+      if (!map.has(h.date))
+        map.set(h.date, { date: h.date, devices: 0, hours: 0 });
       map.get(h.date).hours = h.value;
     });
 
@@ -228,11 +250,11 @@ export function useAlertsChart(timeRange: string, ready: boolean) {
   useEffect(() => {
     if (!ready) return;
 
-    const allMetrics  = getAllMetrics();
+    const allMetrics = getAllMetrics();
     const alertMetrics = Object.keys(allMetrics)
       .filter(
         (key) =>
-          key.startsWith("ts_app_alerts_") && key.endsWith(`__${timeRange}`)
+          key.startsWith("ts_app_alerts_") && key.endsWith(`__${timeRange}`),
       )
       .map((key) => key.replace(`__${timeRange}`, ""));
 
@@ -256,7 +278,8 @@ export function useAlertsChart(timeRange: string, ready: boolean) {
     const dateMap = new Map<string, any>();
     activeMetrics.forEach((metric) => {
       metricsMap[metric].forEach((point) => {
-        if (!dateMap.has(point.date)) dateMap.set(point.date, { date: point.date });
+        if (!dateMap.has(point.date))
+          dateMap.set(point.date, { date: point.date });
         dateMap.get(point.date)[metric] = point.value;
       });
     });
@@ -269,66 +292,81 @@ export function useAlertsChart(timeRange: string, ready: boolean) {
 }
 
 /* ─────────────────────────────────────────────
-   NEW: FILTERED CHART HOOKS
-   All hooks below accept selectedDevices: Set<string>.
-   When the set is empty, resolveDevices() expands it to all known
-   device names — so charts never go blank when user unchecks all rows.
+   FILTERED CHART HOOKS
 ───────────────────────────────────────────── */
 
 /**
- * Aggregated ChartPoint[] for a metric filtered to selected devices.
- * Values are summed per date across all matching devices.
+ * Aggregated ChartPoint[] for a NON-SEGMENTED metric filtered to selected devices.
+ *
+ * Key rule: rows with segment_1_name set are SKIPPED here.
+ * This prevents ts_connections_num_by_os (segmented) from mixing
+ * into ts_connections_num (plain) totals, keeping DeviceUtilization
+ * and UserConnections charts independent.
  *
  * Used by: DeviceUtilization, CollaborationUsage.
  */
 export function useFilteredChartPoints(
   metricName: string,
   timeRange: string,
-  selectedDevices: Set<string>
+  selectedDevices: Set<string>,
 ): ChartPoint[] {
   return useMemo(() => {
     if (!metricName) return [];
 
-    const cutoff   = getDateCutoff(timeRange);
-    const devices  = resolveDevices(selectedDevices, timeRange);
-    const byDate   = new Map<string, number>();
+    const cutoff = getDateCutoff(timeRange);
+    const devices = resolveDevices(selectedDevices, timeRange);
+    const byDate = new Map<string, number>();
 
-    timeseriesMock.forEach((row) => {
+    getTimeseriesRows(timeRange).forEach((row) => {
       if (row.metric_name !== metricName) return;
       if (!rowInRange(row.date, cutoff)) return;
-      if (row.segment_1_name) return; // skip segmented rows
+      // Skip segmented rows — they belong to useFilteredSegmentedPoints only
+      if (row.segment_1_name) return;
       if (row.device_name && !devices.has(row.device_name)) return;
 
       const val = parseFloat(row.metric_value) || 0;
       byDate.set(row.date, (byDate.get(row.date) ?? 0) + val);
     });
 
-    return Array.from(byDate.entries())
+    const sparse = Array.from(byDate.entries())
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, value]) => ({ date, value }));
+
+    // Fill every calendar day so all dots are visible
+    return fillDateGaps(sparse, timeRange);
   }, [metricName, timeRange, selectedDevices]);
 }
 
 /**
- * Segmented ChartPoint[] (preserves segment_1_value as `segment`).
+ * Segmented ChartPoint[] — reads rows WHERE segment_1_name IS SET.
+ *
+ * This is intentionally different from useFilteredChartPoints:
+ * - UserConnections uses metrics like ts_connections_num_by_os where
+ *   each row carries a segment_1_value (e.g. "Windows", "MacOS").
+ * - DeviceUtilization uses the plain ts_connections_num metric (no segment).
+ * - The two hooks read completely separate rows, so their totals never clash.
  *
  * Used by: UserConnections.
  */
 export function useFilteredSegmentedPoints(
   metricName: string,
   timeRange: string,
-  selectedDevices: Set<string>
+  selectedDevices: Set<string>,
 ): ChartPoint[] {
   return useMemo(() => {
     if (!metricName) return [];
 
-    const cutoff  = getDateCutoff(timeRange);
+    const cutoff = getDateCutoff(timeRange);
     const devices = resolveDevices(selectedDevices, timeRange);
-    const byKey   = new Map<string, number>();
+    const byKey = new Map<string, number>();
 
-    timeseriesMock.forEach((row) => {
+    getTimeseriesRows(timeRange).forEach((row) => {
       if (row.metric_name !== metricName) return;
       if (!rowInRange(row.date, cutoff)) return;
+      // Only process rows that HAVE a segment — these are the segmented metrics
+      // (e.g. ts_connections_num_by_os). Plain rows without a segment are
+      // handled exclusively by useFilteredChartPoints.
+      if (!row.segment_1_name) return;
       if (row.device_name && !devices.has(row.device_name)) return;
 
       const key = `${row.date}__${row.segment_1_value ?? ""}`;
@@ -336,29 +374,43 @@ export function useFilteredSegmentedPoints(
       byKey.set(key, (byKey.get(key) ?? 0) + val);
     });
 
-    return Array.from(byKey.entries())
+    const sparse = Array.from(byKey.entries())
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([key, value]) => {
-        const sep     = key.indexOf("__");
-        const date    = key.slice(0, sep);
+        const sep = key.indexOf("__");
+        const date = key.slice(0, sep);
         const segment = key.slice(sep + 2) || undefined;
         return { date, value, segment };
       });
+
+    // Fill every calendar day per segment so all dots are visible
+    return fillSegmentedDateGaps(sparse, timeRange);
   }, [metricName, timeRange, selectedDevices]);
 }
 
 /**
  * Filtered collaboration averages (connections per meeting, posts per meeting).
- *
  * Used by: CollaborationUsage.
  */
 export function useFilteredCollaborationMetrics(
   timeRange: string,
-  selectedDevices: Set<string>
+  selectedDevices: Set<string>,
 ): CollaborationUsageData {
-  const meetings    = useFilteredChartPoints("ts_meetings_num",           timeRange, selectedDevices);
-  const connections = useFilteredChartPoints("ts_connections_num",        timeRange, selectedDevices);
-  const posts       = useFilteredChartPoints("ts_posts_num",              timeRange, selectedDevices);
+  const meetings = useFilteredChartPoints(
+    "ts_meetings_num",
+    timeRange,
+    selectedDevices,
+  );
+  const connections = useFilteredChartPoints(
+    "ts_connections_num",
+    timeRange,
+    selectedDevices,
+  );
+  const posts = useFilteredChartPoints(
+    "ts_posts_num",
+    timeRange,
+    selectedDevices,
+  );
 
   const connectionsAvg = useMemo(() => {
     if (!meetings.length) return [];
@@ -380,24 +432,20 @@ export function useFilteredCollaborationMetrics(
 }
 
 /**
- * Filtered downtime data: devices down + total hours, per date.
- *
- * Used by: DowntimeChart (Monitoring page).
+ * Filtered downtime data. Used by: DowntimeChart.
  */
 export function useFilteredDowntimePoints(
   timeRange: string,
-  selectedDevices: Set<string>
+  selectedDevices: Set<string>,
 ): { date: string; devices: number; hours: number }[] {
   return useMemo(() => {
-    const cutoff  = getDateCutoff(timeRange);
+    const cutoff = getDateCutoff(timeRange);
     const devices = resolveDevices(selectedDevices, timeRange);
 
-    // hours: sum ts_downtime_duration_tot per device per date
     const hoursByDateDevice = new Map<string, number>();
-    // track unique devices down per date
-    const devicesByDate     = new Map<string, Set<string>>();
+    const devicesByDate = new Map<string, Set<string>>();
 
-    timeseriesMock.forEach((row) => {
+    getTimeseriesRows(timeRange).forEach((row) => {
       if (!rowInRange(row.date, cutoff)) return;
       if (row.device_name && !devices.has(row.device_name)) return;
       if (row.segment_1_name) return;
@@ -408,13 +456,13 @@ export function useFilteredDowntimePoints(
         hoursByDateDevice.set(key, (hoursByDateDevice.get(key) ?? 0) + val);
 
         if (row.device_name) {
-          if (!devicesByDate.has(row.date)) devicesByDate.set(row.date, new Set());
+          if (!devicesByDate.has(row.date))
+            devicesByDate.set(row.date, new Set());
           devicesByDate.get(row.date)!.add(row.device_name);
         }
       }
     });
 
-    // Aggregate per date
     const byDate = new Map<string, { hours: number; devices: number }>();
     hoursByDateDevice.forEach((hours, key) => {
       const date = key.split("__")[0];
@@ -426,42 +474,83 @@ export function useFilteredDowntimePoints(
       byDate.get(date)!.devices = devSet.size;
     });
 
-    return Array.from(byDate.entries())
+    const sparse = Array.from(byDate.entries())
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([date, { devices: d, hours: h }]) => ({ date, devices: d, hours: h }));
+      .map(([date, { devices: d, hours: h }]) => ({
+        date,
+        devices: d,
+        hours: h,
+      }));
+
+    const filledDates = fillDateGaps(
+      sparse.map((s) => ({ date: s.date, value: s.hours })),
+      timeRange,
+    );
+
+    const devMap = new Map(sparse.map((s) => [s.date, s.devices]));
+    return filledDates.map((p) => ({
+      date: p.date,
+      devices: devMap.get(p.date) ?? 0,
+      hours: p.value,
+    }));
   }, [timeRange, selectedDevices]);
 }
 
+/* ─────────────────────────────────────────────
+   TYPE: Alert row shape
+───────────────────────────────────────────── */
+export type AlertDataPoint = { date: string } & Record<string, number | string>;
+
 /**
- * Filtered alerts data: each alert metric summed per date for selected devices.
- *
- * Used by: AlertsChart (Monitoring page).
+ * Filtered alerts data. Used by: AlertsChart.
  */
 export function useFilteredAlertsPoints(
   timeRange: string,
-  selectedDevices: Set<string>
-): { date: string; [key: string]: number | string }[] {
+  selectedDevices: Set<string>,
+): AlertDataPoint[] {
   return useMemo(() => {
-    const cutoff  = getDateCutoff(timeRange);
+    const cutoff = getDateCutoff(timeRange);
     const devices = resolveDevices(selectedDevices, timeRange);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const byDate = new Map<string, Record<string, any>>();
+    const byDate = new Map<string, AlertDataPoint>();
+    const alertKeys = new Set<string>();
 
-    timeseriesMock.forEach((row) => {
+    getTimeseriesRows(timeRange).forEach((row) => {
       if (!row.metric_name.startsWith("ts_app_alerts_")) return;
       if (!rowInRange(row.date, cutoff)) return;
       if (row.device_name && !devices.has(row.device_name)) return;
       if (row.segment_1_name) return;
 
-      if (!byDate.has(row.date)) byDate.set(row.date, { date: row.date });
+      alertKeys.add(row.metric_name);
+
+      if (!byDate.has(row.date)) {
+        byDate.set(row.date, { date: row.date });
+      }
       const entry = byDate.get(row.date)!;
-      const val   = parseFloat(row.metric_value) || 0;
-      entry[row.metric_name] = (entry[row.metric_name] ?? 0) + val;
+      const val = parseFloat(row.metric_value) || 0;
+      entry[row.metric_name] = ((entry[row.metric_name] as number) ?? 0) + val;
     });
 
-    return Array.from(byDate.entries())
+    const sparse: AlertDataPoint[] = Array.from(byDate.entries())
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([, entry]) => entry);
+
+    if (!sparse.length) return [];
+
+    const filledDates = fillDateGaps(
+      sparse.map((s) => ({ date: s.date, value: 0 })),
+      timeRange,
+    );
+
+    const sparseMap = new Map(sparse.map((s) => [s.date, s]));
+
+    return filledDates.map((p): AlertDataPoint => {
+      const existing = sparseMap.get(p.date);
+      const result: AlertDataPoint = { date: p.date };
+      alertKeys.forEach((key) => {
+        result[key] = existing ? ((existing[key] as number) ?? 0) : 0;
+      });
+      return result;
+    });
   }, [timeRange, selectedDevices]);
 }
