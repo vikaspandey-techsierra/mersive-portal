@@ -39,13 +39,12 @@ const ChartTooltip = ({
   return (
     <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-[13px] shadow-md">
       <div className="font-semibold mb-1 text-black">{label}</div>
-      {payload
-        .filter((e) => e.value > 0)
-        .map((e) => (
-          <div key={e.name} className="mt-1" style={{ color: e.color }}>
-            {e.name}: {e.value}
-          </div>
-        ))}
+
+      {payload.map((e) => (
+        <div key={e.name} className="mt-1" style={{ color: e.color }}>
+          {e.name}: {e.value ?? 0}
+        </div>
+      ))}
     </div>
   );
 };
@@ -246,7 +245,7 @@ function getNiceTicks(points: ChartPoint[]): { ticks: number[]; max: number } {
     candidates.find((c) => c >= roughStep) ?? candidates[candidates.length - 1];
   const niceMax = niceStep * 4;
   const ticks = [0, 1, 2, 3, 4].map(
-    (i) => Math.round(niceStep * i * 1e10) / 1e10,
+    (i) => Math.round(niceStep * i * 1e10) / 1e10
   );
   return { ticks, max: niceMax };
 }
@@ -259,7 +258,7 @@ export default function DeviceUtilization({
   const { dataA, dataB } = useDeviceUtilizationMetrics(
     metricA === "avgLength" ? "" : METRIC_API_MAP[metricA],
     metricB === "avgLength" ? "" : metricB ? METRIC_API_MAP[metricB] : "",
-    timeRange,
+    timeRange
   );
 
   const handleChangeA = (next: DeviceMetric | null) => {
@@ -279,13 +278,13 @@ export default function DeviceUtilization({
   const meetingsData = useDeviceUtilizationMetrics(
     "ts_meetings_num",
     "",
-    timeRange,
+    timeRange
   ).dataA;
 
   const durationData = useDeviceUtilizationMetrics(
     "ts_meetings_duration_tot",
     "",
-    timeRange,
+    timeRange
   ).dataA;
 
   const pointsA: ChartPoint[] = isAvgLengthA
@@ -296,8 +295,8 @@ export default function DeviceUtilization({
     ? computeAvgLength(meetingsData, durationData)
     : dataB;
 
-  const hasMetricAData = pointsA.some((p) => p.value > 0);
-  const hasMetricBData = pointsB.some((p) => p.value > 0);
+  const hasMetricAData = pointsA.length > 0;
+  const hasMetricBData = pointsB.length > 0;
 
   const { ticks: ticksA, max: maxA } = getNiceTicks(pointsA);
   const { ticks: ticksB, max: maxB } = getNiceTicks(pointsB);
@@ -313,24 +312,20 @@ export default function DeviceUtilization({
   }));
 
   const hasTwoMetrics = metricB !== null;
-
-  // Right axis shows whenever metricB has data, not gated on metricA
   const showRightAxis = hasTwoMetrics && hasMetricBData;
-
-  // metricB line uses right axis when it has its own axis, otherwise falls to left
   const metricBAxisId = showRightAxis ? "right" : "left";
-
-  // Reference lines bind to whichever axis is active
   const refLineAxisId = hasMetricAData ? "left" : "right";
   const refLineTicks = hasMetricAData ? leftTicks : ticksB;
 
   function computeAvgLength(
     meetings: ChartPoint[],
-    duration: ChartPoint[],
+    duration: ChartPoint[]
   ): ChartPoint[] {
-    return meetings.map((m, i) => {
+    const durationMap = new Map(duration.map((d) => [d.date, d.value]));
+
+    return meetings.map((m) => {
       const meetingCount = m.value ?? 0;
-      const totalDuration = duration[i]?.value ?? 0;
+      const totalDuration = durationMap.get(m.date) ?? 0;
 
       return {
         date: m.date,
