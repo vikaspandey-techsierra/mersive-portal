@@ -30,32 +30,40 @@ import {
   useFleetHealthMetric,
   useOfflineDevicesMetric,
   useExpiredDevicesMetric,
-  useOutdatedFirmwareMetric,
-  useOtherIssuesMetric,
   useMeetingsUnderwayMetric,
   useActiveDevicesMetric,
   useAvgMeetingLengthMetric,
   useBusiestTimeMetric,
 } from "@/lib/analytics/hooks/useSnapshotMetric";
+import { useState } from "react";
 
 export default function DashboardPage() {
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleRefresh = () => {
+    setRefreshKey((prev) => prev + 1);
+  };
+
   // DEVICE BREAKDOWN METRICS
   const {
     data: deviceTypeData,
     createdAt,
     loading: typeLoading,
-  } = useDeviceTypeMetric();
+  } = useDeviceTypeMetric(refreshKey);
+
   const { data: deviceStatusData, loading: statusLoading } =
-    useDeviceStatusMetric();
-  const { data: planTypeData, loading: planLoading } = usePlanTypeMetric();
+    useDeviceStatusMetric(refreshKey);
+
+  const { data: planTypeData, loading: planLoading } =
+    usePlanTypeMetric(refreshKey);
+
   const { data: fleetHealthData, loading: fleetLoading } =
-    useFleetHealthMetric();
+    useFleetHealthMetric(refreshKey);
 
   // BANNER METRICS
   const offlineDevices = useOfflineDevicesMetric();
   const expiredDevices = useExpiredDevicesMetric();
-  const outdatedFirmware = useOutdatedFirmwareMetric();
-  const otherIssues = useOtherIssuesMetric();
+  console.log("offlineDevices, offlineDevices");
 
   // STATS CARDS METRICS
   const meetingsUnderway = useMeetingsUnderwayMetric();
@@ -76,10 +84,36 @@ export default function DashboardPage() {
   };
 
   const faqs = [
-    { question: "How do I activate a device?" },
-    { question: "What network settings are needed for WebRTC sharing?" },
-    { question: "How do I troubleshoot using analytics?" },
-    { question: "What is Mersive Hybrid Meeting?" },
+    {
+      question: "How do I activate a device?",
+      answer:
+        "Plug in your Mersive device and ensure it has a network connection. Then go to app.mersive.com/activate and follow the instructions shown on the display. A plan is required to configure and connect devices. You can also add devices in bulk from the Devices list.",
+      link: "https://documentation.mersive.com/en/mcs/device-activation.html",
+    },
+    {
+      question:
+        "How should I configure my network to allow for Mersive device usage?",
+      answer:
+        "All devices require an internet connection with DNS resolution for activation, user connection, and content sharing. You may need to allow certain URLs and open specific ports.",
+      link: "https://documentation.mersive.com/en/mcs/network-requirements.html",
+    },
+    {
+      question:
+        "How do WebRTC, AirPlay, Miracast, and Google Cast sharing work?",
+      answer:
+        "WebRTC allows connection from most networks, while casting protocols require users to be on the same network as the Mersive device.",
+      link: "https://documentation.mersive.com/en/mcs/connect-and-share.html",
+    },
+    {
+      question: "How do I set up device configuration templates?",
+      answer:
+        "Templates map configurations to multiple devices. Updating a template will push changes to all mapped devices.",
+    },
+    {
+      question: "What is Mersive Hybrid Meeting?",
+      answer:
+        "Users can connect and use room camera, microphone, and speaker with conferencing apps like Teams, Zoom, and Google Meet. Drivers are required.",
+    },
   ];
 
   return (
@@ -90,8 +124,6 @@ export default function DashboardPage() {
           alert={{
             offlineDevices,
             expiredOrExpiringSoon: expiredDevices,
-            outdatedFirmware,
-            otherIssues,
           }}
         />
         <div className="mx-auto space-y-4 max-w-350 mt-4">
@@ -104,15 +136,18 @@ export default function DashboardPage() {
             }}
           />
           {/* RELEASE + FAQ */}
-          <UpdatesSection release={release} faqs={faqs} />
+          <UpdatesSection faqs={faqs} />
           {/* DEVICE BREAKDOWN */}
           <div className="p-8 bg-white text-black">
-            <div className="text-2xl font-semibold mb-6 flex gap-2 items-baseline">
+            <div className="text-2xl font-semibold mb-6 flex gap-2 items-center">
+              {" "}
               Device Breakdown
               <span className="text-[16px] font-normal text-[#93949C]">
                 {createdAt ? formatDate(createdAt) : ""}
               </span>
-              <Image src={Replay} alt="Replay icon" width={24} height={24} />
+              <button onClick={handleRefresh}>
+                <Image src={Replay} alt="Replay icon" width={24} height={24} />
+              </button>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* DEVICE TYPE */}
