@@ -1,79 +1,37 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import DowntimeChart from "@/components/DowntimeChart";
 import AlertsChart from "@/components/AlertChart";
 import SelectableDataTable, {
   ColumnDef,
   SelectableDataTableHandle,
+  DeviceTableRow,
 } from "@/components/SelectedDevices";
 import React from "react";
 import LineChartSkeleton from "@/components/skeleton/LineChartSkeleton";
 import AreaChartSkeleton from "@/components/skeleton/AreaChartSkeleton";
-import {
-  useAlertsChart,
-  useDowntimeChart,
-  useMonitoringMetrics,
-} from "@/lib/analytics/hooks/useTimeSeriesMetrics";
+import { useMonitoringMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
 
-interface MonitoringDevice {
-  id: string;
-  name: string;
-  numberOfDevices: number | null;
-  totalDowntime: string | null;
-  totalDowntimeMinutes: number | null;
-  [key: string]: unknown;
-}
+/* ─────────────────────────────────────────────
+   COLUMN DEFINITIONS
+   Monitoring table shows: Name, Number of Devices, Total Downtime.
+   Rows are derived dynamically from timeseriesMock (no static array).
+───────────────────────────────────────────── */
 
-const MONITORING_DEVICES: MonitoringDevice[] = [
-  {
-    id: "1",
-    name: "Board Room",
-    numberOfDevices: 3,
-    totalDowntime: "1 hr 20 min",
-    totalDowntimeMinutes: 80,
-  },
-  {
-    id: "2",
-    name: "Corner Conference",
-    numberOfDevices: 2,
-    totalDowntime: "45 min",
-    totalDowntimeMinutes: 45,
-  },
-  {
-    id: "3",
-    name: "Hallway",
-    numberOfDevices: 1,
-    totalDowntime: "2 hrs",
-    totalDowntimeMinutes: 120,
-  },
-  {
-    id: "4",
-    name: "John's Office",
-    numberOfDevices: 1,
-    totalDowntime: "30 min",
-    totalDowntimeMinutes: 30,
-  },
-  {
-    id: "5",
-    name: "Temp Office",
-    numberOfDevices: null,
-    totalDowntime: null,
-    totalDowntimeMinutes: null,
-  },
-];
-
-const MONITORING_COLUMNS: ColumnDef<MonitoringDevice>[] = [
+const MONITORING_COLUMNS: ColumnDef<DeviceTableRow>[] = [
   { key: "name", label: "Name", sortable: true },
-  { key: "numberOfDevices", label: "Number of Devices", sortable: true },
+  // hoursInUse maps to total downtime hours per device
   {
-    key: "totalDowntimeMinutes",
-    label: "Total Downtime",
+    key: "hoursInUse",
+    label: "Total Downtime (hrs)",
     sortable: true,
-    render: (_value, row) => row.totalDowntime ?? "-",
-    csvValue: (_value, row) => row.totalDowntime ?? "",
   },
 ];
+
+/* ─────────────────────────────────────────────
+   TIME RANGE CONFIG
+───────────────────────────────────────────── */
 
 type TimeRange = "7d" | "30d" | "60d" | "90d" | "all";
 
@@ -100,17 +58,32 @@ function tickInterval(days: number): number {
   return 13;
 }
 
+/* ─────────────────────────────────────────────
+   PROPS
+───────────────────────────────────────────── */
+
 interface MonitoringPageProps {
   tableRef?: React.Ref<SelectableDataTableHandle>;
 }
+
+/* ─────────────────────────────────────────────
+   PAGE
+───────────────────────────────────────────── */
 
 export default function MonitoringPage({ tableRef }: MonitoringPageProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>("7d");
   const [isLoading, setIsLoading] = React.useState(true);
 
+  /**
+   * selectedDevices: Set of device_name strings currently checked in the table.
+   * Empty Set = user unchecked all → charts treat as "all selected" (via
+   * resolveDevices inside the filtered hooks).
+   */
+  const [selectedDevices, setSelectedDevices] = useState<Set<string>>(
+    new Set(),
+  );
+
   const { ready } = useMonitoringMetrics(timeRange);
-  const { data: downtimeData } = useDowntimeChart(timeRange, ready);
-  const { data: alertsData } = useAlertsChart(timeRange, ready);
 
   const days = DAY_COUNTS[timeRange];
   const interval = tickInterval(days);
@@ -120,8 +93,13 @@ export default function MonitoringPage({ tableRef }: MonitoringPageProps) {
     return () => clearTimeout(timer);
   }, []);
 
+  const handleSelectionChange = useCallback((ids: Set<string>) => {
+    setSelectedDevices(new Set(ids));
+  }, []);
+
   return (
     <div className="w-full flex flex-col min-w-0">
+      {/* ── Time range selector ── */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <span className="text-xl font-bold text-black">Monitoring</span>
         <div className="flex flex-wrap gap-2">
@@ -141,6 +119,7 @@ export default function MonitoringPage({ tableRef }: MonitoringPageProps) {
         </div>
       </div>
 
+      {/* ── Downtime chart ── */}
       <div className="w-full min-w-0">
         {isLoading || !ready ? (
           <LineChartSkeleton
@@ -148,12 +127,17 @@ export default function MonitoringPage({ tableRef }: MonitoringPageProps) {
             description="Monitor how many devices are down and for long the downtime lasted"
           />
         ) : (
-          <DowntimeChart data={downtimeData} interval={interval} />
+          <DowntimeChart
+            timeRange={timeRange}
+            selectedDevices={selectedDevices}
+            interval={interval}
+          />
         )}
       </div>
 
       <hr className="my-10 border-t border-gray-200" />
 
+      {/* ── Alerts chart ── */}
       <div className="w-full min-w-0">
         {isLoading || !ready ? (
           <AreaChartSkeleton
@@ -161,22 +145,33 @@ export default function MonitoringPage({ tableRef }: MonitoringPageProps) {
             description="Monitor the quantity and which types of alerts occurred in your fleet"
           />
         ) : (
-          <AlertsChart data={alertsData} interval={interval} />
+          <AlertsChart
+            timeRange={timeRange}
+            selectedDevices={selectedDevices}
+            interval={interval}
+          />
         )}
       </div>
 
       <hr className="my-10 border-t border-gray-200" />
 
+      {/* ── Selected Devices table ──
+          - No `rows` prop: derives device names from timeseriesMock
+          - `timeRange` drives row derivation
+          - `onSelectionChange` lifts selection up to this page
+          - `defaultAllSelected` ensures all devices start checked
+      ── */}
       <SelectableDataTable
         ref={tableRef}
         heading="Selected Devices"
         subheading="Select all or narrow the data down to a specific group of devices"
-        rows={MONITORING_DEVICES}
         rowKey="id"
         columns={MONITORING_COLUMNS}
         defaultSortKey="name"
         defaultSortDir="asc"
         defaultAllSelected
+        timeRange={timeRange}
+        onSelectionChange={handleSelectionChange}
         isLoading={isLoading}
         csvFilename="monitoring-devices"
       />

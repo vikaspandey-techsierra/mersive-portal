@@ -1,6 +1,6 @@
 "use client";
 
-import { useCollaborationUsageMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
+import { useMemo } from "react";
 import {
   LineChart,
   Line,
@@ -10,17 +10,16 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { useMemo } from "react";
-import { formatShortDate } from "@/lib/analytics/utils/helpers";
+import { useFilteredCollaborationMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
+import { formatShortDate, getSevenTicks } from "@/lib/analytics/utils/helpers";
 
-// TOOLTIP
 interface TEntry {
   name: string;
   value: number;
   color: string;
 }
 
-export const ChartTooltip = ({
+const ChartTooltip = ({
   active,
   payload,
   label,
@@ -30,22 +29,18 @@ export const ChartTooltip = ({
   label?: string;
 }) => {
   if (!active || !payload?.length) return null;
-
   return (
     <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-[13px] shadow-md">
       <div className="font-semibold mb-1 text-black">{label}</div>
-      {payload
-        .filter((e) => e.value > 0)
-        .map((e) => (
-          <div key={e.name} style={{ color: e.color }}>
-            {e.name}: {e.value}
-          </div>
-        ))}
+      {payload.map((e) => (
+        <div key={e.name} className="mt-1" style={{ color: e.color }}>
+          {e.name}: {e.value ?? 0}
+        </div>
+      ))}
     </div>
   );
 };
 
-// LEGEND
 const LegendPill = ({ label, color }: { label: string; color: string }) => (
   <div
     className="inline-flex items-center text-white rounded-md px-3 py-1 text-xs font-medium whitespace-nowrap"
@@ -57,10 +52,15 @@ const LegendPill = ({ label, color }: { label: string; color: string }) => (
 
 export default function CollaborationUsage({
   timeRange = "7d",
+  selectedDevices,
 }: {
   timeRange?: string;
+  selectedDevices: Set<string>;
 }) {
-  const { connectionsAvg, postsAvg } = useCollaborationUsageMetrics(timeRange);
+  const { connectionsAvg, postsAvg } = useFilteredCollaborationMetrics(
+    timeRange,
+    selectedDevices,
+  );
 
   const chartData = useMemo(() => {
     if (!connectionsAvg.length && !postsAvg.length) return [];
@@ -69,16 +69,13 @@ export default function CollaborationUsage({
     const map: Record<string, any> = {};
 
     connectionsAvg.forEach((d) => {
-      if (!map[d.date]) {
-        map[d.date] = { label: formatShortDate(d.date) };
-      }
+      if (!map[d.date]) map[d.date] = { label: formatShortDate(d.date) };
+      // Always include value (even 0) so both lines always render
       map[d.date].avgConnections = d.value;
     });
 
     postsAvg.forEach((d) => {
-      if (!map[d.date]) {
-        map[d.date] = { label: formatShortDate(d.date) };
-      }
+      if (!map[d.date]) map[d.date] = { label: formatShortDate(d.date) };
       map[d.date].avgPosts = d.value;
     });
 
@@ -87,17 +84,21 @@ export default function CollaborationUsage({
       .map(([, v]) => v);
   }, [connectionsAvg, postsAvg]);
 
+  // Always exactly 7 X-axis labels
+  const xTicks = useMemo(
+    () => getSevenTicks(chartData.map((d) => d.label)),
+    [chartData],
+  );
+
   return (
     <div className="mb-8">
       <div className="font-semibold text-[15px] text-black mb-0.5">
         Collaboration Usage
       </div>
-
       <div className="text-[13px] text-gray-400 mb-3">
         Compare how many users connect versus how often they share a post within
         a meeting on average
       </div>
-
       <div className="bg-white rounded-xl p-5 pb-4 border border-gray-200">
         <ResponsiveContainer width="100%" height={260}>
           <LineChart
@@ -105,38 +106,21 @@ export default function CollaborationUsage({
             margin={{ top: 8, right: 16, left: -20, bottom: 0 }}
           >
             <CartesianGrid stroke="#f0f0f0" vertical={false} />
-
             <XAxis
               dataKey="label"
               tick={{ fontSize: 11, fill: "#000" }}
               axisLine={false}
               tickLine={false}
-              ticks={(() => {
-                const len = chartData.length;
-                if (len === 0) return [];
-
-                const count = 7;
-                const selected = new Set<number>([0, len - 1]);
-
-                for (let i = 1; i < count - 1; i++) {
-                  selected.add(Math.round((i / (count - 1)) * (len - 1)));
-                }
-
-                return [...selected]
-                  .sort((a, b) => a - b)
-                  .map((i) => chartData[i].label);
-              })()}
+              ticks={xTicks}
             />
-
             <YAxis
               tick={{ fontSize: 11, fill: "#000" }}
               axisLine={false}
               tickLine={false}
               tickCount={5}
             />
-
             <Tooltip content={<ChartTooltip />} />
-
+            {/* Always render both lines — they sit at y=0 when no data */}
             <Line
               type="linear"
               dataKey="avgConnections"
@@ -146,7 +130,6 @@ export default function CollaborationUsage({
               dot={{ r: 4, fill: "#6860C8", strokeWidth: 0 }}
               activeDot={{ r: 5 }}
             />
-
             <Line
               type="linear"
               dataKey="avgPosts"
@@ -158,7 +141,6 @@ export default function CollaborationUsage({
             />
           </LineChart>
         </ResponsiveContainer>
-
         <div className="flex gap-2 mt-3.5 flex-wrap items-center">
           <LegendPill label="Avg. connections per meeting" color="#6860C8" />
           <LegendPill label="Avg. posts per meeting" color="#D44E80" />

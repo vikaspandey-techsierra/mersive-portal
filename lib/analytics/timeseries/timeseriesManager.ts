@@ -20,7 +20,7 @@ export function getLatestMockDate(): Date {
 
 export function getStartDate(timeRange: string): string {
   const days = RANGE_DAYS[timeRange] ?? 7;
-  const end = getLatestMockDate();
+  const end = new Date();
 
   const start = new Date(end);
   start.setDate(start.getDate() - (days - 1));
@@ -30,7 +30,7 @@ export function getStartDate(timeRange: string): string {
 }
 
 export function getEndDate(): string {
-  const end = getLatestMockDate();
+  const end = new Date();
   end.setHours(0, 0, 0, 0);
   return end.toISOString().split("T")[0];
 }
@@ -55,22 +55,44 @@ export async function fetchTimeseriesMetrics(
 
   metricsArray.forEach((m) => pendingMetrics[timeRange].add(m));
 
-  // batching delay
   await new Promise((resolve) => setTimeout(resolve, 0));
 
   const allMetrics = Array.from(pendingMetrics[timeRange]);
   pendingMetrics[timeRange].clear();
 
-  const missingMetrics = allMetrics.filter(
+  const startDate = getStartDate(timeRange);
+  const endDate = getEndDate();
+
+  let expandedMetrics: string[] = [];
+
+  // Handle wildcard alert metrics
+  if (allMetrics.includes("ts_app_alerts_*")) {
+    const alertRows = timeseriesMock.filter(
+      (row) =>
+        row.metric_name.startsWith("ts_app_alerts_") &&
+        row.date >= startDate &&
+        row.date <= endDate
+    );
+
+    const alertMetricSet = new Set<string>();
+    alertRows.forEach((row) => alertMetricSet.add(row.metric_name));
+
+    expandedMetrics = [
+      ...allMetrics.filter((m) => m !== "ts_app_alerts_*"),
+      ...Array.from(alertMetricSet),
+    ];
+  } else {
+    expandedMetrics = allMetrics;
+  }
+
+  const missingMetrics = expandedMetrics.filter(
     (metric) => !getMetric(`${metric}__${timeRange}`)
   );
 
   if (!missingMetrics.length) return;
 
-  const startDate = getStartDate(timeRange);
-  const endDate = getEndDate();
+  console.log("BATCH Metrics:", missingMetrics);
 
-  //MOCK FILTER (simulate API)
   const rows: TimeseriesRow[] = timeseriesMock.filter(
     (row) =>
       missingMetrics.includes(row.metric_name) &&
@@ -78,15 +100,11 @@ export async function fetchTimeseriesMetrics(
       row.date <= endDate
   );
 
-  //PARSE
-  const parsed = parseTimeseries(
-    rows,
-    timeRange,
-    getLatestMockDate(),
-    missingMetrics
-  );
+  console.log("RAW rows:", rows);
 
-  // CACHE
+  const parsed = parseTimeseries(rows, timeRange, new Date(), missingMetrics);
+
+  // Cache REAL metrics (not wildcard)
   missingMetrics.forEach((metric) => {
     const data = parsed[metric];
     if (data) {

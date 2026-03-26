@@ -9,17 +9,14 @@ import {
   ReferenceLine,
   ResponsiveContainer,
 } from "recharts";
-import { formatShortDate } from "@/lib/analytics/utils/helpers";
-
-export interface DowntimePoint {
-  date: string;
-  devices: number;
-  hours: number;
-}
+import { useMemo } from "react";
+import { formatShortDate, getSevenTicks } from "@/lib/analytics/utils/helpers";
+import { useFilteredDowntimePoints } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
 
 interface Props {
-  data: DowntimePoint[];
-  interval: number;
+  timeRange: string;
+  selectedDevices: Set<string>;
+  interval?: number;
 }
 
 const PURPLE = "#5E54C5";
@@ -106,36 +103,29 @@ const CustomTooltip = ({
   );
 };
 
-export default function DowntimeChart({ data }: Props) {
+export default function DowntimeChart({ timeRange, selectedDevices }: Props) {
+  const rawData = useFilteredDowntimePoints(timeRange, selectedDevices);
+
+  const formattedData = useMemo(
+    () => rawData.map((d) => ({ ...d, label: formatShortDate(d.date) })),
+    [rawData],
+  );
+
   const deviceTicks = [0, 6, 12, 18, 24];
 
-  // Format dates
-  const formattedData = (data || []).map((d) => ({
-    ...d,
-    label: formatShortDate(d.date),
-  }));
+  // Always exactly 7 X-axis labels
+  const xTicks = useMemo(
+    () => getSevenTicks(formattedData.map((d) => d.label)),
+    [formattedData],
+  );
 
-  // Dynamic X ticks (same logic as Usage chart)
-  const xTicks = (() => {
-    const len = formattedData.length;
-    if (len === 0) return [];
-    const count = 7;
-    const selected = new Set<number>([0, len - 1]);
-
-    for (let i = 1; i < count - 1; i++) {
-      selected.add(Math.round((i / (count - 1)) * (len - 1)));
-    }
-
-    return [...selected]
-      .sort((a, b) => a - b)
-      .map((i) => formattedData[i].label);
-  })();
-
-  // Dynamic right axis scale
-  const maxHours =
-    formattedData.length > 0
-      ? Math.max(...formattedData.map((d) => d.hours), 1)
-      : 1;
+  const maxHours = useMemo(
+    () =>
+      formattedData.length > 0
+        ? Math.max(...formattedData.map((d) => d.hours), 1)
+        : 1,
+    [formattedData],
+  );
 
   const hourTicks = [
     0,
@@ -168,7 +158,6 @@ export default function DowntimeChart({ data }: Props) {
               tickLine={false}
               dy={8}
             />
-
             <YAxis
               yAxisId="left"
               orientation="left"
@@ -180,7 +169,6 @@ export default function DowntimeChart({ data }: Props) {
               width={36}
               label={<LeftAxisLabel />}
             />
-
             <YAxis
               yAxisId="right"
               orientation="right"
@@ -193,7 +181,6 @@ export default function DowntimeChart({ data }: Props) {
               width={52}
               label={<RightAxisLabel />}
             />
-
             {deviceTicks.map((tick) => (
               <ReferenceLine
                 key={tick}
@@ -203,9 +190,8 @@ export default function DowntimeChart({ data }: Props) {
                 strokeWidth={1}
               />
             ))}
-
             <Tooltip content={<CustomTooltip />} />
-
+            {/* Always render both lines — they sit at y=0 when no data */}
             <Line
               yAxisId="left"
               type="linear"
@@ -216,7 +202,6 @@ export default function DowntimeChart({ data }: Props) {
               activeDot={{ r: 7, fill: PURPLE }}
               isAnimationActive={false}
             />
-
             <Line
               yAxisId="right"
               type="linear"
@@ -231,7 +216,6 @@ export default function DowntimeChart({ data }: Props) {
         </ResponsiveContainer>
       </div>
 
-      {/* Legend */}
       <div className="flex gap-2.5 px-6 mt-4">
         <span
           className="inline-flex items-center text-white text-sm font-medium rounded-full px-4 py-1.5"

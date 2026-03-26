@@ -31,6 +31,9 @@ export function parseTimeseries(
     Record<string, Record<string, number> | number>
   > = {};
 
+  //Track unique devices per day for downtime metric
+  const downtimeDevicesPerDay: Record<string, Set<string>> = {};
+
   requestedMetrics.forEach((m) => {
     byMetric[m] = {};
   });
@@ -44,7 +47,7 @@ export function parseTimeseries(
 
     const isSegmented = metric.includes("_by_");
 
-    //SEGMENTED METRICS
+    // SEGMENTED METRICS
     if (isSegmented) {
       if (!row.segment_1_value) return;
 
@@ -55,16 +58,24 @@ export function parseTimeseries(
       }
 
       const segmentMap = byMetric[metric][date] as Record<string, number>;
-
       segmentMap[segment] = (segmentMap[segment] ?? 0) + value;
     }
-
-    //NON-SEGMENTED
+    // NON-SEGMENTED
     else {
       const existing = byMetric[metric][date] as number | undefined;
       byMetric[metric][date] = (existing ?? 0) + value;
     }
+
+    //If downtime duration metric → track unique device_name
+    if (metric === "ts_downtime_duration_tot" && row.device_name) {
+      if (!downtimeDevicesPerDay[date]) {
+        downtimeDevicesPerDay[date] = new Set();
+      }
+      downtimeDevicesPerDay[date].add(row.device_name);
+    }
   });
+
+  // console.log("Downtime devices per day:", downtimeDevicesPerDay);
 
   const allDates = generateDateRange(timeRange, referenceDate);
   const result: ParsedMetricsMap = {};
@@ -75,7 +86,6 @@ export function parseTimeseries(
     allDates.forEach((date) => {
       const entry = byMetric[metric][date];
 
-      // fill missing dates (important for chart UI)
       if (!entry) {
         result[metric].push({
           date,
@@ -100,6 +110,22 @@ export function parseTimeseries(
       }
     });
   });
+
+  // Create ts_downtime_devices_num_tot metric
+  if (requestedMetrics.includes("ts_downtime_devices_num_tot")) {
+    result["ts_downtime_devices_num_tot"] = [];
+
+    allDates.forEach((date) => {
+      const count = downtimeDevicesPerDay[date]
+        ? downtimeDevicesPerDay[date].size
+        : 0;
+
+      result["ts_downtime_devices_num_tot"].push({
+        date,
+        value: count,
+      });
+    });
+  }
 
   return result;
 }

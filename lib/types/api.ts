@@ -12,8 +12,6 @@ export interface DashboardStats {
 export interface AdminAlert {
   offlineDevices: number;
   expiredOrExpiringSoon: number;
-  outdatedFirmware: number;
-  otherIssues: number;
 }
 
 export interface ReleaseNote {
