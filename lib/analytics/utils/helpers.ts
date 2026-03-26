@@ -40,10 +40,6 @@ export function rowInRange(dateStr: string, cutoff: Date | null): boolean {
   return new Date(dateStr) >= cutoff;
 }
 
-/**
- * Returns exactly 7 evenly-spaced labels from the provided array.
- * Always includes the first and last. If ≤7 items, returns all.
- */
 export function getSevenTicks(labels: string[]): string[] {
   const len = labels.length;
   if (len === 0) return [];
@@ -56,14 +52,6 @@ export function getSevenTicks(labels: string[]): string[] {
   return [...selected].sort((a, b) => a - b).map((i) => labels[i]);
 }
 
-/**
- * Fills every missing calendar day in the time range with value: 0.
- * For fixed ranges (7d/30d/60d/90d): fills from (today - N + 1) to today.
- * For "all": fills between the min and max date present in the data.
- *
- * This ensures every day appears as a dot on the line chart.
- * Days with actual data keep their original value; missing days get 0.
- */
 export function fillDateGaps(
   points: ChartPoint[],
   timeRange: string,
@@ -109,11 +97,6 @@ export function fillDateGaps(
   return result;
 }
 
-/**
- * Same as fillDateGaps but preserves the `segment` field.
- * Each segment gets its own gap-filled series.
- * Used by UserConnections (segmented area chart).
- */
 export function fillSegmentedDateGaps(
   points: ChartPoint[],
   timeRange: string,

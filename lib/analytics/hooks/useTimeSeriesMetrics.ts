@@ -295,16 +295,6 @@ export function useAlertsChart(timeRange: string, ready: boolean) {
    FILTERED CHART HOOKS
 ───────────────────────────────────────────── */
 
-/**
- * Aggregated ChartPoint[] for a NON-SEGMENTED metric filtered to selected devices.
- *
- * Key rule: rows with segment_1_name set are SKIPPED here.
- * This prevents ts_connections_num_by_os (segmented) from mixing
- * into ts_connections_num (plain) totals, keeping DeviceUtilization
- * and UserConnections charts independent.
- *
- * Used by: DeviceUtilization, CollaborationUsage.
- */
 export function useFilteredChartPoints(
   metricName: string,
   timeRange: string,
@@ -337,17 +327,6 @@ export function useFilteredChartPoints(
   }, [metricName, timeRange, selectedDevices]);
 }
 
-/**
- * Segmented ChartPoint[] — reads rows WHERE segment_1_name IS SET.
- *
- * This is intentionally different from useFilteredChartPoints:
- * - UserConnections uses metrics like ts_connections_num_by_os where
- *   each row carries a segment_1_value (e.g. "Windows", "MacOS").
- * - DeviceUtilization uses the plain ts_connections_num metric (no segment).
- * - The two hooks read completely separate rows, so their totals never clash.
- *
- * Used by: UserConnections.
- */
 export function useFilteredSegmentedPoints(
   metricName: string,
   timeRange: string,
@@ -388,10 +367,7 @@ export function useFilteredSegmentedPoints(
   }, [metricName, timeRange, selectedDevices]);
 }
 
-/**
- * Filtered collaboration averages (connections per meeting, posts per meeting).
- * Used by: CollaborationUsage.
- */
+
 export function useFilteredCollaborationMetrics(
   timeRange: string,
   selectedDevices: Set<string>,
@@ -431,9 +407,6 @@ export function useFilteredCollaborationMetrics(
   return { connectionsAvg, postsAvg };
 }
 
-/**
- * Filtered downtime data. Used by: DowntimeChart.
- */
 export function useFilteredDowntimePoints(
   timeRange: string,
   selectedDevices: Set<string>,
@@ -501,9 +474,7 @@ export function useFilteredDowntimePoints(
 ───────────────────────────────────────────── */
 export type AlertDataPoint = { date: string } & Record<string, number | string>;
 
-/**
- * Filtered alerts data. Used by: AlertsChart.
- */
+
 export function useFilteredAlertsPoints(
   timeRange: string,
   selectedDevices: Set<string>,

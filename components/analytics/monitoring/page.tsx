@@ -13,12 +13,6 @@ import LineChartSkeleton from "@/components/skeleton/LineChartSkeleton";
 import AreaChartSkeleton from "@/components/skeleton/AreaChartSkeleton";
 import { useMonitoringMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
 
-/* ─────────────────────────────────────────────
-   COLUMN DEFINITIONS
-   Monitoring table shows: Name, Number of Devices, Total Downtime.
-   Rows are derived dynamically from timeseriesMock (no static array).
-───────────────────────────────────────────── */
-
 const MONITORING_COLUMNS: ColumnDef<DeviceTableRow>[] = [
   { key: "name", label: "Name", sortable: true },
   // hoursInUse maps to total downtime hours per device
@@ -74,11 +68,6 @@ export default function MonitoringPage({ tableRef }: MonitoringPageProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>("7d");
   const [isLoading, setIsLoading] = React.useState(true);
 
-  /**
-   * selectedDevices: Set of device_name strings currently checked in the table.
-   * Empty Set = user unchecked all → charts treat as "all selected" (via
-   * resolveDevices inside the filtered hooks).
-   */
   const [selectedDevices, setSelectedDevices] = useState<Set<string>>(
     new Set(),
   );
@@ -155,12 +144,6 @@ export default function MonitoringPage({ tableRef }: MonitoringPageProps) {
 
       <hr className="my-10 border-t border-gray-200" />
 
-      {/* ── Selected Devices table ──
-          - No `rows` prop: derives device names from timeseriesMock
-          - `timeRange` drives row derivation
-          - `onSelectionChange` lifts selection up to this page
-          - `defaultAllSelected` ensures all devices start checked
-      ── */}
       <SelectableDataTable
         ref={tableRef}
         heading="Selected Devices"
