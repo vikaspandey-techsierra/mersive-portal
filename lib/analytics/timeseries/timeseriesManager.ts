@@ -91,16 +91,12 @@ export async function fetchTimeseriesMetrics(
 
   if (!missingMetrics.length) return;
 
-  console.log("BATCH Metrics:", missingMetrics);
-
   const rows: TimeseriesRow[] = timeseriesMock.filter(
     (row) =>
       missingMetrics.includes(row.metric_name) &&
       row.date >= startDate &&
       row.date <= endDate
   );
-
-  console.log("RAW rows:", rows);
 
   const parsed = parseTimeseries(rows, timeRange, new Date(), missingMetrics);
 

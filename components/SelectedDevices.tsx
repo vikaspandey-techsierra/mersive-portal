@@ -27,53 +27,24 @@ export interface ColumnDef<T extends Record<string, unknown>> {
 }
 
 export interface SelectableDataTableProps<T extends Record<string, unknown>> {
-  // ── Content ──────────────────────────────
   heading: string;
   subheading: string;
   searchPlaceholder?: string;
-
-  // ── Data ─────────────────────────────────
-  /**
-   * Static rows. When omitted, rows are derived dynamically from
-   * timeseriesMock using the current timeRange.
-   */
   rows?: T[];
   rowKey: keyof T & string;
   columns: ColumnDef<T>[];
-
-  // ── Sorting ───────────────────────────────
   defaultSortKey?: keyof T & string;
   defaultSortDir?: SortDir;
-
-  // ── Selection ─────────────────────────────
   defaultAllSelected?: boolean;
-  /**
-   * Fired whenever the selection changes.
-   *
-   * IMPORTANT: when every row is unchecked this fires with an EMPTY Set.
-   * The parent is responsible for treating an empty Set as "all selected"
-   * in its chart-filtering logic (to avoid blank charts).
-   */
   onSelectionChange?: (selectedIds: Set<string>) => void;
-
-  // ── Time Range ────────────────────────────
-  /** Drives dynamic row derivation and column value aggregation. */
   timeRange?: string;
-
-  // ── Loading ───────────────────────────────
   isLoading?: boolean;
-
-  // ── CSV ───────────────────────────────────
   csvFilename?: string;
 }
 
 export interface SelectableDataTableHandle {
   exportCSV: () => void;
 }
-
-/* ─────────────────────────────────────────────
-   DYNAMIC ROW DERIVATION
-───────────────────────────────────────────── */
 
 export interface DeviceTableRow extends Record<string, unknown> {
   id: string;
@@ -209,13 +180,6 @@ const SortIcon = ({ active, dir }: { active: boolean; dir: SortDir }) => (
     </svg>
   </span>
 );
-
-/* ─────────────────────────────────────────────
-   CHECKBOX
-   No indeterminate state — spec requires:
-     Header: checked = ALL rows checked, unchecked = anything less than all
-     Row:    standard checked / unchecked
-───────────────────────────────────────────── */
 
 const Checkbox = ({
   checked,
@@ -388,18 +352,11 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
     }
   };
 
-  /* ── Header checkbox ──
-     Checked = every visible row is in the selected set.
-     Unchecked = anything less than all (including zero).
-     No indeterminate per spec.
-  ── */
+  /* ── Header checkbox  ── */
   const allVisibleSelected =
     sorted.length > 0 && sorted.every((r) => selected.has(String(r[rowKey])));
 
-  /* ── Header toggle ──
-     all checked   → clicking unchecks all (set to empty)
-     anything else → clicking checks all visible rows
-  ── */
+  /* ── Header toggle ── */
   const toggleAll = () => {
     if (allVisibleSelected) {
       setSelected(new Set());
