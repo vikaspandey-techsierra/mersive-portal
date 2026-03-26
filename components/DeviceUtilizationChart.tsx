@@ -32,32 +32,42 @@ interface TEntry {
 }
 
 /* ─────────────────────────────────────────────
-   TOOLTIP
+   PURE HELPERS  (module-level — no component deps)
+   Must be outside the component so React Compiler
+   can statically analyse useMemo dependencies.
 ───────────────────────────────────────────── */
 
-const ChartTooltip = ({
-  active,
-  payload,
-  label,
-}: {
-  active?: boolean;
-  payload?: TEntry[];
-  label?: string;
-}) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-[13px] shadow-md">
-      <div className="font-semibold mb-1 text-black">{label}</div>
-      {payload
-        .filter((e) => e.value > 0)
-        .map((e) => (
-          <div key={e.name} className="mt-1" style={{ color: e.color }}>
-            {e.name}: {e.value}
-          </div>
-        ))}
-    </div>
+/**
+ * Derives average meeting-length points from two pre-filtered series.
+ * Uses a date-keyed map so order differences between the two arrays
+ * never cause index-misalignment bugs.
+ */
+function computeAvgLength(
+  meetings: ChartPoint[],
+  duration: ChartPoint[],
+): ChartPoint[] {
+  const durationMap = new Map(duration.map((d) => [d.date, d.value]));
+  return meetings.map((m) => ({
+    date: m.date,
+    value: m.value ? (durationMap.get(m.date) ?? 0) / m.value : 0,
+  }));
+}
+
+function getNiceTicks(points: ChartPoint[]): { ticks: number[]; max: number } {
+  if (!points.length) return { ticks: [0, 3, 6, 9, 12], max: 12 };
+  const rawMax = Math.max(...points.map((p) => p.value));
+  if (rawMax === 0) return { ticks: [0, 1, 2, 3, 4], max: 4 };
+  const roughStep = rawMax / 4;
+  const magnitude = Math.pow(10, Math.floor(Math.log10(roughStep)));
+  const candidates = [1, 2, 2.5, 5, 10].map((c) => c * magnitude);
+  const niceStep =
+    candidates.find((c) => c >= roughStep) ?? candidates[candidates.length - 1];
+  const niceMax = niceStep * 4;
+  const ticks = [0, 1, 2, 3, 4].map(
+    (i) => Math.round(niceStep * i * 1e10) / 1e10,
   );
-};
+  return { ticks, max: niceMax };
+}
 
 /* ─────────────────────────────────────────────
    METRIC CONFIG
@@ -89,6 +99,32 @@ const METRIC_API_MAP: Record<Exclude<DeviceMetric, "avgLength">, string> = {
 
 const PURPLE = "#6860C8";
 const PINK = "#D44E80";
+
+/* ─────────────────────────────────────────────
+   TOOLTIP
+───────────────────────────────────────────── */
+
+const ChartTooltip = ({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: TEntry[];
+  label?: string;
+}) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-[13px] shadow-md">
+      <div className="font-semibold mb-1 text-black">{label}</div>
+      {payload.map((e) => (
+        <div key={e.name} className="mt-1" style={{ color: e.color }}>
+          {e.name}: {e.value ?? 0}
+        </div>
+      ))}
+    </div>
+  );
+};
 
 /* ─────────────────────────────────────────────
    AXIS LABELS
@@ -248,36 +284,6 @@ const MetricDropdown = ({
 };
 
 /* ─────────────────────────────────────────────
-   NICE TICKS
-───────────────────────────────────────────── */
-
-function getNiceTicks(points: ChartPoint[]): { ticks: number[]; max: number } {
-  if (!points.length) return { ticks: [0, 3, 6, 9, 12], max: 12 };
-  const rawMax = Math.max(...points.map((p) => p.value));
-  if (rawMax === 0) return { ticks: [0, 1, 2, 3, 4], max: 4 };
-  const roughStep = rawMax / 4;
-  const magnitude = Math.pow(10, Math.floor(Math.log10(roughStep)));
-  const candidates = [1, 2, 2.5, 5, 10].map((c) => c * magnitude);
-  const niceStep =
-    candidates.find((c) => c >= roughStep) ?? candidates[candidates.length - 1];
-  const niceMax = niceStep * 4;
-  const ticks = [0, 1, 2, 3, 4].map(
-    (i) => Math.round(niceStep * i * 1e10) / 1e10,
-  );
-  return { ticks, max: niceMax };
-}
-
-function computeAvgLength(
-  meetings: ChartPoint[],
-  duration: ChartPoint[],
-): ChartPoint[] {
-  return meetings.map((m, i) => ({
-    date: m.date,
-    value: m.value ? (duration[i]?.value ?? 0) / m.value : 0,
-  }));
-}
-
-/* ─────────────────────────────────────────────
    MAIN COMPONENT
 ───────────────────────────────────────────── */
 
@@ -288,7 +294,7 @@ export default function DeviceUtilization({
   const [metricA, setMetricA] = useState<DeviceMetric>("meetings");
   const [metricB, setMetricB] = useState<DeviceMetric | null>("connections");
 
-  // Always fetch meetings + duration so avgLength can be derived
+  // Always fetch meetings + duration so avgLength can be derived for either axis
   const filteredMeetings = useFilteredChartPoints(
     "ts_meetings_num",
     timeRange,
@@ -315,6 +321,9 @@ export default function DeviceUtilization({
     selectedDevices,
   );
 
+  // computeAvgLength is defined at module scope so React Compiler can
+  // statically verify it has no hidden component-level dependencies and
+  // safely preserve these useMemo calls.
   const pointsA: ChartPoint[] = useMemo(
     () =>
       metricA === "avgLength"
@@ -322,6 +331,7 @@ export default function DeviceUtilization({
         : rawA,
     [metricA, rawA, filteredMeetings, filteredDuration],
   );
+
   const pointsB: ChartPoint[] = useMemo(
     () =>
       metricB === "avgLength"
@@ -330,8 +340,8 @@ export default function DeviceUtilization({
     [metricB, rawB, filteredMeetings, filteredDuration],
   );
 
-  const hasMetricAData = pointsA.some((p) => p.value > 0);
-  const hasMetricBData = pointsB.some((p) => p.value > 0);
+  const hasMetricAData = pointsA.length > 0;
+  const hasMetricBData = pointsB.length > 0;
 
   const { ticks: ticksA, max: maxA } = getNiceTicks(pointsA);
   const { ticks: ticksB, max: maxB } = getNiceTicks(pointsB);
@@ -370,6 +380,7 @@ export default function DeviceUtilization({
     if (next === metricB) setMetricB(metricA);
     setMetricA(next);
   };
+
   const handleChangeB = (next: DeviceMetric | null) => {
     if (next === metricA) setMetricA(metricB!);
     setMetricB(next);

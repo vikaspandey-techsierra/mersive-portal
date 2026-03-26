@@ -19,7 +19,7 @@ interface TEntry {
   color: string;
 }
 
-export const ChartTooltip = ({
+const ChartTooltip = ({
   active,
   payload,
   label,
@@ -32,13 +32,12 @@ export const ChartTooltip = ({
   return (
     <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-[13px] shadow-md">
       <div className="font-semibold mb-1 text-black">{label}</div>
-      {payload
-        .filter((e) => e.value > 0)
-        .map((e) => (
-          <div key={e.name} style={{ color: e.color }}>
-            {e.name}: {e.value}
-          </div>
-        ))}
+
+      {payload.map((e) => (
+        <div key={e.name} className="mt-1" style={{ color: e.color }}>
+          {e.name}: {e.value ?? 0}
+        </div>
+      ))}
     </div>
   );
 };

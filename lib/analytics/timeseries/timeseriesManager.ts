@@ -20,7 +20,7 @@ export function getLatestMockDate(): Date {
 
 export function getStartDate(timeRange: string): string {
   const days = RANGE_DAYS[timeRange] ?? 7;
-  const end = getLatestMockDate();
+  const end = new Date();
 
   const start = new Date(end);
   start.setDate(start.getDate() - (days - 1));
@@ -30,7 +30,7 @@ export function getStartDate(timeRange: string): string {
 }
 
 export function getEndDate(): string {
-  const end = getLatestMockDate();
+  const end = new Date();
   end.setHours(0, 0, 0, 0);
   return end.toISOString().split("T")[0];
 }
@@ -102,12 +102,7 @@ export async function fetchTimeseriesMetrics(
 
   console.log("RAW rows:", rows);
 
-  const parsed = parseTimeseries(
-    rows,
-    timeRange,
-    getLatestMockDate(),
-    missingMetrics
-  );
+  const parsed = parseTimeseries(rows, timeRange, new Date(), missingMetrics);
 
   // Cache REAL metrics (not wildcard)
   missingMetrics.forEach((metric) => {
