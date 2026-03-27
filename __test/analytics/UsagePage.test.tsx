@@ -19,49 +19,57 @@ jest.mock("@/components/DeviceUtilizationChart", () =>
 jest.mock("@/components/UserConnectionsChart", () =>
   jest.fn(
     ({
-      data,
-      interval,
+      timeRange,
       title,
       subtitle,
     }: {
-      data: unknown[];
-      interval: number;
+      timeRange: string;
       title: string;
       subtitle?: string;
     }) => (
       <div
         data-testid="user-connections"
-        data-interval={interval}
+        data-time-range={timeRange}
         data-title={title}
         data-subtitle={subtitle}
-        data-data-length={data.length}
       />
     )
   )
 );
 
 jest.mock("@/components/CollaborationChart", () =>
-  jest.fn(({ data, interval }: { data: unknown[]; interval: number }) => (
-    <div
-      data-testid="collaboration-usage"
-      data-interval={interval}
-      data-data-length={data.length}
-    />
+  jest.fn(({ timeRange }: { timeRange: string }) => (
+    <div data-testid="collaboration-usage" data-time-range={timeRange} />
   ))
 );
 
 jest.mock("@/components/SelectedDevices", () => {
-  return jest.fn(() => {
+  return jest.fn(({ onSelectionChange, timeRange }: any) => {
     const [checked, setChecked] = React.useState(true);
 
+    React.useEffect(() => {
+      // Simulate initial selection change with all devices selected
+      if (onSelectionChange) {
+        onSelectionChange(new Set(["device-1"]));
+      }
+    }, [onSelectionChange]);
+
     return (
-      <div data-testid="selected-devices">
+      <div data-testid="selected-devices" data-time-range={timeRange}>
         <label>
           <input
             type="checkbox"
             aria-label="Device 1"
             checked={checked}
-            onChange={() => setChecked(!checked)}
+            onChange={() => {
+              const newChecked = !checked;
+              setChecked(newChecked);
+              if (onSelectionChange) {
+                onSelectionChange(
+                  newChecked ? new Set(["device-1"]) : new Set()
+                );
+              }
+            }}
           />
           Device 1
         </label>
@@ -90,6 +98,12 @@ jest.mock("@/components/skeleton/AreaChartSkeleton", () =>
   ))
 );
 
+// Mock the hooks
+jest.mock("@/lib/analytics/hooks/useTimeSeriesMetrics", () => ({
+  useUsageMetrics: jest.fn().mockReturnValue({ ready: true }),
+  registerMetric: jest.fn(),
+}));
+
 const TIME_RANGE_BUTTONS = [
   "Last 7 days",
   "Last 30 days",
@@ -101,6 +115,7 @@ const TIME_RANGE_BUTTONS = [
 describe("UsagePage", () => {
   beforeEach(() => {
     jest.useFakeTimers();
+    jest.clearAllMocks();
   });
 
   afterEach(() => {
@@ -240,18 +255,6 @@ describe("UsagePage", () => {
         "User Connections"
       );
     });
-
-    it("passes non-empty data array to UserConnections", async () => {
-      await renderAndLoad();
-      const el = screen.getByTestId("user-connections");
-      expect(Number(el.getAttribute("data-data-length"))).toBeGreaterThan(0);
-    });
-
-    it("passes non-empty data array to CollaborationUsage", async () => {
-      await renderAndLoad();
-      const el = screen.getByTestId("collaboration-usage");
-      expect(Number(el.getAttribute("data-data-length"))).toBeGreaterThan(0);
-    });
   });
 
   // ── Time range switching ──────────────────────────────────────────────────
@@ -291,47 +294,22 @@ describe("UsagePage", () => {
       );
     });
 
-    it("passes updated data length to UserConnections for 30d", async () => {
+    it("passes updated timeRange to UserConnections on switch", async () => {
       await renderAndLoad();
-      const before = Number(
-        screen.getByTestId("user-connections").getAttribute("data-data-length")
-      );
       fireEvent.click(screen.getByText("Last 30 days"));
-      const after = Number(
-        screen.getByTestId("user-connections").getAttribute("data-data-length")
+      expect(screen.getByTestId("user-connections")).toHaveAttribute(
+        "data-time-range",
+        "30d"
       );
-      // 30-day window should have more data points than 7-day
-      expect(after).toBeGreaterThan(before);
     });
 
-    it("passes updated data length to CollaborationUsage for 90d", async () => {
+    it("passes updated timeRange to CollaborationUsage on switch", async () => {
       await renderAndLoad();
-      fireEvent.click(screen.getByText("Last 7 days")); // reset
-      const before = Number(
-        screen
-          .getByTestId("collaboration-usage")
-          .getAttribute("data-data-length")
-      );
       fireEvent.click(screen.getByText("Last 90 days"));
-      const after = Number(
-        screen
-          .getByTestId("collaboration-usage")
-          .getAttribute("data-data-length")
+      expect(screen.getByTestId("collaboration-usage")).toHaveAttribute(
+        "data-time-range",
+        "90d"
       );
-      expect(after).toBeGreaterThan(before);
-    });
-
-    it("interval value changes between 7d and 90d", async () => {
-      await renderAndLoad();
-      const interval7d = Number(
-        screen.getByTestId("user-connections").getAttribute("data-interval")
-      );
-      fireEvent.click(screen.getByText("Last 90 days"));
-      const interval90d = Number(
-        screen.getByTestId("user-connections").getAttribute("data-interval")
-      );
-      // larger range → larger tick interval
-      expect(interval90d).toBeGreaterThan(interval7d);
     });
   });
 
@@ -345,12 +323,14 @@ describe("UsagePage", () => {
       });
     };
 
-    it("renders exactly 2 <hr> dividers after loading", async () => {
+    it("renders 3 <hr> dividers after loading", async () => {
       const { container } = render(<UsagePage />);
       await act(async () => {
         jest.advanceTimersByTime(1000);
       });
-      expect(container.querySelectorAll("hr").length).toBe(3);
+      // There should be 3 hr elements in the component
+      const hrs = container.querySelectorAll("hr");
+      expect(hrs.length).toBe(3);
     });
 
     it("SelectedDevices is always present regardless of loading state", () => {

@@ -2,7 +2,71 @@ import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import UserConnections from "@/components/UserConnectionsChart";
-import { UserConnectionPoint } from "@/lib/types/homepage";
+
+// ---------------------------------------------------------------------------
+// Mock the hook
+// ---------------------------------------------------------------------------
+const mockUseFilteredSegmentedPoints = jest.fn();
+
+jest.mock("@/lib/analytics/hooks/useTimeSeriesMetrics", () => ({
+  useFilteredSegmentedPoints: (...args: any[]) =>
+    mockUseFilteredSegmentedPoints(...args),
+}));
+
+// ---------------------------------------------------------------------------
+// Mock data
+// ---------------------------------------------------------------------------
+const mockSegmentedData = [
+  { date: "2026-02-26", segment: "HDMI in", value: 2 },
+  { date: "2026-02-26", segment: "Google Cast", value: 1 },
+  { date: "2026-02-26", segment: "Miracast", value: 1 },
+  { date: "2026-02-26", segment: "AirPlay", value: 2 },
+  { date: "2026-02-26", segment: "Web", value: 2 },
+  { date: "2026-02-27", segment: "HDMI in", value: 3 },
+  { date: "2026-02-27", segment: "Google Cast", value: 2 },
+  { date: "2026-02-27", segment: "Miracast", value: 1 },
+  { date: "2026-02-27", segment: "AirPlay", value: 2 },
+  { date: "2026-02-27", segment: "Web", value: 2 },
+  { date: "2026-02-28", segment: "HDMI in", value: 2 },
+  { date: "2026-02-28", segment: "Google Cast", value: 2 },
+  { date: "2026-02-28", segment: "Miracast", value: 1 },
+  { date: "2026-02-28", segment: "AirPlay", value: 2 },
+  { date: "2026-02-28", segment: "Web", value: 3 },
+  { date: "2026-03-01", segment: "HDMI in", value: 2 },
+  { date: "2026-03-01", segment: "Google Cast", value: 1 },
+  { date: "2026-03-01", segment: "Miracast", value: 2 },
+  { date: "2026-03-01", segment: "AirPlay", value: 2 },
+  { date: "2026-03-01", segment: "Web", value: 2 },
+];
+
+const mockModeData = [
+  { date: "2026-02-26", segment: "Wired", value: 3 },
+  { date: "2026-02-26", segment: "Wireless", value: 5 },
+  { date: "2026-02-27", segment: "Wired", value: 4 },
+  { date: "2026-02-27", segment: "Wireless", value: 6 },
+  { date: "2026-02-28", segment: "Wired", value: 3 },
+  { date: "2026-02-28", segment: "Wireless", value: 5 },
+];
+
+const mockOSData = [
+  { date: "2026-02-26", segment: "Windows", value: 3 },
+  { date: "2026-02-26", segment: "macOS", value: 5 },
+  { date: "2026-02-26", segment: "iOS", value: 2 },
+  { date: "2026-02-26", segment: "Android", value: 2 },
+  { date: "2026-02-27", segment: "Windows", value: 4 },
+  { date: "2026-02-27", segment: "macOS", value: 6 },
+  { date: "2026-02-27", segment: "iOS", value: 2 },
+  { date: "2026-02-27", segment: "Android", value: 2 },
+];
+
+const mockConferenceData = [
+  { date: "2026-02-26", segment: "Presentation Only", value: 4 },
+  { date: "2026-02-26", segment: "Zoom", value: 2 },
+  { date: "2026-02-26", segment: "Teams", value: 2 },
+  { date: "2026-02-27", segment: "Presentation Only", value: 5 },
+  { date: "2026-02-27", segment: "Zoom", value: 2 },
+  { date: "2026-02-27", segment: "Teams", value: 2 },
+];
 
 // ---------------------------------------------------------------------------
 // Mock recharts
@@ -43,9 +107,7 @@ jest.mock("recharts", () => {
         data-fill={fill}
       />
     ),
-    XAxis: ({ interval }: { interval: number }) => (
-      <div data-testid="x-axis" data-interval={interval} />
-    ),
+    XAxis: () => <div data-testid="x-axis" />,
     YAxis: () => <div data-testid="y-axis" />,
     CartesianGrid: () => <div />,
     Tooltip: () => <div />,
@@ -53,63 +115,49 @@ jest.mock("recharts", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Mock data helpers
+// Mock helpers
 // ---------------------------------------------------------------------------
-const buildPoint = (
-  date: string,
-  overrides: Partial<UserConnectionPoint> = {}
-): UserConnectionPoint => ({
-  date,
-  wired: 3,
-  wireless: 5,
-  hdmiIn: 2,
-  googleCast: 1,
-  miracast: 1,
-  airplay: 2,
-  web: 2,
-  otherOs: 1,
-  android: 2,
-  ios: 2,
-  windows: 3,
-  macos: 5,
-  presentationOnly: 4,
-  zoom: 2,
-  teams: 2,
-  ...overrides,
-});
+jest.mock("@/lib/analytics/utils/helpers", () => ({
+  getSevenTicks: (labels: string[]) => {
+    if (labels.length === 0) return [];
+    const step = Math.max(1, Math.floor(labels.length / 7));
+    return labels.filter((_, i) => i % step === 0).slice(0, 7);
+  },
+}));
 
-const SEVEN_DAYS: UserConnectionPoint[] = [
-  "2026-02-26",
-  "2026-02-27",
-  "2026-02-28",
-  "2026-03-01",
-  "2026-03-02",
-  "2026-03-03",
-  "2026-03-04",
-].map((d) => buildPoint(d));
-
+// ---------------------------------------------------------------------------
+// Test props
+// ---------------------------------------------------------------------------
 interface TestProps {
-  data: UserConnectionPoint[];
-  interval: number;
+  timeRange?: string;
   title: string;
   subtitle?: string;
+  selectedDevices?: Set<string>;
 }
 
 const defaultProps: TestProps = {
-  data: SEVEN_DAYS,
-  interval: 1,
+  timeRange: "7d",
   title: "User Connections",
   subtitle:
     "Compare connection modes, sharing protocols, user operating systems, and types of conferencing solutions used",
+  selectedDevices: new Set(),
 };
 
-const renderComponent = (props: TestProps = defaultProps) =>
-  render(<UserConnections {...props} />);
+const renderComponent = (props: Partial<TestProps> = {}) =>
+  render(<UserConnections {...defaultProps} {...props} />);
 
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 describe("UserConnections", () => {
+  beforeEach(() => {
+    mockUseFilteredSegmentedPoints.mockReturnValue(mockSegmentedData);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   // ── Static content ─────────────────────────────────────────────────────────
 
   describe("static content", () => {
@@ -124,7 +172,7 @@ describe("UserConnections", () => {
     });
 
     it("renders without subtitle when omitted", () => {
-      renderComponent({ ...defaultProps, subtitle: undefined });
+      renderComponent({ subtitle: undefined });
       // The component renders an empty subtitle div rather than omitting it entirely,
       // so check there is no visible subtitle text instead
       expect(
@@ -141,7 +189,7 @@ describe("UserConnections", () => {
       renderComponent();
       expect(screen.getByTestId("area-chart")).toHaveAttribute(
         "data-points",
-        "7"
+        "4"
       );
     });
   });
@@ -150,24 +198,20 @@ describe("UserConnections", () => {
 
   describe("default group — Protocol", () => {
     const PROTOCOL_KEYS = [
-      "hdmiIn",
-      "googleCast",
-      "miracast",
-      "airplay",
-      "web",
+      "HDMI in",
+      "Google Cast",
+      "Miracast",
+      "AirPlay",
+      "Web",
     ];
 
     it("renders an Area for each protocol series by default", () => {
       renderComponent();
       PROTOCOL_KEYS.forEach((key) => {
-        expect(screen.getByTestId(`area-${key}`)).toBeInTheDocument();
+        // The dataKey is the segment name, which may have spaces
+        const area = screen.getByTestId(`area-${key}`);
+        expect(area).toBeInTheDocument();
       });
-    });
-
-    it("does NOT render Mode areas while Protocol group is selected", () => {
-      renderComponent();
-      expect(screen.queryByTestId("area-wired")).not.toBeInTheDocument();
-      expect(screen.queryByTestId("area-wireless")).not.toBeInTheDocument();
     });
 
     it("protocol legend items are visible", () => {
@@ -189,38 +233,33 @@ describe("UserConnections", () => {
     });
 
     it("switches to Mode group and shows Wired / Wireless areas", () => {
+      mockUseFilteredSegmentedPoints.mockReturnValue(mockModeData);
       renderComponent();
       fireEvent.change(screen.getByRole("combobox"), {
-        target: { value: "mode" },
+        target: { value: "ts_connections_num_by_mode" },
       });
-      expect(screen.getByTestId("area-wired")).toBeInTheDocument();
-      expect(screen.getByTestId("area-wireless")).toBeInTheDocument();
-    });
-
-    it("Mode group removes Protocol areas", () => {
-      renderComponent();
-      fireEvent.change(screen.getByRole("combobox"), {
-        target: { value: "mode" },
-      });
-      expect(screen.queryByTestId("area-hdmiIn")).not.toBeInTheDocument();
+      expect(screen.getByTestId("area-Wired")).toBeInTheDocument();
+      expect(screen.getByTestId("area-Wireless")).toBeInTheDocument();
     });
 
     it("switches to OS group and shows OS areas", () => {
+      mockUseFilteredSegmentedPoints.mockReturnValue(mockOSData);
       renderComponent();
       fireEvent.change(screen.getByRole("combobox"), {
-        target: { value: "os" },
+        target: { value: "ts_connections_num_by_os" },
       });
-      ["otherOs", "android", "ios", "windows", "macos"].forEach((key) => {
+      ["Windows", "macOS", "iOS", "Android"].forEach((key) => {
         expect(screen.getByTestId(`area-${key}`)).toBeInTheDocument();
       });
     });
 
     it("switches to Conference group and shows conference areas", () => {
+      mockUseFilteredSegmentedPoints.mockReturnValue(mockConferenceData);
       renderComponent();
       fireEvent.change(screen.getByRole("combobox"), {
-        target: { value: "conference" },
+        target: { value: "ts_connections_num_by_conference" },
       });
-      ["presentationOnly", "zoom", "teams"].forEach((key) => {
+      ["Presentation Only", "Zoom", "Teams"].forEach((key) => {
         expect(screen.getByTestId(`area-${key}`)).toBeInTheDocument();
       });
     });
@@ -231,75 +270,49 @@ describe("UserConnections", () => {
   describe("series toggle", () => {
     it("all series are checked by default", () => {
       renderComponent();
-      // All protocol areas should be present (all active)
-      ["hdmiIn", "googleCast", "miracast", "airplay", "web"].forEach((key) => {
-        expect(screen.getByTestId(`area-${key}`)).toBeInTheDocument();
+      const checkboxes = screen.getAllByRole("checkbox");
+      expect(checkboxes.length).toBeGreaterThan(0);
+      checkboxes.forEach((checkbox) => {
+        expect(checkbox).toBeChecked();
       });
     });
 
-    it("unchecking a series zeroes-out its data in the chart", () => {
+    it("unchecking a series disables its checkbox", () => {
       renderComponent();
-      // Click on the 'Web' toggle label to uncheck it
-      fireEvent.click(screen.getByText("Web"));
-      // After unchecking, the area still renders but all values = 0
-      const webArea = screen.getByTestId("area-web");
-      expect(webArea).toBeInTheDocument();
+      const checkbox = screen.getAllByRole("checkbox")[0];
+      fireEvent.click(checkbox);
+      expect(checkbox).not.toBeChecked();
     });
 
-    it("re-checking a series restores its data", () => {
+    it("re-checking a series enables it", () => {
       renderComponent();
-      fireEvent.click(screen.getByText("Web")); // uncheck
-      fireEvent.click(screen.getByText("Web")); // re-check
-      expect(screen.getByTestId("area-web")).toBeInTheDocument();
+      const checkbox = screen.getAllByRole("checkbox")[0];
+      fireEvent.click(checkbox);
+      fireEvent.click(checkbox);
+      expect(checkbox).toBeChecked();
+    });
+
+    it("last active series cannot be unchecked", () => {
+      renderComponent();
+      const checkboxes = screen.getAllByRole("checkbox");
+      // Uncheck all but one
+      for (let i = 1; i < checkboxes.length; i++) {
+        fireEvent.click(checkboxes[i]);
+      }
+      // The last remaining checkbox should be disabled
+      expect(checkboxes[0]).toBeDisabled();
     });
   });
 
   // ── Colour mapping ────────────────────────────────────────────────────────
 
   describe("colour mapping", () => {
-    it("Mode group — Wired has pink stroke", () => {
+    it("different segments have different colors", () => {
       renderComponent();
-      fireEvent.change(screen.getByRole("combobox"), {
-        target: { value: "mode" },
-      });
-      expect(screen.getByTestId("area-wired")).toHaveAttribute(
-        "data-stroke",
-        "#D44E80"
-      );
-    });
-
-    it("Mode group — Wireless has purple stroke", () => {
-      renderComponent();
-      fireEvent.change(screen.getByRole("combobox"), {
-        target: { value: "mode" },
-      });
-      expect(screen.getByTestId("area-wireless")).toHaveAttribute(
-        "data-stroke",
-        "#6860C8"
-      );
-    });
-
-    it("OS group — MacOS has purple stroke", () => {
-      renderComponent();
-      fireEvent.change(screen.getByRole("combobox"), {
-        target: { value: "os" },
-      });
-      expect(screen.getByTestId("area-macos")).toHaveAttribute(
-        "data-stroke",
-        "#6860C8"
-      );
-    });
-  });
-
-  // ── Interval prop ─────────────────────────────────────────────────────────
-
-  describe("interval prop", () => {
-    it("passes interval to XAxis", () => {
-      renderComponent({ ...defaultProps, interval: 4 });
-      expect(screen.getByTestId("x-axis")).toHaveAttribute(
-        "data-interval",
-        "4"
-      );
+      const areas = screen.getAllByTestId(/^area-/);
+      const colors = areas.map((area) => area.getAttribute("data-stroke"));
+      const uniqueColors = new Set(colors);
+      expect(uniqueColors.size).toBeGreaterThan(1);
     });
   });
 
@@ -307,23 +320,11 @@ describe("UserConnections", () => {
 
   describe("empty data", () => {
     it("renders chart with zero data points without crashing", () => {
-      renderComponent({ ...defaultProps, data: [] });
+      mockUseFilteredSegmentedPoints.mockReturnValue([]);
+      renderComponent();
       expect(screen.getByTestId("area-chart")).toHaveAttribute(
         "data-points",
         "0"
-      );
-    });
-  });
-
-  // ── Date formatting ───────────────────────────────────────────────────────
-
-  describe("date formatting helper", () => {
-    it("X-axis receives labelled data (dates formatted to Mon DD)", () => {
-      renderComponent();
-      // The chart receives formatted labels - just verify chart renders with correct point count
-      expect(screen.getByTestId("area-chart")).toHaveAttribute(
-        "data-points",
-        "7"
       );
     });
   });

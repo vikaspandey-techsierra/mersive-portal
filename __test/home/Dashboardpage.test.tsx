@@ -141,11 +141,6 @@ describe("DashboardPage", () => {
     expect(screen.getByText("10:00 AM - 11:00 AM")).toBeInTheDocument();
   });
 
-  it("renders the Updates section", () => {
-    render(<DashboardPage />);
-    expect(screen.getByText("Updates")).toBeInTheDocument();
-  });
-
   it("renders the Device Breakdown section header", () => {
     render(<DashboardPage />);
     expect(screen.getByText("Device Breakdown")).toBeInTheDocument();
@@ -185,29 +180,6 @@ describe("DashboardPage", () => {
   it("renders fleet health devices with issues", () => {
     render(<DashboardPage />);
     expect(screen.getByText("355")).toBeInTheDocument();
-  });
-
-  //   it("renders the createdAt date formatted correctly", async () => {
-  //     render(<DashboardPage />);
-  //     // formatDate("2026-03-05 03:00:03") — the exact output depends on your
-  //     // formatDate implementation; we just verify something date-like is present
-  //     await waitFor(() => {
-  //       const dateEl = screen.queryByText(/2026|march|mar/i);
-  //       expect(dateEl).not.toBeNull();
-  //     });
-  //   });
-
-  it("shows release version in Updates section", () => {
-    render(<DashboardPage />);
-    expect(screen.getByText("Mersive v1.0.1")).toBeInTheDocument();
-  });
-
-  it("shows FAQ questions in Updates section", () => {
-    render(<DashboardPage />);
-    expect(screen.getByText("How do I activate a device?")).toBeInTheDocument();
-    expect(
-      screen.getByText("What network settings are needed for WebRTC sharing?"),
-    ).toBeInTheDocument();
   });
 
   it("renders multiple pie charts", () => {

@@ -1,28 +1,68 @@
 /**
  * @file AlertsChart.test.tsx
  * Tests for AlertsChart component.
- *
- * Covers: structure, all 7 Area elements, correct fill colours, XAxis interval,
- * all 7 legend labels, series toggle on/off/re-on/multi/all, inline tooltip
- * (active/inactive/zero-filter/empty-payload), and edge cases.
  */
 
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import "@testing-library/jest-dom";
-import AlertsChart, { type AlertPoint } from "@/components/AlertChart";
+import AlertsChart from "@/components/AlertChart";
 
 // ---------------------------------------------------------------------------
-// Tooltip state flags (inline function pattern — AlertsChart uses render prop)
+// Mock the hook
 // ---------------------------------------------------------------------------
-let __tooltipActive = false;
-let __tooltipLabel = "";
-let __tooltipPayload: {
-  dataKey: string;
-  name: string;
-  value: number;
-  color: string;
-}[] = [];
+const mockUseFilteredAlertsPoints = jest.fn();
+
+jest.mock("@/lib/analytics/hooks/useTimeSeriesMetrics", () => ({
+  useFilteredAlertsPoints: (...args: any[]) =>
+    mockUseFilteredAlertsPoints(...args),
+}));
+
+// ---------------------------------------------------------------------------
+// Mock data
+// ---------------------------------------------------------------------------
+const ALERT_DATA = [
+  {
+    date: "2026-02-26",
+    ts_app_alerts_unreachable_num: 4,
+    ts_app_alerts_rebooted_num: 3,
+    ts_app_alerts_template_unassigned_num: 5,
+    ts_app_alerts_usb_out_num: 2,
+    ts_app_alerts_usb_in_num: 2,
+    ts_app_alerts_onboarded_num: 2,
+    ts_app_alerts_plan_assigned_num: 1,
+  },
+  {
+    date: "2026-02-27",
+    ts_app_alerts_unreachable_num: 6,
+    ts_app_alerts_rebooted_num: 5,
+    ts_app_alerts_template_unassigned_num: 7,
+    ts_app_alerts_usb_out_num: 3,
+    ts_app_alerts_usb_in_num: 3,
+    ts_app_alerts_onboarded_num: 2,
+    ts_app_alerts_plan_assigned_num: 2,
+  },
+];
+
+const ALL_KEYS = [
+  "ts_app_alerts_unreachable_num",
+  "ts_app_alerts_rebooted_num",
+  "ts_app_alerts_template_unassigned_num",
+  "ts_app_alerts_usb_out_num",
+  "ts_app_alerts_usb_in_num",
+  "ts_app_alerts_onboarded_num",
+  "ts_app_alerts_plan_assigned_num",
+];
+
+const ALL_LABELS = [
+  "Unreachable",
+  "Rebooted",
+  "Unassigned from template",
+  "USB unplugged",
+  "USB plugged in",
+  "Onboarded",
+  "Plan assigned",
+];
 
 // ---------------------------------------------------------------------------
 // Mock recharts
@@ -56,22 +96,35 @@ jest.mock("recharts", () => {
     }) => (
       <div data-testid={`area-${dataKey}`} data-fill={fill} data-name={name} />
     ),
-    XAxis: ({ interval }: { interval?: number }) => (
-      <div data-testid="x-axis" data-interval={interval} />
-    ),
+    XAxis: () => <div data-testid="x-axis" />,
     YAxis: () => <div data-testid="y-axis" />,
     CartesianGrid: () => <div data-testid="cartesian-grid" />,
-    // AlertsChart uses an inline function for Tooltip content (render prop)
     Tooltip: ({
       content,
     }: {
       content?: (...args: unknown[]) => React.ReactNode;
     }) => {
-      if (typeof content !== "function" || !__tooltipActive) return <div />;
+      // Always render the tooltip content for testing
+      if (typeof content !== "function") return <div />;
+      // Create a default payload for testing
+      const defaultPayload = [
+        {
+          dataKey: "ts_app_alerts_unreachable_num",
+          name: "Unreachable",
+          value: 4,
+          color: "#5B5BD6",
+        },
+        {
+          dataKey: "ts_app_alerts_rebooted_num",
+          name: "Rebooted",
+          value: 3,
+          color: "#C34F7D",
+        },
+      ];
       const result = content({
-        active: __tooltipActive,
-        payload: __tooltipPayload,
-        label: __tooltipLabel,
+        active: true,
+        payload: defaultPayload,
+        label: "2/26",
       });
       return <>{result}</>;
     },
@@ -79,62 +132,38 @@ jest.mock("recharts", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Test data
+// Mock helpers
 // ---------------------------------------------------------------------------
-const ALERT_DATA: AlertPoint[] = [
-  {
-    date: "Dec 16",
-    unreachable: 4,
-    rebooted: 3,
-    unassigned: 5,
-    usbUnplugged: 2,
-    usbPlugged: 2,
-    onboarded: 2,
-    planAssigned: 1,
+jest.mock("@/lib/analytics/utils/helpers", () => ({
+  formatShortDate: (date: string) => {
+    const d = new Date(date);
+    return `${d.getMonth() + 1}/${d.getDate()}`;
   },
-  {
-    date: "Dec 17",
-    unreachable: 6,
-    rebooted: 5,
-    unassigned: 7,
-    usbUnplugged: 3,
-    usbPlugged: 3,
-    onboarded: 2,
-    planAssigned: 2,
+  getSevenTicks: (labels: string[]) => {
+    if (labels.length === 0) return [];
+    const step = Math.max(1, Math.floor(labels.length / 7));
+    return labels.filter((_, i) => i % step === 0).slice(0, 7);
   },
-];
+}));
 
-const ALL_KEYS = [
-  "unreachable",
-  "rebooted",
-  "unassigned",
-  "usbUnplugged",
-  "usbPlugged",
-  "onboarded",
-  "planAssigned",
-] as const;
-
-const ALL_LABELS = [
-  "Unreachable",
-  "Rebooted",
-  "Unassigned from template",
-  "USB unplugged",
-  "USB plugged in",
-  "Onboarded",
-  "Plan assigned",
-];
-
-const renderChart = (data = ALERT_DATA, interval = 0) =>
-  render(<AlertsChart data={data} interval={interval} />);
+// ---------------------------------------------------------------------------
+// Test helpers
+// ---------------------------------------------------------------------------
+const renderChart = (timeRange = "7d", selectedDevices = new Set<string>()) =>
+  render(
+    <AlertsChart timeRange={timeRange} selectedDevices={selectedDevices} />
+  );
 
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 describe("AlertsChart", () => {
+  beforeEach(() => {
+    mockUseFilteredAlertsPoints.mockReturnValue(ALERT_DATA);
+  });
+
   afterEach(() => {
-    __tooltipActive = false;
-    __tooltipPayload = [];
-    __tooltipLabel = "";
+    jest.clearAllMocks();
   });
 
   // ── Heading & description ─────────────────────────────────────────────────
@@ -169,14 +198,6 @@ describe("AlertsChart", () => {
       );
     });
 
-    it("XAxis receives the interval prop", () => {
-      renderChart(ALERT_DATA, 4);
-      expect(screen.getByTestId("x-axis")).toHaveAttribute(
-        "data-interval",
-        "4"
-      );
-    });
-
     it("CartesianGrid is rendered", () => {
       renderChart();
       expect(screen.getByTestId("cartesian-grid")).toBeInTheDocument();
@@ -186,13 +207,13 @@ describe("AlertsChart", () => {
   // ── Area fill colours ─────────────────────────────────────────────────────
   describe("Area fill colours", () => {
     const COLOR_MAP: Record<string, string> = {
-      unreachable: "#5B5BD6",
-      rebooted: "#C34F7D",
-      unassigned: "#5F87C2",
-      usbUnplugged: "#8B1A00",
-      usbPlugged: "#8A9B2F",
-      onboarded: "#D47A00",
-      planAssigned: "#8E56C2",
+      ts_app_alerts_unreachable_num: "#5B5BD6",
+      ts_app_alerts_rebooted_num: "#C34F7D",
+      ts_app_alerts_template_unassigned_num: "#5F87C2",
+      ts_app_alerts_usb_out_num: "#8B1A00",
+      ts_app_alerts_usb_in_num: "#8A9B2F",
+      ts_app_alerts_onboarded_num: "#D47A00",
+      ts_app_alerts_plan_assigned_num: "#8E56C2",
     };
 
     Object.entries(COLOR_MAP).forEach(([key, color]) => {
@@ -221,139 +242,73 @@ describe("AlertsChart", () => {
     it("clicking a legend label hides its Area", () => {
       renderChart();
       fireEvent.click(screen.getByText("Unreachable"));
-      expect(screen.queryByTestId("area-unreachable")).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId("area-ts_app_alerts_unreachable_num")
+      ).not.toBeInTheDocument();
     });
 
     it("clicking a hidden label re-shows its Area", () => {
       renderChart();
       fireEvent.click(screen.getByText("Unreachable"));
       fireEvent.click(screen.getByText("Unreachable"));
-      expect(screen.getByTestId("area-unreachable")).toBeInTheDocument();
+      expect(
+        screen.getByTestId("area-ts_app_alerts_unreachable_num")
+      ).toBeInTheDocument();
     });
 
     it("hiding one series does not affect others", () => {
       renderChart();
       fireEvent.click(screen.getByText("Rebooted"));
-      expect(screen.queryByTestId("area-rebooted")).not.toBeInTheDocument();
-      expect(screen.getByTestId("area-unreachable")).toBeInTheDocument();
-      expect(screen.getByTestId("area-unassigned")).toBeInTheDocument();
+      expect(
+        screen.queryByTestId("area-ts_app_alerts_rebooted_num")
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByTestId("area-ts_app_alerts_unreachable_num")
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTestId("area-ts_app_alerts_template_unassigned_num")
+      ).toBeInTheDocument();
     });
 
     it("can hide multiple series independently", () => {
       renderChart();
       fireEvent.click(screen.getByText("Unreachable"));
       fireEvent.click(screen.getByText("Rebooted"));
-      expect(screen.queryByTestId("area-unreachable")).not.toBeInTheDocument();
-      expect(screen.queryByTestId("area-rebooted")).not.toBeInTheDocument();
-      expect(screen.getByTestId("area-unassigned")).toBeInTheDocument();
+      expect(
+        screen.queryByTestId("area-ts_app_alerts_unreachable_num")
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId("area-ts_app_alerts_rebooted_num")
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByTestId("area-ts_app_alerts_template_unassigned_num")
+      ).toBeInTheDocument();
     });
 
-    it("can toggle all 7 series off", () => {
+    it("cannot toggle off the last active series", () => {
       renderChart();
-      ALL_LABELS.forEach((label) => fireEvent.click(screen.getByText(label)));
-      ALL_KEYS.forEach((key) =>
-        expect(screen.queryByTestId(`area-${key}`)).not.toBeInTheDocument()
+      // Disable all except one
+      ALL_LABELS.slice(1).forEach((label) =>
+        fireEvent.click(screen.getByText(label))
       );
-    });
-
-    it("can restore all series after toggling off", () => {
-      renderChart();
-      ALL_LABELS.forEach((label) => fireEvent.click(screen.getByText(label)));
-      ALL_LABELS.forEach((label) => fireEvent.click(screen.getByText(label)));
-      ALL_KEYS.forEach((key) =>
-        expect(screen.getByTestId(`area-${key}`)).toBeInTheDocument()
-      );
-    });
-  });
-
-  // ── Inline Tooltip ────────────────────────────────────────────────────────
-  describe("Tooltip", () => {
-    it("renders nothing when tooltip is inactive", () => {
-      __tooltipActive = false;
-      renderChart();
-      expect(screen.queryByText("Dec 16")).not.toBeInTheDocument();
-    });
-
-    it("renders the date label when active", () => {
-      __tooltipActive = true;
-      __tooltipLabel = "Dec 16";
-      __tooltipPayload = [
-        {
-          dataKey: "unreachable",
-          name: "Unreachable",
-          value: 4,
-          color: "#5B5BD6",
-        },
-      ];
-      renderChart();
-      expect(screen.getByText("Dec 16")).toBeInTheDocument();
-    });
-
-    it("renders series name and value when active", () => {
-      __tooltipActive = true;
-      __tooltipLabel = "Dec 16";
-      __tooltipPayload = [
-        {
-          dataKey: "unreachable",
-          name: "Unreachable",
-          value: 4,
-          color: "#5B5BD6",
-        },
-        { dataKey: "rebooted", name: "Rebooted", value: 3, color: "#C34F7D" },
-      ];
-      renderChart();
-      expect(screen.getByText(/Unreachable: 4/)).toBeInTheDocument();
-      expect(screen.getByText(/Rebooted: 3/)).toBeInTheDocument();
-    });
-
-    it("filters out entries with value 0", () => {
-      __tooltipActive = true;
-      __tooltipLabel = "Dec 18";
-      __tooltipPayload = [
-        {
-          dataKey: "unreachable",
-          name: "Unreachable",
-          value: 0,
-          color: "#5B5BD6",
-        },
-        { dataKey: "rebooted", name: "Rebooted", value: 5, color: "#C34F7D" },
-      ];
-      renderChart();
-      expect(screen.queryByText(/Unreachable:/)).not.toBeInTheDocument();
-      expect(screen.getByText(/Rebooted: 5/)).toBeInTheDocument();
-    });
-
-    it("renders nothing when payload is empty", () => {
-      __tooltipActive = true;
-      __tooltipLabel = "Dec 16";
-      __tooltipPayload = [];
-      renderChart();
-      expect(screen.queryByText("Dec 16")).not.toBeInTheDocument();
+      // Try to disable the last one - should not work
+      fireEvent.click(screen.getByText(ALL_LABELS[0]));
+      expect(
+        screen.getByTestId("area-ts_app_alerts_unreachable_num")
+      ).toBeInTheDocument();
     });
   });
 
   // ── Edge cases ────────────────────────────────────────────────────────────
   describe("edge cases", () => {
     it("renders without crashing when data is empty", () => {
-      expect(() => renderChart([], 0)).not.toThrow();
+      mockUseFilteredAlertsPoints.mockReturnValue([]);
+      expect(() => renderChart()).not.toThrow();
     });
 
     it("renders correctly with a single data point", () => {
-      renderChart(
-        [
-          {
-            date: "Dec 16",
-            unreachable: 1,
-            rebooted: 1,
-            unassigned: 1,
-            usbUnplugged: 1,
-            usbPlugged: 1,
-            onboarded: 1,
-            planAssigned: 1,
-          },
-        ],
-        0
-      );
+      mockUseFilteredAlertsPoints.mockReturnValue([ALERT_DATA[0]]);
+      renderChart();
       expect(screen.getByTestId("area-chart")).toHaveAttribute(
         "data-points",
         "1"
@@ -361,21 +316,15 @@ describe("AlertsChart", () => {
     });
 
     it("renders all areas even when all values are 0", () => {
-      renderChart(
-        [
-          {
-            date: "Dec 16",
-            unreachable: 0,
-            rebooted: 0,
-            unassigned: 0,
-            usbUnplugged: 0,
-            usbPlugged: 0,
-            onboarded: 0,
-            planAssigned: 0,
-          },
-        ],
-        0
-      );
+      const zeroData = ALERT_DATA.map((d) => {
+        const newData = { ...d };
+        ALL_KEYS.forEach((key) => {
+          newData[key] = 0;
+        });
+        return newData;
+      });
+      mockUseFilteredAlertsPoints.mockReturnValue(zeroData);
+      renderChart();
       ALL_KEYS.forEach((key) =>
         expect(screen.getByTestId(`area-${key}`)).toBeInTheDocument()
       );

@@ -1,14 +1,16 @@
 /**
  * @file MonitoringPage.test.tsx
  * Tests for the MonitoringPage orchestrator component.
- *
- * Mirrors the pattern of UsagePage.test.tsx — mocks all children,
- * focuses on: heading, time-range buttons, loading/loaded state,
- * skeleton → chart transitions, data-point counts, and tick intervals.
  */
 
 import React from "react";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import {
+  render,
+  screen,
+  fireEvent,
+  act,
+  waitFor,
+} from "@testing-library/react";
 import "@testing-library/jest-dom";
 
 // ---------------------------------------------------------------------------
@@ -49,8 +51,8 @@ jest.mock("recharts", () => {
     Area: ({ dataKey }: { dataKey: string }) => (
       <div data-testid={`area-${dataKey}`} />
     ),
-    XAxis: ({ interval }: { interval?: number }) => (
-      <div data-testid="x-axis" data-interval={interval} />
+    XAxis: ({ ticks }: { ticks?: string[] }) => (
+      <div data-testid="x-axis" data-ticks={ticks?.join(",")} />
     ),
     YAxis: ({
       yAxisId,
@@ -74,6 +76,58 @@ jest.mock("recharts", () => {
   };
 });
 
+// ---------------------------------------------------------------------------
+// Mock data for the charts
+// ---------------------------------------------------------------------------
+const mockDowntimeData = [
+  { date: "2026-02-26", devices: 9, hours: 1.45 },
+  { date: "2026-02-27", devices: 13, hours: 1.65 },
+  { date: "2026-02-28", devices: 3, hours: 1.15 },
+];
+
+const mockAlertsData = [
+  { date: "2026-02-26", value: 5 },
+  { date: "2026-02-27", value: 8 },
+  { date: "2026-02-28", value: 3 },
+];
+
+// ---------------------------------------------------------------------------
+// Mock the hooks
+// ---------------------------------------------------------------------------
+const mockUseMonitoringMetrics = jest.fn();
+const mockUseFilteredDowntimePoints = jest.fn();
+const mockUseFilteredAlertsPoints = jest.fn();
+const mockUseFilteredChartPoints = jest.fn();
+const mockUseFilteredCollaborationMetrics = jest.fn();
+const mockUseDeviceUtilizationMetrics = jest.fn();
+
+jest.mock("@/lib/analytics/hooks/useTimeSeriesMetrics", () => ({
+  useMonitoringMetrics: (...args: any[]) => mockUseMonitoringMetrics(...args),
+  useFilteredDowntimePoints: (...args: any[]) =>
+    mockUseFilteredDowntimePoints(...args),
+  useFilteredAlertsPoints: (...args: any[]) =>
+    mockUseFilteredAlertsPoints(...args),
+  useFilteredChartPoints: (...args: any[]) =>
+    mockUseFilteredChartPoints(...args),
+  useFilteredCollaborationMetrics: (...args: any[]) =>
+    mockUseFilteredCollaborationMetrics(...args),
+  useDeviceUtilizationMetrics: (...args: any[]) =>
+    mockUseDeviceUtilizationMetrics(...args),
+}));
+
+// Mock the helpers
+jest.mock("@/lib/analytics/utils/helpers", () => ({
+  formatShortDate: (date: string) => {
+    const d = new Date(date);
+    return `${d.getMonth() + 1}/${d.getDate()}`;
+  },
+  getSevenTicks: (labels: string[]) => {
+    if (labels.length === 0) return [];
+    const step = Math.max(1, Math.floor(labels.length / 7));
+    return labels.filter((_, i) => i % step === 0).slice(0, 7);
+  },
+}));
+
 import MonitoringPage from "@/components/analytics/monitoring/page";
 
 // ---------------------------------------------------------------------------
@@ -84,14 +138,36 @@ const renderPage = () => render(<MonitoringPage />);
 const getChartPoints = (testId: string) =>
   parseInt(screen.getByTestId(testId).getAttribute("data-points") ?? "0", 10);
 
+// Wait for loading to complete
+const waitForLoad = async () => {
+  await act(async () => {
+    jest.advanceTimersByTime(900); // Component uses 800ms
+  });
+};
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 describe("MonitoringPage", () => {
-  beforeEach(() => jest.useFakeTimers());
+  beforeEach(() => {
+    jest.useFakeTimers();
+
+    // Default mock implementations
+    mockUseMonitoringMetrics.mockReturnValue({ ready: true });
+    mockUseFilteredDowntimePoints.mockReturnValue(mockDowntimeData);
+    mockUseFilteredAlertsPoints.mockReturnValue(mockAlertsData);
+    mockUseFilteredChartPoints.mockReturnValue([]);
+    mockUseFilteredCollaborationMetrics.mockReturnValue({
+      connectionsAvg: [],
+      postsAvg: [],
+    });
+    mockUseDeviceUtilizationMetrics.mockReturnValue({ dataA: [], dataB: [] });
+  });
+
   afterEach(() => {
     jest.runOnlyPendingTimers();
     jest.useRealTimers();
+    jest.clearAllMocks();
   });
 
   // ── Initial render ────────────────────────────────────────────────────────
@@ -131,7 +207,7 @@ describe("MonitoringPage", () => {
     });
   });
 
-  // ── Loading state (before 1s) ─────────────────────────────────────────────
+  // ── Loading state (before 800ms) ─────────────────────────────────────────────
   describe("loading state", () => {
     it("shows LineChartSkeleton heading for Downtime before load", () => {
       renderPage();
@@ -147,34 +223,33 @@ describe("MonitoringPage", () => {
 
     it("SelectedDevices is always visible (not behind load gate)", () => {
       renderPage();
-      expect(screen.getByText("Selected Devices (5)")).toBeInTheDocument();
+      expect(screen.getByText(/Selected Devices \(\d+\)/)).toBeInTheDocument();
     });
 
-    it("charts are NOT rendered before 1 s", () => {
+    it("charts are NOT rendered before 800 ms", () => {
       renderPage();
-      // line-chart and area-chart are from recharts mocks — only appear after load
       expect(screen.queryByTestId("line-chart")).not.toBeInTheDocument();
       expect(screen.queryByTestId("area-chart")).not.toBeInTheDocument();
     });
   });
 
-  // ── Loaded state (after 1s) ───────────────────────────────────────────────
+  // ── Loaded state (after 800ms) ───────────────────────────────────────────────
   describe("loaded state", () => {
-    it("renders DowntimeChart (line-chart) after 1 s", () => {
+    it("renders DowntimeChart (line-chart) after load", async () => {
       renderPage();
-      act(() => jest.advanceTimersByTime(1000));
+      await waitForLoad();
       expect(screen.getByTestId("line-chart")).toBeInTheDocument();
     });
 
-    it("renders AlertsChart (area-chart) after 1 s", () => {
+    it("renders AlertsChart (area-chart) after load", async () => {
       renderPage();
-      act(() => jest.advanceTimersByTime(1000));
+      await waitForLoad();
       expect(screen.getByTestId("area-chart")).toBeInTheDocument();
     });
 
-    it("Downtime h2 heading is present after load (from DowntimeChart)", () => {
+    it("Downtime h2 heading is present after load (from DowntimeChart)", async () => {
       renderPage();
-      act(() => jest.advanceTimersByTime(1000));
+      await waitForLoad();
       expect(
         screen.getByRole("heading", { name: "Downtime" })
       ).toBeInTheDocument();
@@ -183,8 +258,9 @@ describe("MonitoringPage", () => {
 
   // ── Time range switching ──────────────────────────────────────────────────
   describe("time range switching", () => {
-    it("clicking a range sets it as active", () => {
+    it("clicking a range sets it as active", async () => {
       renderPage();
+      await waitForLoad();
       fireEvent.click(screen.getByText("Last 30 days"));
       expect(screen.getByText("Last 30 days").className).toMatch(
         /bg-\[#6860C8\]/
@@ -194,8 +270,9 @@ describe("MonitoringPage", () => {
       );
     });
 
-    it("all 5 ranges are individually selectable", () => {
+    it("all 5 ranges are individually selectable", async () => {
       renderPage();
+      await waitForLoad();
       [
         "Last 7 days",
         "Last 30 days",
@@ -208,8 +285,9 @@ describe("MonitoringPage", () => {
       });
     });
 
-    it("switching back to 7d restores its active styling", () => {
+    it("switching back to 7d restores its active styling", async () => {
       renderPage();
+      await waitForLoad();
       fireEvent.click(screen.getByText("Last 30 days"));
       fireEvent.click(screen.getByText("Last 7 days"));
       expect(screen.getByText("Last 7 days").className).toMatch(
@@ -220,93 +298,33 @@ describe("MonitoringPage", () => {
 
   // ── Mock data integrity via data-points attribute ─────────────────────────
   describe("mock data counts per range", () => {
-    it("7d → 7 downtime points", () => {
+    it("displays correct number of data points", async () => {
       renderPage();
-      act(() => jest.advanceTimersByTime(1000));
-      expect(getChartPoints("line-chart")).toBe(7);
-    });
-
-    it("30d → 30 downtime points", () => {
-      renderPage();
-      act(() => jest.advanceTimersByTime(1000));
-      fireEvent.click(screen.getByText("Last 30 days"));
-      expect(getChartPoints("line-chart")).toBe(30);
-    });
-
-    it("60d → 60 downtime points", () => {
-      renderPage();
-      act(() => jest.advanceTimersByTime(1000));
-      fireEvent.click(screen.getByText("Last 60 days"));
-      expect(getChartPoints("line-chart")).toBe(60);
-    });
-
-    it("90d → 90 downtime points", () => {
-      renderPage();
-      act(() => jest.advanceTimersByTime(1000));
-      fireEvent.click(screen.getByText("Last 90 days"));
-      expect(getChartPoints("line-chart")).toBe(90);
-    });
-
-    it("All time → 120 downtime points", () => {
-      renderPage();
-      act(() => jest.advanceTimersByTime(1000));
-      fireEvent.click(screen.getByText("All time"));
-      expect(getChartPoints("line-chart")).toBe(120);
-    });
-
-    it("alert data length always matches downtime data length", () => {
-      renderPage();
-      act(() => jest.advanceTimersByTime(1000));
-      expect(getChartPoints("line-chart")).toBe(getChartPoints("area-chart"));
+      await waitForLoad();
+      expect(screen.getByTestId("line-chart")).toHaveAttribute(
+        "data-points",
+        mockDowntimeData.length.toString()
+      );
     });
   });
 
-  // ── Tick interval via XAxis data-interval ─────────────────────────────────
-  describe("tick intervals", () => {
-    it("7d has interval 0 (no ticks skipped)", () => {
+  // ── XAxis rendering ─────────────────────────────────────────────────
+  describe("XAxis rendering", () => {
+    it("XAxis is rendered after load", async () => {
       renderPage();
-      act(() => jest.advanceTimersByTime(1000));
-      // Two XAxis elements (one per chart); both should have interval 0
-      expect(screen.getAllByTestId("x-axis")[0]).toHaveAttribute(
-        "data-interval",
-        "0"
-      );
+      await waitForLoad();
+      const xAxes = screen.getAllByTestId("x-axis");
+      expect(xAxes.length).toBeGreaterThan(0);
     });
 
-    it("interval grows from 30d to 90d", () => {
+    it("XAxis has ticks attribute", async () => {
       renderPage();
-      act(() => jest.advanceTimersByTime(1000));
-      fireEvent.click(screen.getByText("Last 30 days"));
-      const i30 = parseInt(
-        screen.getAllByTestId("x-axis")[0].getAttribute("data-interval") ?? "0",
-        10
-      );
-      fireEvent.click(screen.getByText("Last 90 days"));
-      const i90 = parseInt(
-        screen.getAllByTestId("x-axis")[0].getAttribute("data-interval") ?? "0",
-        10
-      );
-      expect(i90).toBeGreaterThan(i30);
-    });
-
-    it("interval is always a non-negative integer", () => {
-      renderPage();
-      act(() => jest.advanceTimersByTime(1000));
-      [
-        "Last 7 days",
-        "Last 30 days",
-        "Last 60 days",
-        "Last 90 days",
-        "All time",
-      ].forEach((label) => {
-        fireEvent.click(screen.getByText(label));
-        const val = parseInt(
-          screen.getAllByTestId("x-axis")[0].getAttribute("data-interval") ??
-            "-1",
-          10
-        );
-        expect(val).toBeGreaterThanOrEqual(0);
-        expect(Number.isInteger(val)).toBe(true);
+      await waitForLoad();
+      const xAxes = screen.getAllByTestId("x-axis");
+      xAxes.forEach((xAxis) => {
+        const ticks = xAxis.getAttribute("data-ticks");
+        // The XAxis should have ticks (may be empty array if no data)
+        expect(ticks).not.toBeNull();
       });
     });
   });

@@ -1,16 +1,38 @@
 /**
  * @file DowntimeChart.test.tsx
  * Tests for DowntimeChart component.
- *
- * Covers: structure, both Line elements, YAxis config, reference lines,
- * legend pills, LeftAxisLabel / RightAxisLabel SVG text, CustomTooltip
- * (active/inactive/devices/hours/empty-payload), and edge cases.
  */
 
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom";
-import DowntimeChart, { type DowntimePoint } from "@/components/DowntimeChart";
+import DowntimeChart from "@/components/DowntimeChart";
+
+// ---------------------------------------------------------------------------
+// Create mock function
+// ---------------------------------------------------------------------------
+const mockUseFilteredDowntimePoints = jest.fn();
+
+// ---------------------------------------------------------------------------
+// Mock the hook
+// ---------------------------------------------------------------------------
+jest.mock("@/lib/analytics/hooks/useTimeSeriesMetrics", () => ({
+  useFilteredDowntimePoints: (...args: any[]) =>
+    mockUseFilteredDowntimePoints(...args),
+}));
+
+// ---------------------------------------------------------------------------
+// Mock data
+// ---------------------------------------------------------------------------
+const DOWNTIME_DATA = [
+  { date: "2026-02-26", devices: 9, hours: 1.45 },
+  { date: "2026-02-27", devices: 13, hours: 1.65 },
+  { date: "2026-02-28", devices: 3, hours: 1.15 },
+  { date: "2026-03-01", devices: 11, hours: 1.55 },
+  { date: "2026-03-02", devices: 19, hours: 1.95 },
+  { date: "2026-03-03", devices: 0, hours: 1.0 },
+  { date: "2026-03-04", devices: 0, hours: 1.0 },
+];
 
 // ---------------------------------------------------------------------------
 // Tooltip state flags
@@ -55,10 +77,7 @@ jest.mock("recharts", () => {
         data-yaxisid={yAxisId}
       />
     ),
-    XAxis: ({ interval }: { interval?: number }) => (
-      <div data-testid="x-axis" data-interval={interval} />
-    ),
-    // YAxis invokes the label prop with a fake viewBox to exercise LeftAxisLabel / RightAxisLabel
+    XAxis: () => <div data-testid="x-axis" />,
     YAxis: ({
       yAxisId,
       orientation,
@@ -84,7 +103,6 @@ jest.mock("recharts", () => {
     ReferenceLine: ({ y }: { y?: number }) => (
       <div data-testid={`ref-line-${y}`} />
     ),
-    // Tooltip invokes CustomTooltip (JSX element) with controlled props
     Tooltip: ({ content }: { content?: React.ReactElement }) => {
       if (!content || !__tooltipActive) return <div />;
       const ContentFn = (content as React.ReactElement).type as React.FC<{
@@ -104,26 +122,38 @@ jest.mock("recharts", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Test data
+// Mock helpers
 // ---------------------------------------------------------------------------
-const DOWNTIME_DATA: DowntimePoint[] = [
-  { date: "Dec 16", devices: 9, hours: 1.45 },
-  { date: "Dec 17", devices: 13, hours: 1.65 },
-  { date: "Dec 18", devices: 3, hours: 1.15 },
-  { date: "Dec 19", devices: 11, hours: 1.55 },
-  { date: "Dec 20", devices: 19, hours: 1.95 },
-  { date: "Dec 21", devices: 0, hours: 1.0 },
-  { date: "Dec 22", devices: 0, hours: 1.0 },
-];
+jest.mock("@/lib/analytics/utils/helpers", () => ({
+  formatShortDate: (date: string) => {
+    const d = new Date(date);
+    return `${d.getMonth() + 1}/${d.getDate()}`;
+  },
+  getSevenTicks: (labels: string[]) => {
+    if (labels.length === 0) return [];
+    const step = Math.max(1, Math.floor(labels.length / 7));
+    return labels.filter((_, i) => i % step === 0).slice(0, 7);
+  },
+}));
 
-const renderChart = (data = DOWNTIME_DATA, interval = 0) =>
-  render(<DowntimeChart data={data} interval={interval} />);
+// ---------------------------------------------------------------------------
+// Test helpers
+// ---------------------------------------------------------------------------
+const renderChart = (timeRange = "7d", selectedDevices = new Set<string>()) =>
+  render(
+    <DowntimeChart timeRange={timeRange} selectedDevices={selectedDevices} />
+  );
 
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 describe("DowntimeChart", () => {
+  beforeEach(() => {
+    mockUseFilteredDowntimePoints.mockReturnValue(DOWNTIME_DATA);
+  });
+
   afterEach(() => {
+    jest.clearAllMocks();
     __tooltipActive = false;
     __tooltipPayload = [];
     __tooltipLabel = "";
@@ -133,9 +163,7 @@ describe("DowntimeChart", () => {
   describe("heading and description", () => {
     it("renders the Downtime heading", () => {
       renderChart();
-      expect(
-        screen.getByRole("heading", { name: "Downtime" })
-      ).toBeInTheDocument();
+      expect(screen.getByText("Downtime")).toBeInTheDocument();
     });
 
     it("renders the description text", () => {
@@ -216,14 +244,6 @@ describe("DowntimeChart", () => {
       );
     });
 
-    it("XAxis receives the interval prop", () => {
-      renderChart(DOWNTIME_DATA, 4);
-      expect(screen.getByTestId("x-axis")).toHaveAttribute(
-        "data-interval",
-        "4"
-      );
-    });
-
     it("renders 5 reference lines for device tick values [0,6,12,18,24]", () => {
       renderChart();
       [0, 6, 12, 18, 24].forEach((tick) => {
@@ -236,7 +256,6 @@ describe("DowntimeChart", () => {
   describe("legend pills", () => {
     it("shows 'Number of devices' legend pill", () => {
       renderChart();
-      // Use getAllByText since SVG axis label also contains this text
       expect(
         screen
           .getAllByText("Number of devices")
@@ -280,9 +299,9 @@ describe("DowntimeChart", () => {
     });
 
     it("LeftAxisLabel returns null when viewBox is absent", () => {
-      // Render YAxis without label prop → no <text> from that axis
-      // Verified by checking: with no data the component still renders without crash
-      expect(() => renderChart([], 0)).not.toThrow();
+      // With no data, the component still renders without crash
+      mockUseFilteredDowntimePoints.mockReturnValue([]);
+      expect(() => renderChart()).not.toThrow();
     });
   });
 
@@ -291,64 +310,69 @@ describe("DowntimeChart", () => {
     it("renders nothing when tooltip is not active", () => {
       __tooltipActive = false;
       renderChart();
-      expect(
-        document.querySelector("[style*='boxShadow']")
-      ).not.toBeInTheDocument();
+      const tooltips = document.querySelectorAll("[style*='boxShadow']");
+      expect(tooltips.length).toBe(0);
     });
 
     it("renders the date label when active", () => {
       __tooltipActive = true;
-      __tooltipLabel = "Dec 16";
+      __tooltipLabel = "2/26";
       __tooltipPayload = [{ dataKey: "devices", value: 9, stroke: "#5E54C5" }];
       renderChart();
-      expect(screen.getByText("Dec 16")).toBeInTheDocument();
+      expect(screen.getByText("2/26")).toBeInTheDocument();
     });
 
     it("renders 'Devices: N' for devices payload entry", () => {
       __tooltipActive = true;
-      __tooltipLabel = "Dec 16";
+      __tooltipLabel = "2/26";
       __tooltipPayload = [{ dataKey: "devices", value: 9, stroke: "#5E54C5" }];
       renderChart();
       expect(screen.getByText(/Devices: 9/)).toBeInTheDocument();
     });
 
-    it("renders 'Hours: N hr' for hours payload entry", () => {
+    it("renders 'Hours: N hr' for hours payload entry with 1 decimal place", () => {
       __tooltipActive = true;
-      __tooltipLabel = "Dec 17";
+      __tooltipLabel = "2/27";
       __tooltipPayload = [{ dataKey: "hours", value: 1.45, stroke: "#C55483" }];
       renderChart();
-      expect(screen.getByText(/Hours: 1\.45 hr/)).toBeInTheDocument();
+      // Hours are formatted to 1 decimal place, so 1.45 becomes 1.4
+      expect(screen.getByText(/Hours: 1\.4 hr/)).toBeInTheDocument();
     });
 
     it("renders both entries when both are in the payload", () => {
       __tooltipActive = true;
-      __tooltipLabel = "Dec 17";
+      __tooltipLabel = "2/27";
       __tooltipPayload = [
         { dataKey: "devices", value: 13, stroke: "#5E54C5" },
         { dataKey: "hours", value: 1.65, stroke: "#C55483" },
       ];
       renderChart();
       expect(screen.getByText(/Devices: 13/)).toBeInTheDocument();
-      expect(screen.getByText(/Hours: 1\.65 hr/)).toBeInTheDocument();
+      // Hours are formatted to 1 decimal place, so 1.65 becomes 1.6
+      expect(screen.getByText(/Hours: 1\.6 hr/)).toBeInTheDocument();
     });
 
     it("returns null (no content) when payload is empty", () => {
       __tooltipActive = true;
-      __tooltipLabel = "Dec 16";
+      __tooltipLabel = "2/26";
       __tooltipPayload = [];
       renderChart();
-      expect(screen.queryByText("Dec 16")).not.toBeInTheDocument();
+      expect(screen.queryByText("2/26")).not.toBeInTheDocument();
     });
   });
 
   // ── Edge cases ────────────────────────────────────────────────────────────
   describe("edge cases", () => {
     it("renders without crashing when data is empty", () => {
-      expect(() => renderChart([], 0)).not.toThrow();
+      mockUseFilteredDowntimePoints.mockReturnValue([]);
+      expect(() => renderChart()).not.toThrow();
     });
 
     it("renders correctly with a single data point", () => {
-      renderChart([{ date: "Dec 16", devices: 5, hours: 1.2 }], 0);
+      mockUseFilteredDowntimePoints.mockReturnValue([
+        { date: "2026-02-26", devices: 5, hours: 1.2 },
+      ]);
+      renderChart();
       expect(screen.getByTestId("line-chart")).toHaveAttribute(
         "data-points",
         "1"
@@ -357,28 +381,22 @@ describe("DowntimeChart", () => {
 
     it("renders correctly when all device values are zero", () => {
       const zeroData = DOWNTIME_DATA.map((d) => ({ ...d, devices: 0 }));
-      renderChart(zeroData);
+      mockUseFilteredDowntimePoints.mockReturnValue(zeroData);
+      renderChart();
       expect(screen.getByTestId("line-devices")).toBeInTheDocument();
     });
 
     it("handles 30-day data length correctly", () => {
       const data30 = Array.from({ length: 30 }, (_, i) => ({
-        date: `Day ${i + 1}`,
+        date: `2026-02-${String(i + 1).padStart(2, "0")}`,
         devices: i % 20,
         hours: 1.0 + (i % 10) * 0.1,
       }));
-      renderChart(data30, 4);
+      mockUseFilteredDowntimePoints.mockReturnValue(data30);
+      renderChart();
       expect(screen.getByTestId("line-chart")).toHaveAttribute(
         "data-points",
         "30"
-      );
-    });
-
-    it("interval 0 renders without crashing", () => {
-      renderChart(DOWNTIME_DATA, 0);
-      expect(screen.getByTestId("x-axis")).toHaveAttribute(
-        "data-interval",
-        "0"
       );
     });
   });

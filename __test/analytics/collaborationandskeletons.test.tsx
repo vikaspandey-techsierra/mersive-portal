@@ -14,6 +14,19 @@ import { generateMockData, tickInterval, DAY_COUNTS } from "@/lib/homePage";
 import { timeseriesMock } from "@/lib/analytics/mock/timeseriesMock";
 
 // ---------------------------------------------------------------------------
+// Create a mock function that we can control
+// ---------------------------------------------------------------------------
+const mockUseFilteredCollaborationMetrics = jest.fn();
+
+// ---------------------------------------------------------------------------
+// Mock the useTimeSeriesMetrics hooks
+// ---------------------------------------------------------------------------
+jest.mock("@/lib/analytics/hooks/useTimeSeriesMetrics", () => ({
+  useFilteredCollaborationMetrics: (...args: any[]) =>
+    mockUseFilteredCollaborationMetrics(...args),
+}));
+
+// ---------------------------------------------------------------------------
 // Mock recharts for CollaborationUsage
 // ---------------------------------------------------------------------------
 jest.mock("recharts", () => {
@@ -49,14 +62,31 @@ jest.mock("recharts", () => {
         data-name={name}
       />
     ),
-    XAxis: ({ interval }: { interval: number }) => (
-      <div data-testid="x-axis" data-interval={interval} />
+    XAxis: ({ ticks }: { ticks?: string[] }) => (
+      <div data-testid="x-axis" data-ticks={ticks?.join(",")} />
     ),
     YAxis: () => <div data-testid="y-axis" />,
     CartesianGrid: () => <div />,
-    Tooltip: () => <div />,
+    Tooltip: ({ content }: { content: React.ReactElement }) => (
+      <div data-testid="tooltip">{content}</div>
+    ),
   };
 });
+
+// ---------------------------------------------------------------------------
+// Mock helpers
+// ---------------------------------------------------------------------------
+jest.mock("@/lib/analytics/utils/helpers", () => ({
+  formatShortDate: (date: string) => {
+    const d = new Date(date);
+    return `${d.getMonth() + 1}/${d.getDate()}`;
+  },
+  getSevenTicks: (labels: string[]) => {
+    if (labels.length === 0) return [];
+    const step = Math.max(1, Math.floor(labels.length / 7));
+    return labels.filter((_, i) => i % step === 0).slice(0, 7);
+  },
+}));
 
 // ---------------------------------------------------------------------------
 // CollaborationUsage tests
@@ -69,15 +99,38 @@ const buildDeviceUtilizationPoints = (count: number) =>
     meetings: i + 5,
     posts: i + 2,
     hours: i * 0.5,
-    // users: i + 8,
     avgLength: 0.5,
   }));
 
 describe("CollaborationUsage", () => {
   const defaultProps = {
-    data: buildDeviceUtilizationPoints(7),
-    interval: 1,
+    timeRange: "7d",
+    selectedDevices: new Set<string>(),
   };
+
+  beforeEach(() => {
+    // Default mock implementation for most tests
+    mockUseFilteredCollaborationMetrics.mockReturnValue({
+      connectionsAvg: [
+        { date: "2026-02-01", value: 3 },
+        { date: "2026-02-02", value: 4 },
+        { date: "2026-02-03", value: 5 },
+        { date: "2026-02-04", value: 6 },
+        { date: "2026-02-05", value: 7 },
+        { date: "2026-02-06", value: 8 },
+        { date: "2026-02-07", value: 9 },
+      ],
+      postsAvg: [
+        { date: "2026-02-01", value: 4 },
+        { date: "2026-02-02", value: 4.8 },
+        { date: "2026-02-03", value: 5.6 },
+        { date: "2026-02-04", value: 6.4 },
+        { date: "2026-02-05", value: 7.2 },
+        { date: "2026-02-06", value: 8 },
+        { date: "2026-02-07", value: 8.8 },
+      ],
+    });
+  });
 
   describe("static content", () => {
     it("renders the section title", () => {
@@ -85,12 +138,12 @@ describe("CollaborationUsage", () => {
       expect(screen.getByText("Collaboration Usage")).toBeInTheDocument();
     });
 
-    // it("renders the description text", () => {
-    //   render(<CollaborationUsage {...defaultProps} />);
-    //   expect(
-    //     screen.getByText(/Compare how many users connect/),
-    //   ).toBeInTheDocument();
-    // });
+    it("renders the description text", () => {
+      render(<CollaborationUsage {...defaultProps} />);
+      expect(
+        screen.getByText(/Compare how many users connect/)
+      ).toBeInTheDocument();
+    });
 
     it("renders the line chart", () => {
       render(<CollaborationUsage {...defaultProps} />);
@@ -109,7 +162,7 @@ describe("CollaborationUsage", () => {
       render(<CollaborationUsage {...defaultProps} />);
       expect(screen.getByTestId("line-avgConnections")).toHaveAttribute(
         "data-stroke",
-        "#6860C8",
+        "#6860C8"
       );
     });
 
@@ -117,7 +170,7 @@ describe("CollaborationUsage", () => {
       render(<CollaborationUsage {...defaultProps} />);
       expect(screen.getByTestId("line-avgPosts")).toHaveAttribute(
         "data-stroke",
-        "#D44E80",
+        "#D44E80"
       );
     });
 
@@ -125,7 +178,7 @@ describe("CollaborationUsage", () => {
       render(<CollaborationUsage {...defaultProps} />);
       expect(screen.getByTestId("line-avgConnections")).toHaveAttribute(
         "data-name",
-        "Avg. connections per meeting",
+        "Avg. connections per meeting"
       );
     });
 
@@ -133,7 +186,7 @@ describe("CollaborationUsage", () => {
       render(<CollaborationUsage {...defaultProps} />);
       expect(screen.getByTestId("line-avgPosts")).toHaveAttribute(
         "data-name",
-        "Avg. posts per meeting",
+        "Avg. posts per meeting"
       );
     });
   });
@@ -142,7 +195,7 @@ describe("CollaborationUsage", () => {
     it("renders purple legend pill", () => {
       render(<CollaborationUsage {...defaultProps} />);
       expect(
-        screen.getByText("Avg. connections per meeting"),
+        screen.getByText("Avg. connections per meeting")
       ).toBeInTheDocument();
     });
 
@@ -152,10 +205,6 @@ describe("CollaborationUsage", () => {
     });
   });
 
-  // ── Tooltip coverage (lines 36–42) ────────────────────────────────────────
-  // ChartTooltip is not exported — cover it by overriding the Tooltip mock
-  // to invoke the custom content renderer with controlled props.
-
   describe("ChartTooltip", () => {
     it("no tooltip content visible when chart is idle", () => {
       const { container } = render(<CollaborationUsage {...defaultProps} />);
@@ -163,21 +212,18 @@ describe("CollaborationUsage", () => {
     });
 
     it("tooltip renders label and values when active", () => {
-      // Render ChartTooltip directly (via jest.requireActual to get the real component)
-      // CollaborationChart exports ChartTooltip for testing purposes;
-      // if not exported, we render the tooltip content inline to cover the active branch.
       const { container } = render(
         <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-[13px] shadow-md">
-          <div className="font-semibold mb-1 text-gray-800">Feb 26</div>
+          <div className="font-semibold mb-1 text-black">Feb 26</div>
           <div style={{ color: "#6860C8" }}>
             Avg. connections per meeting: 5
           </div>
-        </div>,
+        </div>
       );
       expect(container.querySelector(".shadow-md")).toBeInTheDocument();
       expect(screen.getByText("Feb 26")).toBeInTheDocument();
       expect(
-        screen.getByText(/Avg. connections per meeting/),
+        screen.getByText(/Avg. connections per meeting/)
       ).toBeInTheDocument();
     });
   });
@@ -187,50 +233,67 @@ describe("CollaborationUsage", () => {
       render(<CollaborationUsage {...defaultProps} />);
       expect(screen.getByTestId("line-chart")).toHaveAttribute(
         "data-points",
-        String(defaultProps.data.length),
+        "7"
       );
     });
 
-    it("avgPosts is derived from meetings * 0.8 (rounded)", () => {
-      // We can't directly inspect the derived value without a deeper mock,
-      // but we confirm no crash with known data
-      const data = buildDeviceUtilizationPoints(3);
-      render(<CollaborationUsage data={data} interval={1} />);
+    it("handles different time ranges", () => {
+      mockUseFilteredCollaborationMetrics.mockReturnValue({
+        connectionsAvg: [
+          { date: "2026-02-01", value: 3 },
+          { date: "2026-02-02", value: 4 },
+          { date: "2026-02-03", value: 5 },
+        ],
+        postsAvg: [
+          { date: "2026-02-01", value: 4 },
+          { date: "2026-02-02", value: 4.8 },
+          { date: "2026-02-03", value: 5.6 },
+        ],
+      });
+
+      render(
+        <CollaborationUsage timeRange="30d" selectedDevices={new Set()} />
+      );
       expect(screen.getByTestId("line-chart")).toHaveAttribute(
         "data-points",
-        "3",
+        "3"
       );
     });
 
     it("renders with a single data point without crashing", () => {
-      render(
-        <CollaborationUsage
-          data={buildDeviceUtilizationPoints(1)}
-          interval={0}
-        />,
-      );
+      mockUseFilteredCollaborationMetrics.mockReturnValue({
+        connectionsAvg: [{ date: "2026-02-01", value: 3 }],
+        postsAvg: [{ date: "2026-02-01", value: 4 }],
+      });
+
+      render(<CollaborationUsage timeRange="7d" selectedDevices={new Set()} />);
       expect(screen.getByTestId("line-chart")).toHaveAttribute(
         "data-points",
-        "1",
+        "1"
       );
     });
 
     it("renders with empty data without crashing", () => {
-      render(<CollaborationUsage data={[]} interval={0} />);
+      mockUseFilteredCollaborationMetrics.mockReturnValue({
+        connectionsAvg: [],
+        postsAvg: [],
+      });
+
+      render(<CollaborationUsage timeRange="7d" selectedDevices={new Set()} />);
       expect(screen.getByTestId("line-chart")).toHaveAttribute(
         "data-points",
-        "0",
+        "0"
       );
     });
   });
 
-  describe("interval prop", () => {
-    it("passes interval to XAxis", () => {
-      render(<CollaborationUsage {...defaultProps} interval={3} />);
-      expect(screen.getByTestId("x-axis")).toHaveAttribute(
-        "data-interval",
-        "3",
-      );
+  describe("XAxis ticks", () => {
+    it("passes ticks to XAxis", () => {
+      render(<CollaborationUsage {...defaultProps} />);
+      const xAxis = screen.getByTestId("x-axis");
+      // Should have 7 ticks
+      const ticks = xAxis.getAttribute("data-ticks")?.split(",");
+      expect(ticks?.length).toBe(7);
     });
   });
 });
@@ -250,16 +313,16 @@ describe("LineChartSkeleton", () => {
       <LineChartSkeleton
         title="Device Utilization"
         description="Compare up to two types of usage data"
-      />,
+      />
     );
     expect(
-      screen.getByText("Compare up to two types of usage data"),
+      screen.getByText("Compare up to two types of usage data")
     ).toBeInTheDocument();
   });
 
   it("does not render description element when description is omitted", () => {
     const { container } = render(
-      <LineChartSkeleton title="Device Utilization" />,
+      <LineChartSkeleton title="Device Utilization" />
     );
     expect(container.querySelector("p")).not.toBeInTheDocument();
   });
@@ -293,10 +356,7 @@ describe("AreaChartSkeleton", () => {
 
   it("renders description when provided", () => {
     render(
-      <AreaChartSkeleton
-        title="User Connections"
-        description="Some subtitle"
-      />,
+      <AreaChartSkeleton title="User Connections" description="Some subtitle" />
     );
     expect(screen.getByText("Some subtitle")).toBeInTheDocument();
   });
@@ -318,7 +378,6 @@ describe("AreaChartSkeleton", () => {
 
   it("renders 5 legend colour squares at the bottom", () => {
     const { container } = render(<AreaChartSkeleton title="Test" />);
-    // Each legend item contains a small square div
     const squares = container.querySelectorAll(".w-3.h-3.shrink-0.rounded-sm");
     expect(squares.length).toBe(5);
   });
@@ -368,12 +427,10 @@ describe("generateMockData", () => {
   it("each deviceUtilization point has all required keys", () => {
     const result = generateMockData(7);
     const point = result.deviceUtilization[0];
-    // Verify the keys that actually exist on deviceUtilization points
     const keys = Object.keys(point);
     expect(keys).toContain("date");
     expect(keys).toContain("connections");
     expect(keys).toContain("meetings");
-    // Additional keys depend on your generateMockData implementation
     expect(typeof point.date).toBe("string");
     expect(typeof point.connections).toBe("number");
     expect(typeof point.meetings).toBe("number");
@@ -445,7 +502,6 @@ describe("timeseriesMock", () => {
     "ts_connections_num",
     "ts_posts_num",
     "ts_meetings_duration_tot",
-    // "ts_users_num",
     "ts_downtime_duration_tot",
     "ts_app_alerts_unreachable_num",
     "ts_connections_num_by_os",
@@ -459,14 +515,14 @@ describe("timeseriesMock", () => {
 
   it("ts_meetings_num has at least 1 row", () => {
     const rows = timeseriesMock.filter(
-      (r) => r.metric_name === "ts_meetings_num",
+      (r) => r.metric_name === "ts_meetings_num"
     );
     expect(rows.length).toBeGreaterThanOrEqual(1);
   });
 
   it("ts_connections_num has at least 1 row", () => {
     const rows = timeseriesMock.filter(
-      (r) => r.metric_name === "ts_connections_num",
+      (r) => r.metric_name === "ts_connections_num"
     );
     expect(rows.length).toBeGreaterThanOrEqual(1);
   });
@@ -485,7 +541,7 @@ describe("timeseriesMock", () => {
 
   it("ts_meetings_duration_tot values are fractional hours (< 24)", () => {
     const rows = timeseriesMock.filter(
-      (r) => r.metric_name === "ts_meetings_duration_tot",
+      (r) => r.metric_name === "ts_meetings_duration_tot"
     );
     rows.forEach((r) => {
       expect(Number(r.metric_value)).toBeLessThan(24);
@@ -495,7 +551,7 @@ describe("timeseriesMock", () => {
 
   it("ts_connections_num_by_os has 'OS' as segment_1_name", () => {
     const rows = timeseriesMock.filter(
-      (r) => r.metric_name === "ts_connections_num_by_os",
+      (r) => r.metric_name === "ts_connections_num_by_os"
     );
     rows.forEach((r) => {
       expect(r.segment_1_name).toBe("OS");
@@ -504,10 +560,9 @@ describe("timeseriesMock", () => {
 
   it("ts_connections_num_by_os contains at least one OS value", () => {
     const rows = timeseriesMock.filter(
-      (r) => r.metric_name === "ts_connections_num_by_os",
+      (r) => r.metric_name === "ts_connections_num_by_os"
     );
     const osValues = new Set(rows.map((r) => r.segment_1_value));
-    // Assert that known OS values that are present are valid OS names
     const knownOS = new Set([
       "Linux",
       "MacOS",

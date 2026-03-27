@@ -14,8 +14,6 @@ jest.mock("next/image", () => ({
 // Mock SVG imports
 jest.mock("@/components/icons/tv_off.svg", () => "TvOffIcon");
 jest.mock("@/components/icons/event_busy.svg", () => "CalendarIcon");
-jest.mock("@/components/icons/outdated_firmware.svg", () => "DownloadIcon");
-jest.mock("@/components/icons/warning.svg", () => "AlertTriangleIcon");
 jest.mock("@/components/icons/error.svg", () => "ErrorIcon");
 
 // Mock AlertChip
@@ -59,10 +57,10 @@ describe("AlertBanner", () => {
     expect(screen.getByAltText("Alert icon")).toBeInTheDocument();
   });
 
-  it("renders all four AlertChips", () => {
+  it("renders two AlertChips (Offline devices and Expired or expiring soon)", () => {
     render(<AlertBanner alert={mockAlert} />);
     const chips = screen.getAllByTestId("alert-chip");
-    expect(chips).toHaveLength(4);
+    expect(chips).toHaveLength(2);
   });
 
   it("renders Offline devices chip with correct value", () => {
@@ -77,30 +75,40 @@ describe("AlertBanner", () => {
     expect(screen.getByText("5")).toBeInTheDocument();
   });
 
-  it("renders Outdated firmware chip with correct value", () => {
+  it("does NOT render Outdated firmware chip (not in component)", () => {
     render(<AlertBanner alert={mockAlert} />);
-    expect(screen.getByText("Outdated firmware")).toBeInTheDocument();
-    expect(screen.getByText("2")).toBeInTheDocument();
+    expect(screen.queryByText("Outdated firmware")).not.toBeInTheDocument();
+    expect(screen.queryByText("2")).not.toBeInTheDocument();
   });
 
-  it("renders Other issues chip with correct value", () => {
+  it("does NOT render Other issues chip (not in component)", () => {
     render(<AlertBanner alert={mockAlert} />);
-    expect(screen.getByText("Other issues")).toBeInTheDocument();
-    expect(screen.getByText("1")).toBeInTheDocument();
+    expect(screen.queryByText("Other issues")).not.toBeInTheDocument();
+    expect(screen.queryByText("1")).not.toBeInTheDocument();
   });
 
-  it("renders with zero values", () => {
+  it("does NOT render the banner when there are no alerts", () => {
     const zeroAlert = {
       offlineDevices: 0,
       expiredOrExpiringSoon: 0,
       outdatedFirmware: 0,
       otherIssues: 0,
     };
-    render(<AlertBanner alert={zeroAlert} />);
-    const chips = screen.getAllByTestId("alert-chip");
-    expect(chips).toHaveLength(4);
-    const zeros = screen.getAllByText("0");
-    expect(zeros).toHaveLength(4);
+    const { container } = render(<AlertBanner alert={zeroAlert} />);
+    // Banner should not be rendered
+    expect(container.firstChild).toBeNull();
+  });
+
+  it("renders the banner when there are alerts (either offlineDevices or expiredOrExpiringSoon > 0)", () => {
+    const alertWithOfflineOnly = {
+      offlineDevices: 1,
+      expiredOrExpiringSoon: 0,
+      outdatedFirmware: 0,
+      otherIssues: 0,
+    };
+    render(<AlertBanner alert={alertWithOfflineOnly} />);
+    expect(screen.getByText("Requires admin attention")).toBeInTheDocument();
+    expect(screen.getByText("Offline devices")).toBeInTheDocument();
   });
 
   it("has the correct background color class", () => {

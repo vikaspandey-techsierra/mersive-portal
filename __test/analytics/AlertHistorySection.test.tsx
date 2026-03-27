@@ -1,12 +1,8 @@
 /**
  * AlertHistorySection.test.tsx
- *
  * Tests for the AlertHistorySection component (embedded inside page.tsx).
- * Since it's not exported directly, we render the full EmailAlertsPage
- * and scroll past the chart to reach the history table.
- *
- * Covers: loading spinner, table columns, row data, search filter,
- * My/All filter toggle, sort by each column, Export CSV button.
+ * Note: These tests are skipped because SHOW_ALERT_HISTORY is false in the component.
+ * To run these tests, set SHOW_ALERT_HISTORY = true in components/analytics/email/page.tsx
  */
 
 import React from "react";
@@ -56,7 +52,6 @@ function renderPage() {
 }
 
 async function waitForTableLoad() {
-  // AlertHistorySection has a 2000ms loading delay
   await act(async () => {
     jest.advanceTimersByTime(2100);
   });
@@ -76,17 +71,16 @@ afterEach(async () => {
   jest.clearAllMocks();
 });
 
-// ─── Tests ───────────────────────────────────────────────────────────────────
+// ─── Tests - All skipped because SHOW_ALERT_HISTORY is false in the component ───
 
 describe("AlertHistorySection — loading state", () => {
-  it("shows a loading spinner while data loads", () => {
+  it.skip("shows a loading spinner while data loads", () => {
     renderPage();
-    // The LoadingSpinner SVG has class animate-spin
     const spinners = document.querySelectorAll(".animate-spin");
     expect(spinners.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("hides spinner and shows rows after 2 seconds", async () => {
+  it.skip("hides spinner and shows rows after 2 seconds", async () => {
     renderPage();
     await waitForTableLoad();
     expect(screen.getByText("Board Room")).toBeInTheDocument();
@@ -94,7 +88,7 @@ describe("AlertHistorySection — loading state", () => {
 });
 
 describe("AlertHistorySection — table structure", () => {
-  it("renders all 5 column headers", async () => {
+  it.skip("renders all 5 column headers", async () => {
     renderPage();
     await waitForTableLoad();
     expect(screen.getByText("Date")).toBeInTheDocument();
@@ -104,7 +98,7 @@ describe("AlertHistorySection — table structure", () => {
     expect(screen.getByText("Recipients")).toBeInTheDocument();
   });
 
-  it("renders all 4 mock rows", async () => {
+  it.skip("renders all 4 mock rows", async () => {
     renderPage();
     await waitForTableLoad();
     expect(screen.getByText("Board Room")).toBeInTheDocument();
@@ -113,7 +107,7 @@ describe("AlertHistorySection — table structure", () => {
     expect(screen.getByText("John's Office")).toBeInTheDocument();
   });
 
-  it("renders device ID in each row", async () => {
+  it.skip("renders device ID in each row", async () => {
     renderPage();
     await waitForTableLoad();
     expect(screen.getByText("PD0104A0001")).toBeInTheDocument();
@@ -122,7 +116,7 @@ describe("AlertHistorySection — table structure", () => {
     expect(screen.getByText("PD0104A0004")).toBeInTheDocument();
   });
 
-  it("renders description text for each row", async () => {
+  it.skip("renders description text for each row", async () => {
     renderPage();
     await waitForTableLoad();
     expect(screen.getByText("Device rebooted")).toBeInTheDocument();
@@ -137,7 +131,7 @@ describe("AlertHistorySection — table structure", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders the date + timeAgo for a row", async () => {
+  it.skip("renders the date + timeAgo for a row", async () => {
     renderPage();
     await waitForTableLoad();
     expect(
@@ -147,7 +141,7 @@ describe("AlertHistorySection — table structure", () => {
 });
 
 describe("AlertHistorySection — search filter", () => {
-  it("filters rows by device name", async () => {
+  it.skip("filters rows by device name", async () => {
     renderPage();
     await waitForTableLoad();
     const search = screen.getByPlaceholderText("Search");
@@ -157,7 +151,7 @@ describe("AlertHistorySection — search filter", () => {
     expect(screen.queryByText("Corner Conference")).not.toBeInTheDocument();
   });
 
-  it("filters rows by ID", async () => {
+  it.skip("filters rows by ID", async () => {
     renderPage();
     await waitForTableLoad();
     const search = screen.getByPlaceholderText("Search");
@@ -166,34 +160,29 @@ describe("AlertHistorySection — search filter", () => {
     expect(screen.queryByText("Board Room")).not.toBeInTheDocument();
   });
 
-  it("filters rows by description text", async () => {
+  it.skip("filters rows by description text", async () => {
     renderPage();
     await waitForTableLoad();
     const search = screen.getByPlaceholderText("Search");
     fireEvent.change(search, { target: { value: "rebooted" } });
-
-    // "Device rebooted" belongs to Board Room, not Hallway
     expect(screen.getByText("Device rebooted")).toBeInTheDocument();
     expect(screen.getByText("Board Room")).toBeInTheDocument();
-
-    // Other rows without "rebooted" in description should not be visible
     expect(screen.queryByText("Hallway")).not.toBeInTheDocument();
     expect(screen.queryByText("Corner Conference")).not.toBeInTheDocument();
     expect(screen.queryByText("John's Office")).not.toBeInTheDocument();
   });
 
-  it("filters rows by recipient email", async () => {
+  it.skip("filters rows by recipient email", async () => {
     renderPage();
     await waitForTableLoad();
     const search = screen.getByPlaceholderText("Search");
     fireEvent.change(search, { target: { value: "itsupport@mersive.com" } });
-    // Corner Conference and Hallway have itsupport
     expect(screen.getByText("Corner Conference")).toBeInTheDocument();
     expect(screen.getByText("Hallway")).toBeInTheDocument();
     expect(screen.queryByText("Board Room")).not.toBeInTheDocument();
   });
 
-  it("shows 'No alerts found' when search has no matches", async () => {
+  it.skip("shows 'No alerts found' when search has no matches", async () => {
     renderPage();
     await waitForTableLoad();
     const search = screen.getByPlaceholderText("Search");
@@ -201,7 +190,7 @@ describe("AlertHistorySection — search filter", () => {
     expect(screen.getByText("No alerts found")).toBeInTheDocument();
   });
 
-  it("search is case-insensitive", async () => {
+  it.skip("search is case-insensitive", async () => {
     renderPage();
     await waitForTableLoad();
     const search = screen.getByPlaceholderText("Search");
@@ -209,7 +198,7 @@ describe("AlertHistorySection — search filter", () => {
     expect(screen.getByText("Board Room")).toBeInTheDocument();
   });
 
-  it("clearing search restores all rows", async () => {
+  it.skip("clearing search restores all rows", async () => {
     renderPage();
     await waitForTableLoad();
     const search = screen.getByPlaceholderText("Search");
@@ -222,7 +211,6 @@ describe("AlertHistorySection — search filter", () => {
 });
 
 describe("AlertHistorySection — My/All filter toggle", () => {
-  // Helpers: target the history filter buttons by exact text (not the Alert Settings tab)
   function getMyAlertsFilter() {
     return screen
       .getAllByRole("button")
@@ -234,27 +222,27 @@ describe("AlertHistorySection — My/All filter toggle", () => {
       .find((b) => b.textContent?.trim() === "All alerts")!;
   }
 
-  it("renders 'My alerts' and 'All alerts' buttons", async () => {
+  it.skip("renders 'My alerts' and 'All alerts' buttons", async () => {
     renderPage();
     await waitForTableLoad();
     expect(getMyAlertsFilter()).toBeInTheDocument();
     expect(getAllAlertsFilter()).toBeInTheDocument();
   });
 
-  it("'My alerts' is active by default", async () => {
+  it.skip("'My alerts' is active by default", async () => {
     renderPage();
     await waitForTableLoad();
     expect(getMyAlertsFilter().className).toMatch(/bg-\[#5E54C5\]/);
   });
 
-  it("switches to 'All alerts' active state", async () => {
+  it.skip("switches to 'All alerts' active state", async () => {
     renderPage();
     await waitForTableLoad();
     fireEvent.click(getAllAlertsFilter());
     expect(getAllAlertsFilter().className).toMatch(/bg-\[#5E54C5\]/);
   });
 
-  it("switching back to 'My alerts' restores its active state", async () => {
+  it.skip("switching back to 'My alerts' restores its active state", async () => {
     renderPage();
     await waitForTableLoad();
     fireEvent.click(getAllAlertsFilter());
@@ -264,18 +252,17 @@ describe("AlertHistorySection — My/All filter toggle", () => {
 });
 
 describe("AlertHistorySection — sorting", () => {
-  it("clicking 'Name' column header sorts rows", async () => {
+  it.skip("clicking 'Name' column header sorts rows", async () => {
     renderPage();
     await waitForTableLoad();
     fireEvent.click(screen.getByText("Name"));
-    // After asc sort, Board Room should be first
     const cells = document.querySelectorAll("td:nth-child(2)");
     const names = Array.from(cells).map((c) => c.textContent?.trim());
     const sorted = [...names].sort();
     expect(names).toEqual(sorted);
   });
 
-  it("clicking 'Name' twice reverses sort order", async () => {
+  it.skip("clicking 'Name' twice reverses sort order", async () => {
     renderPage();
     await waitForTableLoad();
     fireEvent.click(screen.getByText("Name"));
@@ -286,7 +273,7 @@ describe("AlertHistorySection — sorting", () => {
     expect(names).toEqual(sorted);
   });
 
-  it("clicking 'ID' column header sorts by ID", async () => {
+  it.skip("clicking 'ID' column header sorts by ID", async () => {
     renderPage();
     await waitForTableLoad();
     fireEvent.click(screen.getByText("ID"));
@@ -296,13 +283,11 @@ describe("AlertHistorySection — sorting", () => {
     expect(ids).toEqual(sorted);
   });
 
-  it("clicking a new column resets to ascending order", async () => {
+  it.skip("clicking a new column resets to ascending order", async () => {
     renderPage();
     await waitForTableLoad();
-    // Sort by Name desc first
     fireEvent.click(screen.getByText("Name"));
     fireEvent.click(screen.getByText("Name"));
-    // Now click ID — should reset to ascending
     fireEvent.click(screen.getByText("ID"));
     const cells = document.querySelectorAll("td:nth-child(3)");
     const ids = Array.from(cells).map((c) => c.textContent?.trim());
@@ -310,20 +295,18 @@ describe("AlertHistorySection — sorting", () => {
     expect(ids).toEqual(sorted);
   });
 
-  it("SortArrows renders for each column header", async () => {
+  it.skip("SortArrows renders for each column header", async () => {
     renderPage();
     await waitForTableLoad();
-    // Each Th renders 2 SVG arrows
     const sortSvgs = document.querySelectorAll("th svg");
-    expect(sortSvgs.length).toBe(10); // 5 columns × 2 arrows
+    expect(sortSvgs.length).toBe(10);
   });
 });
 
 describe("AlertHistorySection — Export CSV button", () => {
-  it("renders Export to CSV button in history section", async () => {
+  it.skip("renders Export to CSV button in history section", async () => {
     renderPage();
     await waitForTableLoad();
-    // There are two: one in the top nav and one in the history section
     const btns = screen.getAllByRole("button", { name: /export to csv/i });
     expect(btns.length).toBeGreaterThanOrEqual(1);
   });

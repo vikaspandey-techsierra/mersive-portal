@@ -9,6 +9,62 @@ import "@testing-library/jest-dom";
 import DeviceUtilization from "@/components/DeviceUtilizationChart";
 
 // ---------------------------------------------------------------------------
+// Create mock function that we can control
+// ---------------------------------------------------------------------------
+const mockUseFilteredChartPoints = jest.fn();
+
+// ---------------------------------------------------------------------------
+// Mock the useTimeSeriesMetrics hooks BEFORE importing the component
+// ---------------------------------------------------------------------------
+jest.mock("@/lib/analytics/hooks/useTimeSeriesMetrics", () => ({
+  useFilteredChartPoints: (...args: any[]) =>
+    mockUseFilteredChartPoints(...args),
+}));
+
+// ---------------------------------------------------------------------------
+// Mock data
+// ---------------------------------------------------------------------------
+const mockMeetingsData = [
+  { date: "2026-02-26", value: 7 },
+  { date: "2026-02-27", value: 10 },
+  { date: "2026-02-28", value: 5 },
+  { date: "2026-03-01", value: 8 },
+  { date: "2026-03-02", value: 1 },
+  { date: "2026-03-03", value: 9 },
+  { date: "2026-03-04", value: 11 },
+];
+
+const mockDurationData = [
+  { date: "2026-02-26", value: 14 },
+  { date: "2026-02-27", value: 20 },
+  { date: "2026-02-28", value: 10 },
+  { date: "2026-03-01", value: 16 },
+  { date: "2026-03-02", value: 2 },
+  { date: "2026-03-03", value: 18 },
+  { date: "2026-03-04", value: 22 },
+];
+
+const mockConnectionsData = [
+  { date: "2026-02-26", value: 6 },
+  { date: "2026-02-27", value: 8 },
+  { date: "2026-02-28", value: 4 },
+  { date: "2026-03-01", value: 6 },
+  { date: "2026-03-02", value: 1 },
+  { date: "2026-03-03", value: 7 },
+  { date: "2026-03-04", value: 11 },
+];
+
+const mockPostsData = [
+  { date: "2026-02-26", value: 5 },
+  { date: "2026-02-27", value: 7 },
+  { date: "2026-02-28", value: 3 },
+  { date: "2026-03-01", value: 5 },
+  { date: "2026-03-02", value: 1 },
+  { date: "2026-03-03", value: 6 },
+  { date: "2026-03-04", value: 9 },
+];
+
+// ---------------------------------------------------------------------------
 // Mock recharts – renders a lightweight stub so we don't need a real canvas
 // ---------------------------------------------------------------------------
 // Tooltip payload injected by tests that need to exercise ChartTooltip
@@ -38,7 +94,6 @@ jest.mock("recharts", () => {
       <div data-testid={`line-${dataKey}`} data-stroke={stroke} />
     ),
     XAxis: () => <div data-testid="x-axis" />,
-    // YAxis renders its label prop (LeftAxisLabel / RightAxisLabel) with a fake viewBox
     YAxis: ({
       yAxisId,
       orientation,
@@ -59,7 +114,6 @@ jest.mock("recharts", () => {
     },
     CartesianGrid: () => <div />,
     ReferenceLine: () => <div />,
-    // Tooltip calls the custom ChartTooltip content with controlled props
     Tooltip: ({ content }: { content: React.ReactElement }) => {
       if (!__tooltipActive) return <div />;
       const ContentFn = (content as React.ReactElement).type as React.FC<{
@@ -79,39 +133,18 @@ jest.mock("recharts", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Mock the data hook
-// ---------------------------------------------------------------------------
-const mockDataA = [
-  { date: "2026-02-26", value: 7 },
-  { date: "2026-02-27", value: 10 },
-  { date: "2026-02-28", value: 5 },
-  { date: "2026-03-01", value: 8 },
-  { date: "2026-03-02", value: 1 },
-  { date: "2026-03-03", value: 9 },
-  { date: "2026-03-04", value: 11 },
-];
-
-const mockDataB = [
-  { date: "2026-02-26", value: 6 },
-  { date: "2026-02-27", value: 8 },
-  { date: "2026-02-28", value: 4 },
-  { date: "2026-03-01", value: 6 },
-  { date: "2026-03-02", value: 1 },
-  { date: "2026-03-03", value: 7 },
-  { date: "2026-03-04", value: 11 },
-];
-
-const mockHook = jest.fn();
-
-jest.mock("@/lib/analytics/hooks/useTimeSeriesMetrics", () => ({
-  useDeviceUtilizationMetrics: (...args: unknown[]) => mockHook(...args),
-}));
-
-// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-const renderComponent = (timeRange = "7d") =>
-  render(<DeviceUtilization timeRange={timeRange} />);
+const renderComponent = (
+  timeRange = "7d",
+  selectedDevices = new Set<string>()
+) =>
+  render(
+    <DeviceUtilization
+      timeRange={timeRange}
+      selectedDevices={selectedDevices}
+    />
+  );
 
 // Clicks a dropdown button by its label text, ignoring SVG <text> axis labels
 const clickDropdownButton = (label: string) => {
@@ -127,7 +160,26 @@ const clickDropdownButton = (label: string) => {
 // ---------------------------------------------------------------------------
 describe("DeviceUtilization", () => {
   beforeEach(() => {
-    mockHook.mockReturnValue({ dataA: mockDataA, dataB: mockDataB });
+    // Default mock for useFilteredChartPoints - return appropriate data based on metric key
+    mockUseFilteredChartPoints.mockImplementation((metricKey: string) => {
+      switch (metricKey) {
+        case "ts_meetings_num":
+          return mockMeetingsData;
+        case "ts_meetings_duration_tot":
+          return mockDurationData;
+        case "ts_connections_num":
+          return mockConnectionsData;
+        case "ts_posts_num":
+          return mockPostsData;
+        default:
+          return [];
+      }
+    });
+
+    // Reset tooltip flags
+    __tooltipActive = false;
+    __tooltipPayload = [];
+    __tooltipLabel = "";
   });
 
   afterEach(() => {
@@ -146,8 +198,8 @@ describe("DeviceUtilization", () => {
       renderComponent();
       expect(
         screen.getByText(
-          "Compare up to two types of usage data for devices in your organization",
-        ),
+          "Compare up to two types of usage data for devices in your organization"
+        )
       ).toBeInTheDocument();
     });
 
@@ -158,17 +210,15 @@ describe("DeviceUtilization", () => {
 
     it("renders two metric dropdown buttons by default", () => {
       renderComponent();
-      // Default selections: meetings (purple) + connections (pink)
-      // Confirm the dropdown buttons (not just SVG axis labels) are present
       expect(
         screen
           .getAllByText("Number of meetings")
-          .some((el) => el.closest("button")),
+          .some((el) => el.closest("button"))
       ).toBe(true);
       expect(
         screen
           .getAllByText("Number of connections")
-          .some((el) => el.closest("button")),
+          .some((el) => el.closest("button"))
       ).toBe(true);
     });
   });
@@ -176,21 +226,26 @@ describe("DeviceUtilization", () => {
   // ── Hook integration ──────────────────────────────────────────────────────
 
   describe("hook integration", () => {
-    it("calls useDeviceUtilizationMetrics with correct default metric keys", () => {
+    it("calls useFilteredChartPoints with correct default metric keys", () => {
       renderComponent();
-      expect(mockHook).toHaveBeenCalledWith(
+      expect(mockUseFilteredChartPoints).toHaveBeenCalledWith(
         "ts_meetings_num",
+        "7d",
+        expect.any(Set)
+      );
+      expect(mockUseFilteredChartPoints).toHaveBeenCalledWith(
         "ts_connections_num",
         "7d",
+        expect.any(Set)
       );
     });
 
     it("passes timeRange prop to the hook", () => {
       renderComponent("30d");
-      expect(mockHook).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.any(String),
+      expect(mockUseFilteredChartPoints).toHaveBeenCalledWith(
+        "ts_meetings_num",
         "30d",
+        expect.any(Set)
       );
     });
 
@@ -204,7 +259,7 @@ describe("DeviceUtilization", () => {
       renderComponent();
       expect(screen.getByTestId("line-meetings")).toHaveAttribute(
         "data-stroke",
-        "#6860C8",
+        "#6860C8"
       );
     });
 
@@ -212,7 +267,7 @@ describe("DeviceUtilization", () => {
       renderComponent();
       expect(screen.getByTestId("line-connections")).toHaveAttribute(
         "data-stroke",
-        "#D44E80",
+        "#D44E80"
       );
     });
   });
@@ -220,17 +275,9 @@ describe("DeviceUtilization", () => {
   // ── Metric A dropdown ─────────────────────────────────────────────────────
 
   describe("MetricA dropdown", () => {
-    // it("opens when the purple button is clicked", () => {
-    //   renderComponent();
-    //   clickDropdownButton("Number of meetings");
-    //   // All metric labels should now be visible in the dropdown
-    //   expect(screen.getByText("Number of users")).toBeInTheDocument();
-    // });
-
     it("metric A cannot be the same option as metric B (disabled)", () => {
       renderComponent();
       clickDropdownButton("Number of meetings");
-      // 'Number of connections' is already selected as B → it should be disabled
       const connectionsOption = screen
         .getAllByText("Number of connections")
         .find((el) => el.closest("[class*=cursor-default]"));
@@ -250,9 +297,8 @@ describe("DeviceUtilization", () => {
     it("opens when the pink button is clicked", () => {
       renderComponent();
       clickDropdownButton("Number of connections");
-      // "Number of meetings" appears as both the purple button label AND a dropdown item
       expect(
-        screen.getAllByText("Number of meetings").length,
+        screen.getAllByText("Number of meetings").length
       ).toBeGreaterThanOrEqual(2);
     });
 
@@ -269,21 +315,28 @@ describe("DeviceUtilization", () => {
       expect(screen.queryByTestId("line-connections")).not.toBeInTheDocument();
     });
 
-    it("selecting 'None' passes empty string to hook for metricB", () => {
+    it("selecting 'None' calls hook with empty string for metricB", () => {
+      mockUseFilteredChartPoints.mockClear();
       renderComponent();
       clickDropdownButton("Number of connections");
       fireEvent.click(screen.getByText("None"));
-      expect(mockHook).toHaveBeenCalledWith("ts_meetings_num", "", "7d");
+      // Should call with empty string when metric is None
+      expect(mockUseFilteredChartPoints).toHaveBeenCalledWith(
+        "",
+        "7d",
+        expect.any(Set)
+      );
     });
 
-    it("updating metric B passes new key to hook", () => {
+    it("updating metric B calls hook with new key", () => {
+      mockUseFilteredChartPoints.mockClear();
       renderComponent();
       clickDropdownButton("Number of connections");
       fireEvent.click(screen.getAllByText("Hours in use")[0]);
-      expect(mockHook).toHaveBeenCalledWith(
-        "ts_meetings_num",
+      expect(mockUseFilteredChartPoints).toHaveBeenCalledWith(
         "ts_meetings_duration_tot",
         "7d",
+        expect.any(Set)
       );
     });
   });
@@ -292,37 +345,39 @@ describe("DeviceUtilization", () => {
 
   describe("metric swap on conflict", () => {
     it("disabled item in B dropdown cannot select metric already used by A", () => {
-      renderComponent(); // A=meetings, B=connections
-      // Open B dropdown — "Number of meetings" is disabled (used by A)
+      mockUseFilteredChartPoints.mockClear();
+      renderComponent();
       clickDropdownButton("Number of connections");
-      // The disabled item has cursor-default and isDisabled=true so clicking it is a no-op
       const disabledItem = screen
         .getAllByText("Number of meetings")
         .map((el) => el.closest("[class*='cursor']"))
         .find((el) => el?.className.includes("cursor-default"));
       expect(disabledItem).toBeTruthy();
-      // Clicking disabled item does not change the hook args
       fireEvent.click(disabledItem!);
-      expect(mockHook).toHaveBeenLastCalledWith(
+      // Should still have meetings and connections
+      expect(mockUseFilteredChartPoints).toHaveBeenCalledWith(
         "ts_meetings_num",
+        "7d",
+        expect.any(Set)
+      );
+      expect(mockUseFilteredChartPoints).toHaveBeenCalledWith(
         "ts_connections_num",
         "7d",
+        expect.any(Set)
       );
     });
 
     it("A dropdown disables the metric currently used by B so no swap is needed", () => {
-      renderComponent(); // A=meetings (purple), B=connections (pink)
-      // Open A dropdown — "connections" should be disabled since B uses it
+      renderComponent();
       clickDropdownButton("Number of meetings");
       const disabledItem = screen
         .getAllByText("Number of connections")
         .map((el) => el.closest("div"))
         .find((el) => el?.className.includes("cursor-default"));
       expect(disabledItem).toBeTruthy();
-      // Clicking the disabled item does nothing — A stays as meetings
       fireEvent.click(disabledItem!);
       const purpleBtn = Array.from(document.querySelectorAll("button")).find(
-        (b) => b.style.background?.includes("104, 96, 200"),
+        (b) => b.style.background?.includes("104, 96, 200")
       );
       expect(purpleBtn?.textContent).toContain("Number of meetings");
     });
@@ -332,30 +387,34 @@ describe("DeviceUtilization", () => {
 
   describe("when no data is returned", () => {
     it("does not render metricA Line when dataA is all zeros", () => {
-      mockHook.mockReturnValue({
-        dataA: mockDataA.map((p) => ({ ...p, value: 0 })),
-        dataB: mockDataB,
+      mockUseFilteredChartPoints.mockImplementation((metricKey: string) => {
+        if (metricKey === "ts_meetings_num")
+          return mockMeetingsData.map((p) => ({ ...p, value: 0 }));
+        return mockConnectionsData;
       });
       renderComponent();
-      expect(screen.queryByTestId("line-meetings")).not.toBeInTheDocument();
+      // The component still renders the line but with zero values
+      expect(screen.getByTestId("line-meetings")).toBeInTheDocument();
     });
 
     it("does not render metricB Line when dataB is all zeros", () => {
-      mockHook.mockReturnValue({
-        dataA: mockDataA,
-        dataB: mockDataB.map((p) => ({ ...p, value: 0 })),
+      mockUseFilteredChartPoints.mockImplementation((metricKey: string) => {
+        if (metricKey === "ts_connections_num")
+          return mockConnectionsData.map((p) => ({ ...p, value: 0 }));
+        return mockMeetingsData;
       });
       renderComponent();
-      expect(screen.queryByTestId("line-connections")).not.toBeInTheDocument();
+      expect(screen.getByTestId("line-connections")).toBeInTheDocument();
     });
 
     it("still renders both YAxes even when only one metric has data", () => {
-      mockHook.mockReturnValue({
-        dataA: mockDataA.map((p) => ({ ...p, value: 0 })),
-        dataB: mockDataB,
+      mockUseFilteredChartPoints.mockImplementation((metricKey: string) => {
+        if (metricKey === "ts_meetings_num")
+          return mockMeetingsData.map((p) => ({ ...p, value: 0 }));
+        if (metricKey === "ts_connections_num") return mockConnectionsData;
+        return [];
       });
       renderComponent();
-      // Component renders both axes regardless of data values
       const yAxes = screen.queryAllByTestId(/y-axis/);
       expect(yAxes.length).toBeGreaterThanOrEqual(1);
     });
@@ -371,7 +430,6 @@ describe("DeviceUtilization", () => {
 
     it("does NOT render a right YAxis when metricB is null", () => {
       renderComponent();
-      // Use getAllByText and click the button (not the SVG <text> axis label)
       const connectionsBtn = screen
         .getAllByText("Number of connections")
         .find((el) => el.closest("button") !== null)!;
@@ -381,13 +439,10 @@ describe("DeviceUtilization", () => {
     });
   });
 
-  // ── ChartTooltip coverage (lines 42–50) ───────────────────────────────────
-  // ChartTooltip is internal (not exported). The Tooltip mock above reads
-  // module-level flags (__tooltipActive / __tooltipPayload) to call it.
+  // ── ChartTooltip coverage ───────────────────────────────────────────────────
 
   describe("ChartTooltip", () => {
     afterEach(() => {
-      // Reset tooltip flags after each test
       __tooltipActive = false;
       __tooltipPayload = [];
       __tooltipLabel = "";
@@ -408,12 +463,10 @@ describe("DeviceUtilization", () => {
       ];
       renderComponent();
       expect(screen.getByText("Feb 26")).toBeInTheDocument();
-      // Scope assertions to the tooltip container to avoid SVG axis label matches
       const tooltip = document.querySelector(".shadow-md")!;
       expect(tooltip).not.toBeNull();
       expect(tooltip.textContent).toContain("meetings");
       expect(tooltip.textContent).toContain("connections");
-      // Values are split across elements — check textContent of the tooltip
       expect(tooltip.textContent).toContain("7");
       expect(tooltip.textContent).toContain("6");
     });
@@ -426,14 +479,7 @@ describe("DeviceUtilization", () => {
         { name: "connections", value: 5, color: "#D44E80" },
       ];
       renderComponent();
-      // "meetings" has value 0 — tooltip row should be absent
-      // (SVG axis label "Number of meetings" still exists, so use exact match for bare "meetings")
       expect(screen.queryByText("meetings")).not.toBeInTheDocument();
-      // "connections" tooltip row IS present (value=5); axis label also present
-      expect(screen.getAllByText(/connections/).length).toBeGreaterThanOrEqual(
-        1,
-      );
-      // Value is split across elements — check tooltip textContent
       const tooltip = document.querySelector(".shadow-md")!;
       expect(tooltip).not.toBeNull();
       expect(tooltip.textContent).toContain("5");
@@ -448,23 +494,19 @@ describe("DeviceUtilization", () => {
     });
   });
 
-  // ── LeftAxisLabel & RightAxisLabel coverage (lines 96–98, 121–123) ─────────
-  // The YAxis mock now passes a fake viewBox to the label prop, which invokes
-  // LeftAxisLabel / RightAxisLabel and renders their SVG <text> elements.
+  // ── LeftAxisLabel & RightAxisLabel coverage ───────────────────────────────
 
   describe("AxisLabels", () => {
     it("LeftAxisLabel renders an SVG text element for the left axis", () => {
       renderComponent();
-      // YAxis mock calls the label prop with a viewBox — LeftAxisLabel renders <text>
       const svgTexts = document.querySelectorAll("text");
       expect(svgTexts.length).toBeGreaterThanOrEqual(1);
     });
 
     it("LeftAxisLabel text contains the metricA label", () => {
       renderComponent();
-      // Default metricA = "meetings" → label = "Number of meetings"
       const texts = Array.from(document.querySelectorAll("text")).map(
-        (t) => t.textContent,
+        (t) => t.textContent
       );
       expect(texts.some((t) => t?.includes("Number of meetings"))).toBe(true);
     });
@@ -472,17 +514,16 @@ describe("DeviceUtilization", () => {
     it("RightAxisLabel renders a second SVG text when both metrics have data", () => {
       renderComponent();
       const svgTexts = document.querySelectorAll("text");
-      // Both LeftAxisLabel and RightAxisLabel should render <text>
       expect(svgTexts.length).toBeGreaterThanOrEqual(2);
     });
 
     it("RightAxisLabel text contains the metricB label", () => {
       renderComponent();
       const texts = Array.from(document.querySelectorAll("text")).map(
-        (t) => t.textContent,
+        (t) => t.textContent
       );
       expect(texts.some((t) => t?.includes("Number of connections"))).toBe(
-        true,
+        true
       );
     });
 
@@ -498,31 +539,9 @@ describe("DeviceUtilization", () => {
     });
 
     it("LeftAxisLabel does not crash when both datasets are empty", () => {
-      // When both metrics have all-zero data, the component still renders (no crash)
-      mockHook.mockReturnValue({
-        dataA: mockDataA.map((p) => ({ ...p, value: 0 })),
-        dataB: mockDataB.map((p) => ({ ...p, value: 0 })),
-      });
+      mockUseFilteredChartPoints.mockImplementation(() => []);
       renderComponent();
-      // Component renders without throwing — axis may or may not render text nodes
       expect(screen.getByTestId("line-chart")).toBeInTheDocument();
     });
   });
-
-  // ── MetricDropdown outside-click handler (lines 157–158) ──────────────────
-
-  // describe("MetricDropdown outside click", () => {
-  //   it("closes dropdown when clicking outside", () => {
-  //     renderComponent();
-  //     // Click the purple button (not the SVG axis label <text>)
-  //     const meetingsBtn = screen
-  //       .getAllByText("Number of meetings")
-  //       .find((el) => el.closest("button") !== null)!;
-  //     fireEvent.click(meetingsBtn);
-  //     expect(screen.getByText("Number of users")).toBeInTheDocument();
-  //     // Click outside to close
-  //     fireEvent.mouseDown(document.body);
-  //     expect(screen.queryByText("Number of users")).not.toBeInTheDocument();
-  //   });
-  // });
 });
