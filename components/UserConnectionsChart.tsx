@@ -1,4 +1,3 @@
-// ─── UserConnectionsChart.tsx ─────────────────────────────────────────────────
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -12,7 +11,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { timeseriesMock } from "@/lib/analytics/mock/timeseriesMock";
-import { useFilteredSegmentedPoints } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
+import { useUserConnectionsMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
 import { getSevenTicks } from "@/lib/analytics/utils/helpers";
 
 type ChartRow = { label: string; [key: string]: string | number };
@@ -26,7 +25,6 @@ function fmtDate(dateStr: string): string {
 
 const COLOR_PALETTE = ["#6860C8", "#D44E80", "#4D9EC4", "#7E9E2E", "#E8902A"];
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const CustomTooltip = ({
   active,
   payload,
@@ -41,7 +39,6 @@ const CustomTooltip = ({
   return (
     <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-[13px] shadow-md">
       <div className="font-semibold mb-1 text-black">{label}</div>
-      {/* Show all segments, including those with value 0 */}
       {payload.map((e) => (
         <div key={e.name} style={{ color: e.color }}>
           {e.name}: {e.value ?? 0}
@@ -80,7 +77,7 @@ export default function UserConnections({
   const [selectedMetric, setSelectedMetric] = useState<string>("");
   const selected = selectedMetric || AVAILABLE_DIMENSIONS[0]?.metric || "";
 
-  const metricData = useFilteredSegmentedPoints(
+  const metricData = useUserConnectionsMetrics(
     selected,
     timeRange,
     selectedDevices,
@@ -120,17 +117,14 @@ export default function UserConnections({
   const chartData = useMemo<ChartRow[]>(() => {
     if (!metricData.length || segments.length === 0) return [];
     const map: Record<string, ChartRow> = {};
-
     metricData.forEach((row) => {
       if (!map[row.date]) {
         map[row.date] = { label: fmtDate(row.date) };
-        // Pre-fill all segments with 0 so inactive ones still appear in tooltip
         segments.forEach((seg) => {
           map[row.date][seg] = 0;
         });
       }
     });
-
     metricData.forEach((row) => {
       if (!row.segment) return;
       if (activeSegments[row.segment] ?? true) {
@@ -138,13 +132,11 @@ export default function UserConnections({
           ((map[row.date][row.segment] as number) || 0) + row.value;
       }
     });
-
     return Object.entries(map)
       .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
       .map(([, v]) => v);
   }, [metricData, segments, activeSegments]);
 
-  // Always exactly 7 X-axis labels
   const xTicks = useMemo(
     () => getSevenTicks(chartData.map((d) => d.label as string)),
     [chartData],
@@ -171,7 +163,6 @@ export default function UserConnections({
               tickLine={false}
             />
             <Tooltip content={<CustomTooltip />} />
-            {/* Always render all active segment areas — they sit at y=0 when no data */}
             {segments.map((segment) => (
               <Area
                 key={segment}
@@ -185,7 +176,6 @@ export default function UserConnections({
             ))}
           </AreaChart>
         </ResponsiveContainer>
-
         <div className="flex items-center gap-3 mt-3.5 flex-wrap">
           <select
             value={selected}

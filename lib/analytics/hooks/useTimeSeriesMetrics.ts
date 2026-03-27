@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { getAllMetrics, getMetric } from "../utils/metricsStore";
 import { fetchTimeseriesMetrics } from "../timeseries/timeseriesManager";
 import { timeseriesMock } from "../mock/timeseriesMock";
 import {
@@ -9,14 +8,7 @@ import {
   DeviceUtilizationData,
   CollaborationUsageData,
 } from "../timeseries/timeseriesTypes";
-import {
-  fillDateGaps,
-  fillSegmentedDateGaps,
-} from "../utils/helpers";
-
-/* ─────────────────────────────────────────────
-   TYPE: Raw timeseries row
-───────────────────────────────────────────── */
+import { fillDateGaps, fillSegmentedDateGaps } from "../utils/helpers";
 
 interface TimeseriesRow {
   date: string;
@@ -27,16 +19,14 @@ interface TimeseriesRow {
   segment_1_value?: string;
 }
 
-/* ─────────────────────────────────────────────
-   DATA SOURCE — swap this function when your API is ready
-───────────────────────────────────────────── */
 function getTimeseriesRows(_timeRange?: string): TimeseriesRow[] {
   return timeseriesMock as TimeseriesRow[];
 }
-
-/* ─────────────────────────────────────────────
-   HELPERS
-───────────────────────────────────────────── */
+//helper
+function parseDateLocal(dateStr: string): Date {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
 
 function getDateCutoff(timeRange: string): Date | null {
   const days: Record<string, number> = {
@@ -47,23 +37,28 @@ function getDateCutoff(timeRange: string): Date | null {
   };
   if (!days[timeRange]) return null;
   const cutoff = new Date();
+  cutoff.setHours(0, 0, 0, 0);
   cutoff.setDate(cutoff.getDate() - days[timeRange]);
   return cutoff;
 }
 
 function rowInRange(dateStr: string, cutoff: Date | null): boolean {
   if (!cutoff) return true;
-  return new Date(dateStr) >= cutoff;
+  return parseDateLocal(dateStr) >= cutoff;
 }
 
+//helper
 export function getAllDeviceNames(timeRange: string): Set<string> {
   const cutoff = getDateCutoff(timeRange);
   const names = new Set<string>();
+
   getTimeseriesRows(timeRange).forEach((row) => {
     if (!row.device_name) return;
     if (!rowInRange(row.date, cutoff)) return;
+
     names.add(row.device_name);
   });
+
   return names;
 }
 
@@ -75,9 +70,71 @@ function resolveDevices(
   return getAllDeviceNames(timeRange);
 }
 
-/* ─────────────────────────────────────────────
-   EXISTING HOOKS — unchanged
-───────────────────────────────────────────── */
+export function useMetricFromStore(
+  metric: string,
+  timeRange: string,
+  selectedDevices: Set<string>,
+): ChartPoint[] {
+  return useMemo(() => {
+    if (!metric) return [];
+
+    const cutoff = getDateCutoff(timeRange);
+    const devices = resolveDevices(selectedDevices, timeRange);
+    const byDate = new Map<string, number>();
+
+    getTimeseriesRows(timeRange).forEach((row) => {
+      if (row.metric_name !== metric) return;
+      if (!rowInRange(row.date, cutoff)) return;
+      if (row.segment_1_name) return;
+      if (row.device_name && !devices.has(row.device_name)) return;
+
+      const val = parseFloat(row.metric_value) || 0;
+      byDate.set(row.date, (byDate.get(row.date) ?? 0) + val);
+    });
+
+    const sparse = Array.from(byDate.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, value]) => ({ date, value }));
+
+    return fillDateGaps(sparse, timeRange);
+  }, [metric, timeRange, selectedDevices]);
+}
+
+function useSegmentedMetricFromStore(
+  metric: string,
+  timeRange: string,
+  selectedDevices: Set<string>,
+): ChartPoint[] {
+  return useMemo(() => {
+    if (!metric) return [];
+
+    const cutoff = getDateCutoff(timeRange);
+    const devices = resolveDevices(selectedDevices, timeRange);
+    const byKey = new Map<string, number>();
+
+    getTimeseriesRows(timeRange).forEach((row) => {
+      if (row.metric_name !== metric) return;
+      if (!rowInRange(row.date, cutoff)) return;
+      if (!row.segment_1_name) return;
+      if (row.device_name && !devices.has(row.device_name)) return;
+
+      const key = `${row.date}__${row.segment_1_value ?? ""}`;
+      const val = parseFloat(row.metric_value) || 0;
+      byKey.set(key, (byKey.get(key) ?? 0) + val);
+    });
+
+    const sparse = Array.from(byKey.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, value]) => {
+        const sep = key.indexOf("__");
+        const date = key.slice(0, sep);
+        const segment = key.slice(sep + 2) || undefined;
+        return { date, value, segment };
+      });
+
+    return fillSegmentedDateGaps(sparse, timeRange);
+  }, [metric, timeRange, selectedDevices]);
+}
 
 export function useUsageMetrics(
   timeRange: string,
@@ -123,68 +180,6 @@ export function useUsageMetrics(
   return { ready };
 }
 
-function useMetricFromStore(
-  metric: string,
-  timeRange: string = "7d",
-): ChartPoint[] {
-  const [data, setData] = useState<ChartPoint[]>([]);
-
-  useEffect(() => {
-    if (!metric) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setData([]);
-      return;
-    }
-    const stored = getMetric(`${metric}__${timeRange}`);
-    setData(stored || []);
-  }, [metric, timeRange]);
-
-  return data;
-}
-
-export function useDeviceUtilizationMetrics(
-  metricA: string,
-  metricB: string,
-  timeRange: string = "7d",
-): DeviceUtilizationData {
-  const dataA = useMetricFromStore(metricA, timeRange);
-  const dataB = useMetricFromStore(metricB, timeRange);
-  return { dataA, dataB };
-}
-
-export function useUserConnectionsMetrics(
-  metric: string,
-  timeRange: string = "7d",
-): ChartPoint[] {
-  return useMetricFromStore(metric, timeRange);
-}
-
-export function useCollaborationUsageMetrics(
-  timeRange: string = "7d",
-): CollaborationUsageData {
-  const meetings = useMetricFromStore("ts_meetings_num", timeRange);
-  const connections = useMetricFromStore("ts_connections_num", timeRange);
-  const posts = useMetricFromStore("ts_posts_num", timeRange);
-
-  const connectionsAvg = useMemo(() => {
-    if (!meetings.length) return [];
-    return meetings.map((m, i) => ({
-      date: m.date,
-      value: m.value ? (connections[i]?.value ?? 0) / m.value : 0,
-    }));
-  }, [meetings, connections]);
-
-  const postsAvg = useMemo(() => {
-    if (!meetings.length) return [];
-    return meetings.map((m, i) => ({
-      date: m.date,
-      value: m.value ? (posts[i]?.value ?? 0) / m.value : 0,
-    }));
-  }, [meetings, posts]);
-
-  return { connectionsAvg, postsAvg };
-}
-
 export function useMonitoringMetrics(timeRange: string) {
   const [ready, setReady] = useState(false);
 
@@ -211,206 +206,40 @@ export function useMonitoringMetrics(timeRange: string) {
   return { ready };
 }
 
-export function useDowntimeChart(timeRange: string, ready: boolean) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [data, setData] = useState<any[]>([]);
-
-  useEffect(() => {
-    if (!ready) return;
-
-    const devicesRaw =
-      getMetric(`ts_downtime_devices_num_tot__${timeRange}`) || [];
-    const hoursRaw = getMetric(`ts_downtime_duration_tot__${timeRange}`) || [];
-    if (!devicesRaw.length && !hoursRaw.length) return;
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const map = new Map<string, any>();
-    devicesRaw.forEach((d: ChartPoint) => {
-      if (!map.has(d.date))
-        map.set(d.date, { date: d.date, devices: 0, hours: 0 });
-      map.get(d.date).devices = d.value;
-    });
-    hoursRaw.forEach((h: ChartPoint) => {
-      if (!map.has(h.date))
-        map.set(h.date, { date: h.date, devices: 0, hours: 0 });
-      map.get(h.date).hours = h.value;
-    });
-
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setData(Array.from(map.values()));
-  }, [timeRange, ready]);
-
-  return { data };
+export function useDeviceUtilizationMetrics(
+  metricA: string,
+  metricB: string,
+  timeRange: string,
+  selectedDevices: Set<string>,
+): DeviceUtilizationData {
+  const dataA = useMetricFromStore(metricA, timeRange, selectedDevices);
+  const dataB = useMetricFromStore(metricB, timeRange, selectedDevices);
+  return { dataA, dataB };
 }
 
-export function useAlertsChart(timeRange: string, ready: boolean) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [data, setData] = useState<any[]>([]);
-
-  useEffect(() => {
-    if (!ready) return;
-
-    const allMetrics = getAllMetrics();
-    const alertMetrics = Object.keys(allMetrics)
-      .filter(
-        (key) =>
-          key.startsWith("ts_app_alerts_") && key.endsWith(`__${timeRange}`),
-      )
-      .map((key) => key.replace(`__${timeRange}`, ""));
-
-    const metricsMap: Record<string, ChartPoint[]> = {};
-    alertMetrics.forEach((metric) => {
-      metricsMap[metric] = getMetric(`${metric}__${timeRange}`) || [];
-    });
-
-    const activeMetrics = Object.entries(metricsMap)
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      .filter(([_, arr]) => arr.some((p) => p.value > 0))
-      .map(([key]) => key);
-
-    if (!activeMetrics.length) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setData([]);
-      return;
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const dateMap = new Map<string, any>();
-    activeMetrics.forEach((metric) => {
-      metricsMap[metric].forEach((point) => {
-        if (!dateMap.has(point.date))
-          dateMap.set(point.date, { date: point.date });
-        dateMap.get(point.date)[metric] = point.value;
-      });
-    });
-
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setData(Array.from(dateMap.values()));
-  }, [timeRange, ready]);
-
-  return { data };
-}
-
-/* ─────────────────────────────────────────────
-   FILTERED CHART HOOKS
-───────────────────────────────────────────── */
-
-/**
- * Aggregated ChartPoint[] for a NON-SEGMENTED metric filtered to selected devices.
- *
- * Key rule: rows with segment_1_name set are SKIPPED here.
- * This prevents ts_connections_num_by_os (segmented) from mixing
- * into ts_connections_num (plain) totals, keeping DeviceUtilization
- * and UserConnections charts independent.
- *
- * Used by: DeviceUtilization, CollaborationUsage.
- */
-export function useFilteredChartPoints(
-  metricName: string,
+export function useUserConnectionsMetrics(
+  metric: string,
   timeRange: string,
   selectedDevices: Set<string>,
 ): ChartPoint[] {
-  return useMemo(() => {
-    if (!metricName) return [];
-
-    const cutoff = getDateCutoff(timeRange);
-    const devices = resolveDevices(selectedDevices, timeRange);
-    const byDate = new Map<string, number>();
-
-    getTimeseriesRows(timeRange).forEach((row) => {
-      if (row.metric_name !== metricName) return;
-      if (!rowInRange(row.date, cutoff)) return;
-      // Skip segmented rows — they belong to useFilteredSegmentedPoints only
-      if (row.segment_1_name) return;
-      if (row.device_name && !devices.has(row.device_name)) return;
-
-      const val = parseFloat(row.metric_value) || 0;
-      byDate.set(row.date, (byDate.get(row.date) ?? 0) + val);
-    });
-
-    const sparse = Array.from(byDate.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([date, value]) => ({ date, value }));
-
-    // Fill every calendar day so all dots are visible
-    return fillDateGaps(sparse, timeRange);
-  }, [metricName, timeRange, selectedDevices]);
+  return useSegmentedMetricFromStore(metric, timeRange, selectedDevices);
 }
 
-/**
- * Segmented ChartPoint[] — reads rows WHERE segment_1_name IS SET.
- *
- * This is intentionally different from useFilteredChartPoints:
- * - UserConnections uses metrics like ts_connections_num_by_os where
- *   each row carries a segment_1_value (e.g. "Windows", "MacOS").
- * - DeviceUtilization uses the plain ts_connections_num metric (no segment).
- * - The two hooks read completely separate rows, so their totals never clash.
- *
- * Used by: UserConnections.
- */
-export function useFilteredSegmentedPoints(
-  metricName: string,
-  timeRange: string,
-  selectedDevices: Set<string>,
-): ChartPoint[] {
-  return useMemo(() => {
-    if (!metricName) return [];
-
-    const cutoff = getDateCutoff(timeRange);
-    const devices = resolveDevices(selectedDevices, timeRange);
-    const byKey = new Map<string, number>();
-
-    getTimeseriesRows(timeRange).forEach((row) => {
-      if (row.metric_name !== metricName) return;
-      if (!rowInRange(row.date, cutoff)) return;
-      // Only process rows that HAVE a segment — these are the segmented metrics
-      // (e.g. ts_connections_num_by_os). Plain rows without a segment are
-      // handled exclusively by useFilteredChartPoints.
-      if (!row.segment_1_name) return;
-      if (row.device_name && !devices.has(row.device_name)) return;
-
-      const key = `${row.date}__${row.segment_1_value ?? ""}`;
-      const val = parseFloat(row.metric_value) || 0;
-      byKey.set(key, (byKey.get(key) ?? 0) + val);
-    });
-
-    const sparse = Array.from(byKey.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, value]) => {
-        const sep = key.indexOf("__");
-        const date = key.slice(0, sep);
-        const segment = key.slice(sep + 2) || undefined;
-        return { date, value, segment };
-      });
-
-    // Fill every calendar day per segment so all dots are visible
-    return fillSegmentedDateGaps(sparse, timeRange);
-  }, [metricName, timeRange, selectedDevices]);
-}
-
-/**
- * Filtered collaboration averages (connections per meeting, posts per meeting).
- * Used by: CollaborationUsage.
- */
-export function useFilteredCollaborationMetrics(
+export function useCollaborationUsageMetrics(
   timeRange: string,
   selectedDevices: Set<string>,
 ): CollaborationUsageData {
-  const meetings = useFilteredChartPoints(
+  const meetings = useMetricFromStore(
     "ts_meetings_num",
     timeRange,
     selectedDevices,
   );
-  const connections = useFilteredChartPoints(
+  const connections = useMetricFromStore(
     "ts_connections_num",
     timeRange,
     selectedDevices,
   );
-  const posts = useFilteredChartPoints(
-    "ts_posts_num",
-    timeRange,
-    selectedDevices,
-  );
+  const posts = useMetricFromStore("ts_posts_num", timeRange, selectedDevices);
 
   const connectionsAvg = useMemo(() => {
     if (!meetings.length) return [];
@@ -431,14 +260,11 @@ export function useFilteredCollaborationMetrics(
   return { connectionsAvg, postsAvg };
 }
 
-/**
- * Filtered downtime data. Used by: DowntimeChart.
- */
-export function useFilteredDowntimePoints(
+export function useDowntimeChart(
   timeRange: string,
   selectedDevices: Set<string>,
-): { date: string; devices: number; hours: number }[] {
-  return useMemo(() => {
+): { data: { date: string; devices: number; hours: number }[] } {
+  const data = useMemo(() => {
     const cutoff = getDateCutoff(timeRange);
     const devices = resolveDevices(selectedDevices, timeRange);
 
@@ -486,29 +312,25 @@ export function useFilteredDowntimePoints(
       sparse.map((s) => ({ date: s.date, value: s.hours })),
       timeRange,
     );
-
     const devMap = new Map(sparse.map((s) => [s.date, s.devices]));
+
     return filledDates.map((p) => ({
       date: p.date,
       devices: devMap.get(p.date) ?? 0,
       hours: p.value,
     }));
   }, [timeRange, selectedDevices]);
-}
 
-/* ─────────────────────────────────────────────
-   TYPE: Alert row shape
-───────────────────────────────────────────── */
+  return { data };
+}
+//types
 export type AlertDataPoint = { date: string } & Record<string, number | string>;
 
-/**
- * Filtered alerts data. Used by: AlertsChart.
- */
-export function useFilteredAlertsPoints(
+export function useAlertsChart(
   timeRange: string,
   selectedDevices: Set<string>,
-): AlertDataPoint[] {
-  return useMemo(() => {
+): { data: AlertDataPoint[] } {
+  const data = useMemo(() => {
     const cutoff = getDateCutoff(timeRange);
     const devices = resolveDevices(selectedDevices, timeRange);
 
@@ -523,9 +345,7 @@ export function useFilteredAlertsPoints(
 
       alertKeys.add(row.metric_name);
 
-      if (!byDate.has(row.date)) {
-        byDate.set(row.date, { date: row.date });
-      }
+      if (!byDate.has(row.date)) byDate.set(row.date, { date: row.date });
       const entry = byDate.get(row.date)!;
       const val = parseFloat(row.metric_value) || 0;
       entry[row.metric_name] = ((entry[row.metric_name] as number) ?? 0) + val;
@@ -541,7 +361,6 @@ export function useFilteredAlertsPoints(
       sparse.map((s) => ({ date: s.date, value: 0 })),
       timeRange,
     );
-
     const sparseMap = new Map(sparse.map((s) => [s.date, s]));
 
     return filledDates.map((p): AlertDataPoint => {
@@ -553,4 +372,6 @@ export function useFilteredAlertsPoints(
       return result;
     });
   }, [timeRange, selectedDevices]);
+
+  return { data };
 }

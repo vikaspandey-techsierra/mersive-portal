@@ -15,10 +15,6 @@ import AreaChartSkeleton from "@/components/skeleton/AreaChartSkeleton";
 import { registerMetric } from "@/lib/analytics/utils/metricsManager";
 import { useUsageMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
 
-/* ─────────────────────────────────────────────
-   COLUMNS
-───────────────────────────────────────────── */
-
 const USAGE_COLUMNS: ColumnDef<DeviceTableRow>[] = [
   { key: "name", label: "Name", sortable: true },
   { key: "meetings", label: "Meetings", sortable: true },
@@ -33,10 +29,6 @@ const USAGE_COLUMNS: ColumnDef<DeviceTableRow>[] = [
     csvValue: (_v, row) => row.avgDuration ?? "",
   },
 ];
-
-/* ─────────────────────────────────────────────
-   TIME RANGE
-───────────────────────────────────────────── */
 
 type TimeRange = "7d" | "30d" | "60d" | "90d" | "all";
 
@@ -55,11 +47,6 @@ const METRIC_API_MAP: Record<string, string> = {
   posts: "ts_posts_num",
   avgLength: "ts_meetings_duration_avg",
 };
-
-/* ─────────────────────────────────────────────
-   PAGE
-───────────────────────────────────────────── */
-
 interface UsagePageProps {
   tableRef?: React.Ref<SelectableDataTableHandle>;
 }
@@ -67,10 +54,6 @@ interface UsagePageProps {
 export default function UsagePage({ tableRef }: UsagePageProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>("7d");
   const [isLoading, setIsLoading] = React.useState(true);
-  /**
-   * Empty Set = user unchecked all rows.
-   * The filtered hooks treat an empty Set as "all devices" so charts never blank out.
-   */
   const [selectedDevices, setSelectedDevices] = useState<Set<string>>(
     new Set(),
   );
@@ -158,12 +141,6 @@ export default function UsagePage({ tableRef }: UsagePageProps) {
 
       <hr className="pb-5" />
 
-      {/*
-        No `rows` prop → derives device names from timeseriesMock.
-        `timeRange` drives both row derivation and column aggregation.
-        `onSelectionChange` lifts selection state up to this page.
-        Empty selection → hooks treat as "all selected" (no blank charts).
-      */}
       <SelectableDataTable
         ref={tableRef}
         heading="Selected Devices"

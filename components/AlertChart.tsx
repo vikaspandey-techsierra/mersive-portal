@@ -11,7 +11,7 @@ import {
 } from "recharts";
 import { useState, useMemo, useEffect } from "react";
 import { formatShortDate, getSevenTicks } from "@/lib/analytics/utils/helpers";
-import { useFilteredAlertsPoints } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
+import { useAlertsChart } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
 
 interface Props {
   timeRange: string;
@@ -49,7 +49,6 @@ const CustomTooltip = ({ active, payload, label }: any) => {
       <div style={{ fontWeight: 600, marginBottom: 6, color: "#111" }}>
         {label}
       </div>
-      {/* Show all series including zero values */}
       {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
       {payload.map((p: any) => {
         const config = SERIES_CONFIG[p.dataKey];
@@ -67,7 +66,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function AlertsChart({ timeRange, selectedDevices }: Props) {
-  const rawData = useFilteredAlertsPoints(timeRange, selectedDevices);
+  const { data: rawData } = useAlertsChart(timeRange, selectedDevices);
 
   const formattedData = useMemo(
     () => rawData.map((d) => ({ ...d, label: formatShortDate(d.date) })),
@@ -98,7 +97,6 @@ export default function AlertsChart({ timeRange, selectedDevices }: Props) {
     });
   }, [availableSeries]);
 
-  // Always exactly 7 X-axis labels
   const xTicks = useMemo(
     () => getSevenTicks(formattedData.map((d) => d.label as string)),
     [formattedData],
@@ -145,7 +143,6 @@ export default function AlertsChart({ timeRange, selectedDevices }: Props) {
                 tickLine={false}
               />
               <Tooltip content={<CustomTooltip />} />
-              {/* Always render active areas — they sit at y=0 when no data */}
               {availableSeries.map((key) => {
                 if (!active[key]) return null;
                 const config = SERIES_CONFIG[key];
@@ -166,7 +163,6 @@ export default function AlertsChart({ timeRange, selectedDevices }: Props) {
             </AreaChart>
           </ResponsiveContainer>
         </div>
-
         <div className="flex flex-wrap gap-4 mt-6">
           {availableSeries.map((key) => {
             const config = SERIES_CONFIG[key];

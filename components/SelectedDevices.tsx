@@ -11,10 +11,6 @@ import {
 import loading from "../components/icons/loading.svg";
 import { timeseriesMock } from "@/lib/analytics/mock/timeseriesMock";
 
-/* ─────────────────────────────────────────────
-   TYPES
-───────────────────────────────────────────── */
-
 export type SortDir = "asc" | "desc";
 
 export interface ColumnDef<T extends Record<string, unknown>> {
@@ -27,53 +23,24 @@ export interface ColumnDef<T extends Record<string, unknown>> {
 }
 
 export interface SelectableDataTableProps<T extends Record<string, unknown>> {
-  // ── Content ──────────────────────────────
   heading: string;
   subheading: string;
   searchPlaceholder?: string;
-
-  // ── Data ─────────────────────────────────
-  /**
-   * Static rows. When omitted, rows are derived dynamically from
-   * timeseriesMock using the current timeRange.
-   */
   rows?: T[];
   rowKey: keyof T & string;
   columns: ColumnDef<T>[];
-
-  // ── Sorting ───────────────────────────────
   defaultSortKey?: keyof T & string;
   defaultSortDir?: SortDir;
-
-  // ── Selection ─────────────────────────────
   defaultAllSelected?: boolean;
-  /**
-   * Fired whenever the selection changes.
-   *
-   * IMPORTANT: when every row is unchecked this fires with an EMPTY Set.
-   * The parent is responsible for treating an empty Set as "all selected"
-   * in its chart-filtering logic (to avoid blank charts).
-   */
   onSelectionChange?: (selectedIds: Set<string>) => void;
-
-  // ── Time Range ────────────────────────────
-  /** Drives dynamic row derivation and column value aggregation. */
   timeRange?: string;
-
-  // ── Loading ───────────────────────────────
   isLoading?: boolean;
-
-  // ── CSV ───────────────────────────────────
   csvFilename?: string;
 }
 
 export interface SelectableDataTableHandle {
   exportCSV: () => void;
 }
-
-/* ─────────────────────────────────────────────
-   DYNAMIC ROW DERIVATION
-───────────────────────────────────────────── */
 
 export interface DeviceTableRow extends Record<string, unknown> {
   id: string;
@@ -86,6 +53,11 @@ export interface DeviceTableRow extends Record<string, unknown> {
   avgDurationMinutes: number | null;
 }
 
+function parseDateLocal(dateStr: string): Date {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
 function getDateCutoff(timeRange: string): Date | null {
   const days: Record<string, number> = {
     "7d": 7,
@@ -95,6 +67,7 @@ function getDateCutoff(timeRange: string): Date | null {
   };
   if (!days[timeRange]) return null;
   const cutoff = new Date();
+  cutoff.setHours(0, 0, 0, 0);
   cutoff.setDate(cutoff.getDate() - days[timeRange]);
   return cutoff;
 }
@@ -109,8 +82,41 @@ function deriveDeviceRows(timeRange: string): DeviceTableRow[] {
 
   timeseriesMock.forEach((row) => {
     if (!row.device_name) return;
-    if (cutoff && new Date(row.date) < cutoff) return;
-    if (row.segment_1_name) return;
+    if (cutoff && parseDateLocal(row.date) < cutoff) return;
+    timeseriesMock.forEach((row) => {
+      if (!row.device_name) return;
+      if (cutoff && parseDateLocal(row.date) < cutoff) return;
+
+      if (!map.has(row.device_name)) {
+        map.set(row.device_name, {
+          meetings: 0,
+          connections: 0,
+          hours: 0,
+          posts: 0,
+        });
+      }
+
+      const acc = map.get(row.device_name)!;
+      const val = parseFloat(row.metric_value) || 0;
+
+      // Only aggregate non-segmented metrics
+      if (!row.segment_1_name) {
+        switch (row.metric_name) {
+          case "ts_meetings_num":
+            acc.meetings += val;
+            break;
+          case "ts_connections_num":
+            acc.connections += val;
+            break;
+          case "ts_meetings_duration_tot":
+            acc.hours += val;
+            break;
+          case "ts_posts_num":
+            acc.posts += val;
+            break;
+        }
+      }
+    });
 
     if (!map.has(row.device_name)) {
       map.set(row.device_name, {
@@ -167,10 +173,6 @@ function deriveDeviceRows(timeRange: string): DeviceTableRow[] {
   });
 }
 
-/* ─────────────────────────────────────────────
-   HELPERS
-───────────────────────────────────────────── */
-
 const defaultRender = (value: unknown): React.ReactNode =>
   value === null || value === undefined ? "-" : String(value);
 
@@ -182,10 +184,6 @@ function escapeCSV(value: unknown): string {
   }
   return str;
 }
-
-/* ─────────────────────────────────────────────
-   SORT ICON
-───────────────────────────────────────────── */
 
 const SortIcon = ({ active, dir }: { active: boolean; dir: SortDir }) => (
   <span className="ml-1 inline-flex flex-col items-center justify-center gap-0.5">
@@ -209,13 +207,6 @@ const SortIcon = ({ active, dir }: { active: boolean; dir: SortDir }) => (
     </svg>
   </span>
 );
-
-/* ─────────────────────────────────────────────
-   CHECKBOX
-   No indeterminate state — spec requires:
-     Header: checked = ALL rows checked, unchecked = anything less than all
-     Row:    standard checked / unchecked
-───────────────────────────────────────────── */
 
 const Checkbox = ({
   checked,
@@ -247,10 +238,6 @@ const Checkbox = ({
   </span>
 );
 
-/* ─────────────────────────────────────────────
-   INNER COMPONENT
-───────────────────────────────────────────── */
-
 function SelectableDataTableInner<T extends Record<string, unknown>>(
   {
     heading,
@@ -275,7 +262,6 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
   );
   const [sortDir, setSortDir] = useState<SortDir>(defaultSortDir);
 
-  // ── Rows: static prop takes priority, else derive from mock ──
   const dynamicRows = useMemo(() => {
     if (rowsProp !== undefined) return null;
     return deriveDeviceRows(timeRange) as unknown as T[];
@@ -283,15 +269,10 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
 
   const rows: T[] = rowsProp ?? dynamicRows ?? [];
 
-  // ── Selection state ──
-  // Stores exactly what the user has explicitly chosen.
-  // Empty Set = user unchecked everything. Parent interprets this as
-  // "show all devices" to prevent blank charts.
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set(defaultAllSelected ? rows.map((r) => String(r[rowKey])) : []),
   );
 
-  // Internal loading fallback
   const [internalLoading, setInternalLoading] = useState(
     isLoadingProp === undefined,
   );
@@ -303,7 +284,6 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
 
   const isLoading = isLoadingProp ?? internalLoading;
 
-  // ── Re-select all when rows change (time range switch, fresh data) ──
   useEffect(() => {
     if (defaultAllSelected) {
       setSelected(new Set(rows.map((r) => String(r[rowKey]))));
@@ -311,12 +291,10 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows]);
 
-  // ── Notify parent on every selection change ──
   useEffect(() => {
     onSelectionChange?.(new Set(selected));
   }, [selected, onSelectionChange]);
 
-  /* ── Filter ── */
   const filtered = useMemo(
     () =>
       rows.filter((r) => {
@@ -329,7 +307,6 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
     [rows, columns, search],
   );
 
-  /* ── Sort ── */
   const sorted = useMemo(
     () =>
       [...filtered].sort((a, b) => {
@@ -349,7 +326,6 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
     [filtered, sortKey, sortDir],
   );
 
-  /* ── CSV Export ── */
   const exportCSV = () => {
     const selectedRows = sorted.filter((r) => selected.has(String(r[rowKey])));
     const header = columns.map((c) => escapeCSV(c.label)).join(",");
@@ -376,9 +352,9 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
     URL.revokeObjectURL(url);
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useImperativeHandle(ref, () => ({ exportCSV }), [sorted, selected, columns]);
 
-  /* ── Sort handler ── */
   const handleSort = (key: string) => {
     if (sortKey === key) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -388,18 +364,9 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
     }
   };
 
-  /* ── Header checkbox ──
-     Checked = every visible row is in the selected set.
-     Unchecked = anything less than all (including zero).
-     No indeterminate per spec.
-  ── */
   const allVisibleSelected =
     sorted.length > 0 && sorted.every((r) => selected.has(String(r[rowKey])));
 
-  /* ── Header toggle ──
-     all checked   → clicking unchecks all (set to empty)
-     anything else → clicking checks all visible rows
-  ── */
   const toggleAll = () => {
     if (allVisibleSelected) {
       setSelected(new Set());
@@ -411,21 +378,19 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
   const toggleOne = (id: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
+      // eslint-disable-next-line @typescript-eslint/no-unused-expressions
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
   };
 
-  /* ── Render ── */
   return (
     <div className="mb-8 w-full min-w-0">
-      {/* Header */}
       <div className="font-bold text-lg text-black mb-1">
         {heading} ({selected.size})
       </div>
       <div className="text-sm text-gray-400 mb-4">{subheading}</div>
 
-      {/* Search */}
       <div className="mb-6">
         <div className="inline-flex items-center border border-gray-200 rounded-lg px-3 py-2 bg-white w-full sm:w-60">
           <input
@@ -438,7 +403,6 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
         </div>
       </div>
 
-      {/* Table */}
       <div className="relative w-full overflow-x-auto overflow-y-auto max-h-80 border border-gray-200 rounded-lg">
         {isLoading && (
           <div className="absolute inset-0 z-20 mt-15 flex items-center justify-center bg-white rounded-lg">
@@ -455,7 +419,6 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
         <table className="min-w-max w-full">
           <thead className="sticky top-0 z-10 bg-white">
             <tr className="border-b border-gray-200">
-              {/* Header checkbox: checked only when ALL rows are checked */}
               <th className="px-6 py-3 w-12">
                 <Checkbox checked={allVisibleSelected} onChange={toggleAll} />
               </th>
@@ -533,10 +496,6 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
     </div>
   );
 }
-
-/* ─────────────────────────────────────────────
-   EXPORT
-───────────────────────────────────────────── */
 
 const SelectableDataTable = forwardRef(SelectableDataTableInner) as <
   T extends Record<string, unknown>,

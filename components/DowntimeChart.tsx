@@ -11,7 +11,7 @@ import {
 } from "recharts";
 import { useMemo } from "react";
 import { formatShortDate, getSevenTicks } from "@/lib/analytics/utils/helpers";
-import { useFilteredDowntimePoints } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
+import { useDowntimeChart } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
 
 interface Props {
   timeRange: string;
@@ -104,7 +104,7 @@ const CustomTooltip = ({
 };
 
 export default function DowntimeChart({ timeRange, selectedDevices }: Props) {
-  const rawData = useFilteredDowntimePoints(timeRange, selectedDevices);
+  const { data: rawData } = useDowntimeChart(timeRange, selectedDevices);
 
   const formattedData = useMemo(
     () => rawData.map((d) => ({ ...d, label: formatShortDate(d.date) })),
@@ -112,8 +112,6 @@ export default function DowntimeChart({ timeRange, selectedDevices }: Props) {
   );
 
   const deviceTicks = [0, 6, 12, 18, 24];
-
-  // Always exactly 7 X-axis labels
   const xTicks = useMemo(
     () => getSevenTicks(formattedData.map((d) => d.label)),
     [formattedData],
@@ -126,14 +124,9 @@ export default function DowntimeChart({ timeRange, selectedDevices }: Props) {
         : 1,
     [formattedData],
   );
-
-  const hourTicks = [
-    0,
-    Number((maxHours * 0.25).toFixed(1)),
-    Number((maxHours * 0.5).toFixed(1)),
-    Number((maxHours * 0.75).toFixed(1)),
-    Number(maxHours.toFixed(1)),
-  ];
+  const hourTicks = [0, 0.25, 0.5, 0.75, 1].map((f) =>
+    Number((maxHours * f).toFixed(1)),
+  );
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 pt-5 pb-5 w-full">
@@ -143,7 +136,6 @@ export default function DowntimeChart({ timeRange, selectedDevices }: Props) {
           Monitor how many devices are down and for how long the downtime lasted
         </p>
       </div>
-
       <div className="w-full h-80 min-w-0">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart
@@ -191,7 +183,6 @@ export default function DowntimeChart({ timeRange, selectedDevices }: Props) {
               />
             ))}
             <Tooltip content={<CustomTooltip />} />
-            {/* Always render both lines — they sit at y=0 when no data */}
             <Line
               yAxisId="left"
               type="linear"
@@ -215,7 +206,6 @@ export default function DowntimeChart({ timeRange, selectedDevices }: Props) {
           </LineChart>
         </ResponsiveContainer>
       </div>
-
       <div className="flex gap-2.5 px-6 mt-4">
         <span
           className="inline-flex items-center text-white text-sm font-medium rounded-full px-4 py-1.5"

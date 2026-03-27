@@ -10,7 +10,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { useFilteredCollaborationMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
+import { useCollaborationUsageMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
 import { formatShortDate, getSevenTicks } from "@/lib/analytics/utils/helpers";
 
 interface TEntry {
@@ -57,34 +57,28 @@ export default function CollaborationUsage({
   timeRange?: string;
   selectedDevices: Set<string>;
 }) {
-  const { connectionsAvg, postsAvg } = useFilteredCollaborationMetrics(
+  const { connectionsAvg, postsAvg } = useCollaborationUsageMetrics(
     timeRange,
     selectedDevices,
   );
 
   const chartData = useMemo(() => {
     if (!connectionsAvg.length && !postsAvg.length) return [];
-
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const map: Record<string, any> = {};
-
     connectionsAvg.forEach((d) => {
       if (!map[d.date]) map[d.date] = { label: formatShortDate(d.date) };
-      // Always include value (even 0) so both lines always render
       map[d.date].avgConnections = d.value;
     });
-
     postsAvg.forEach((d) => {
       if (!map[d.date]) map[d.date] = { label: formatShortDate(d.date) };
       map[d.date].avgPosts = d.value;
     });
-
     return Object.entries(map)
       .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
       .map(([, v]) => v);
   }, [connectionsAvg, postsAvg]);
 
-  // Always exactly 7 X-axis labels
   const xTicks = useMemo(
     () => getSevenTicks(chartData.map((d) => d.label)),
     [chartData],
@@ -120,7 +114,6 @@ export default function CollaborationUsage({
               tickCount={5}
             />
             <Tooltip content={<ChartTooltip />} />
-            {/* Always render both lines — they sit at y=0 when no data */}
             <Line
               type="linear"
               dataKey="avgConnections"
