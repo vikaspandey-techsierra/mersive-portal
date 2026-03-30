@@ -16,15 +16,18 @@ import { ChartTooltip } from "./charts/ChartsTooltip";
 import { LegendPill } from "./charts/LegendPill";
 
 export default function CollaborationUsage({
+  orgId,
   timeRange = "7d",
   selectedDevices,
 }: {
+  orgId: string;
   timeRange?: string;
   selectedDevices: Set<string>;
 }) {
   const { connectionsAvg, postsAvg } = useCollaborationUsageMetrics(
+    orgId,
     timeRange,
-    selectedDevices,
+    selectedDevices
   );
 
   const chartData = useMemo(() => {
@@ -46,7 +49,7 @@ export default function CollaborationUsage({
 
   const xTicks = useMemo(
     () => getSevenTicks(chartData.map((d) => d.label)),
-    [chartData],
+    [chartData]
   );
 
   return (

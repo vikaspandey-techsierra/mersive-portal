@@ -24,6 +24,7 @@ const COLOR_PALETTE = ["#6860C8", "#D44E80", "#4D9EC4", "#7E9E2E", "#E8902A"];
 const AVAILABLE_DIMENSIONS = buildAvailableDimensions();
 
 export default function UserConnections({
+  orgId,
   timeRange = "7d",
   title,
   subtitle,
@@ -33,15 +34,16 @@ export default function UserConnections({
   const selected = selectedMetric || AVAILABLE_DIMENSIONS[0]?.metric || "";
 
   const metricData = useUserConnectionsMetrics(
+    orgId,
     selected,
     timeRange,
-    selectedDevices,
+    selectedDevices
   );
 
   const segments = useMemo(() => {
     if (!metricData.length) return [];
     return Array.from(
-      new Set(metricData.map((d) => d.segment).filter(Boolean)),
+      new Set(metricData.map((d) => d.segment).filter(Boolean))
     ) as string[];
   }, [metricData]);
 
@@ -54,7 +56,7 @@ export default function UserConnections({
   }, [segments]);
 
   const [activeSegments, setActiveSegments] = useState<Record<string, boolean>>(
-    {},
+    {}
   );
 
   useEffect(() => {
@@ -94,7 +96,7 @@ export default function UserConnections({
 
   const xTicks = useMemo(
     () => getSevenTicks(chartData.map((d) => d.label as string)),
-    [chartData],
+    [chartData]
   );
 
   return (

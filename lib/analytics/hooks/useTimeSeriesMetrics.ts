@@ -7,22 +7,31 @@ import {
   DeviceUtilizationData,
   CollaborationUsageData,
 } from "../timeseries/timeseriesTypes";
-import { fillDateGaps, fillSegmentedDateGaps, getDateCutoff, getTimeseriesRows, resolveDevices, timeSeriesRowInRange } from "../utils/helpers";
+import {
+  fillDateGaps,
+  fillSegmentedDateGaps,
+  getDateCutoff,
+  getTimeseriesRows,
+  resolveDevices,
+  timeSeriesRowInRange,
+} from "../utils/helpers";
 import { AlertDataPoint } from "@/lib/types/charts";
 
 export function useMetricFromStore(
+  orgId: string,
   metric: string,
   timeRange: string,
-  selectedDevices: Set<string>,
+  selectedDevices: Set<string>
 ): ChartPoint[] {
   return useMemo(() => {
     if (!metric) return [];
 
     const cutoff = getDateCutoff(timeRange);
-    const devices = resolveDevices(selectedDevices, timeRange);
+    const devices = resolveDevices(selectedDevices, timeRange, orgId);
     const byDate = new Map<string, number>();
 
     getTimeseriesRows().forEach((row) => {
+      if (row.org_id !== orgId) return;
       if (row.metric_name !== metric) return;
       if (!timeSeriesRowInRange(row.date, cutoff)) return;
       if (row.segment_1_name) return;
@@ -37,22 +46,24 @@ export function useMetricFromStore(
       .map(([date, value]) => ({ date, value }));
 
     return fillDateGaps(sparse, timeRange);
-  }, [metric, timeRange, selectedDevices]);
+  }, [orgId, metric, timeRange, selectedDevices]);
 }
 
 function useSegmentedMetricFromStore(
+  orgId: string,
   metric: string,
   timeRange: string,
-  selectedDevices: Set<string>,
+  selectedDevices: Set<string>
 ): ChartPoint[] {
   return useMemo(() => {
     if (!metric) return [];
 
     const cutoff = getDateCutoff(timeRange);
-    const devices = resolveDevices(selectedDevices, timeRange);
+    const devices = resolveDevices(selectedDevices, timeRange, orgId);
     const byKey = new Map<string, number>();
 
     getTimeseriesRows().forEach((row) => {
+      if (row.org_id !== orgId) return;
       if (row.metric_name !== metric) return;
       if (!timeSeriesRowInRange(row.date, cutoff)) return;
       if (!row.segment_1_name) return;
@@ -73,16 +84,17 @@ function useSegmentedMetricFromStore(
       });
 
     return fillSegmentedDateGaps(sparse, timeRange);
-  }, [metric, timeRange, selectedDevices]);
+  }, [orgId, metric, timeRange, selectedDevices]);
 }
 
 export function useUsageMetrics(
+  orgId: string,
   timeRange: string,
   params: {
     deviceMetricA: string;
     deviceMetricB?: string | null;
     userConnectionsMetric: string;
-  },
+  }
 ) {
   const [ready, setReady] = useState(false);
 
@@ -102,7 +114,7 @@ export function useUsageMetrics(
       metricsSet.add("ts_posts_num");
       metricsSet.add("ts_meetings_duration_tot");
 
-      await fetchTimeseriesMetrics(Array.from(metricsSet), timeRange);
+      await fetchTimeseriesMetrics(orgId, Array.from(metricsSet), timeRange);
       if (!cancelled) setReady(true);
     }
 
@@ -111,6 +123,7 @@ export function useUsageMetrics(
       cancelled = true;
     };
   }, [
+    orgId,
     timeRange,
     params.deviceMetricA,
     params.deviceMetricB,
@@ -120,7 +133,7 @@ export function useUsageMetrics(
   return { ready };
 }
 
-export function useMonitoringMetrics(timeRange: string) {
+export function useMonitoringMetrics(orgId: string, timeRange: string) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -133,7 +146,7 @@ export function useMonitoringMetrics(timeRange: string) {
         "ts_downtime_duration_tot",
         "ts_app_alerts_*",
       ];
-      await fetchTimeseriesMetrics(metricsToFetch, timeRange);
+      await fetchTimeseriesMetrics(orgId, metricsToFetch, timeRange);
       if (!cancelled) setReady(true);
     }
 
@@ -141,45 +154,55 @@ export function useMonitoringMetrics(timeRange: string) {
     return () => {
       cancelled = true;
     };
-  }, [timeRange]);
+  }, [orgId, timeRange]);
 
   return { ready };
 }
 
 export function useDeviceUtilizationMetrics(
+  orgId: string,
   metricA: string,
   metricB: string,
   timeRange: string,
-  selectedDevices: Set<string>,
+  selectedDevices: Set<string>
 ): DeviceUtilizationData {
-  const dataA = useMetricFromStore(metricA, timeRange, selectedDevices);
-  const dataB = useMetricFromStore(metricB, timeRange, selectedDevices);
+  const dataA = useMetricFromStore(orgId, metricA, timeRange, selectedDevices);
+  const dataB = useMetricFromStore(orgId, metricB, timeRange, selectedDevices);
   return { dataA, dataB };
 }
 
 export function useUserConnectionsMetrics(
+  orgId: string,
   metric: string,
   timeRange: string,
-  selectedDevices: Set<string>,
+  selectedDevices: Set<string>
 ): ChartPoint[] {
-  return useSegmentedMetricFromStore(metric, timeRange, selectedDevices);
+  return useSegmentedMetricFromStore(orgId, metric, timeRange, selectedDevices);
 }
 
 export function useCollaborationUsageMetrics(
+  orgId: string,
   timeRange: string,
-  selectedDevices: Set<string>,
+  selectedDevices: Set<string>
 ): CollaborationUsageData {
   const meetings = useMetricFromStore(
+    orgId,
     "ts_meetings_num",
     timeRange,
-    selectedDevices,
+    selectedDevices
   );
   const connections = useMetricFromStore(
+    orgId,
     "ts_connections_num",
     timeRange,
-    selectedDevices,
+    selectedDevices
   );
-  const posts = useMetricFromStore("ts_posts_num", timeRange, selectedDevices);
+  const posts = useMetricFromStore(
+    orgId,
+    "ts_posts_num",
+    timeRange,
+    selectedDevices
+  );
 
   const connectionsAvg = useMemo(() => {
     if (!meetings.length) return [];
@@ -201,17 +224,19 @@ export function useCollaborationUsageMetrics(
 }
 
 export function useDowntimeChart(
+  orgId: string,
   timeRange: string,
-  selectedDevices: Set<string>,
+  selectedDevices: Set<string>
 ): { data: { date: string; devices: number; hours: number }[] } {
   const data = useMemo(() => {
     const cutoff = getDateCutoff(timeRange);
-    const devices = resolveDevices(selectedDevices, timeRange);
+    const devices = resolveDevices(selectedDevices, timeRange, orgId);
 
     const hoursByDateDevice = new Map<string, number>();
     const devicesByDate = new Map<string, Set<string>>();
 
     getTimeseriesRows().forEach((row) => {
+      if (row.org_id !== orgId) return; // org filter
       if (!timeSeriesRowInRange(row.date, cutoff)) return;
       if (row.device_name && !devices.has(row.device_name)) return;
       if (row.segment_1_name) return;
@@ -250,7 +275,7 @@ export function useDowntimeChart(
 
     const filledDates = fillDateGaps(
       sparse.map((s) => ({ date: s.date, value: s.hours })),
-      timeRange,
+      timeRange
     );
     const devMap = new Map(sparse.map((s) => [s.date, s.devices]));
 
@@ -259,23 +284,25 @@ export function useDowntimeChart(
       devices: devMap.get(p.date) ?? 0,
       hours: p.value,
     }));
-  }, [timeRange, selectedDevices]);
+  }, [orgId, timeRange, selectedDevices]);
 
   return { data };
 }
 
 export function useAlertsChart(
+  orgId: string,
   timeRange: string,
-  selectedDevices: Set<string>,
+  selectedDevices: Set<string>
 ): { data: AlertDataPoint[] } {
   const data = useMemo(() => {
     const cutoff = getDateCutoff(timeRange);
-    const devices = resolveDevices(selectedDevices, timeRange);
+    const devices = resolveDevices(selectedDevices, timeRange, orgId);
 
     const byDate = new Map<string, AlertDataPoint>();
     const alertKeys = new Set<string>();
 
     getTimeseriesRows().forEach((row) => {
+      if (row.org_id !== orgId) return; // org filter
       if (!row.metric_name.startsWith("ts_app_alerts_")) return;
       if (!timeSeriesRowInRange(row.date, cutoff)) return;
       if (row.device_name && !devices.has(row.device_name)) return;
@@ -297,7 +324,7 @@ export function useAlertsChart(
 
     const filledDates = fillDateGaps(
       sparse.map((s) => ({ date: s.date, value: 0 })),
-      timeRange,
+      timeRange
     );
     const sparseMap = new Map(sparse.map((s) => [s.date, s]));
 
@@ -305,11 +332,11 @@ export function useAlertsChart(
       const existing = sparseMap.get(p.date);
       const result: AlertDataPoint = { date: p.date };
       alertKeys.forEach((key) => {
-        result[key] = existing ? ((existing[key] as number) ?? 0) : 0;
+        result[key] = existing ? (existing[key] as number) ?? 0 : 0;
       });
       return result;
     });
-  }, [timeRange, selectedDevices]);
+  }, [orgId, timeRange, selectedDevices]);
 
   return { data };
 }

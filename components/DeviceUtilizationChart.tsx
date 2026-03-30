@@ -29,7 +29,7 @@ import { MetricDropdown } from "./charts/MetricDropdown";
 
 function computeAvgLength(
   meetings: ChartPoint[],
-  duration: ChartPoint[],
+  duration: ChartPoint[]
 ): ChartPoint[] {
   const durationMap = new Map(duration.map((d) => [d.date, d.value]));
   return meetings.map((m) => ({
@@ -49,6 +49,7 @@ const PURPLE = "#6860C8";
 const PINK = "#D44E80";
 
 export default function DeviceUtilization({
+  orgId,
   timeRange,
   selectedDevices,
 }: DeviceUtilizationProps) {
@@ -59,24 +60,28 @@ export default function DeviceUtilization({
     metricA !== "avgLength"
       ? METRIC_API_MAP[metricA as Exclude<DeviceMetric, "avgLength">]
       : "ts_meetings_num";
+
   const apiMetricB =
     metricB && metricB !== "avgLength"
       ? METRIC_API_MAP[metricB as Exclude<DeviceMetric, "avgLength">]
       : "ts_meetings_duration_tot";
+
   const { dataA: rawA, dataB: rawB } = useDeviceUtilizationMetrics(
+    orgId,
     apiMetricA,
     apiMetricB,
     timeRange,
-    selectedDevices,
+    selectedDevices
   );
 
-  // Always fetch meetings + duration so avgLength can be derived for either axis
+  // Always fetch meetings + duration so avgLength can be derived
   const { dataA: filteredMeetings, dataB: filteredDuration } =
     useDeviceUtilizationMetrics(
+      orgId,
       "ts_meetings_num",
       "ts_meetings_duration_tot",
       timeRange,
-      selectedDevices,
+      selectedDevices
     );
 
   const pointsA: ChartPoint[] = useMemo(
@@ -84,7 +89,7 @@ export default function DeviceUtilization({
       metricA === "avgLength"
         ? computeAvgLength(filteredMeetings, filteredDuration)
         : rawA,
-    [metricA, rawA, filteredMeetings, filteredDuration],
+    [metricA, rawA, filteredMeetings, filteredDuration]
   );
 
   const pointsB: ChartPoint[] = useMemo(
@@ -92,7 +97,7 @@ export default function DeviceUtilization({
       metricB === "avgLength"
         ? computeAvgLength(filteredMeetings, filteredDuration)
         : rawB,
-    [metricB, rawB, filteredMeetings, filteredDuration],
+    [metricB, rawB, filteredMeetings, filteredDuration]
   );
 
   const { ticks: ticksA, max: maxA } = getNiceTicks(pointsA);
@@ -107,12 +112,12 @@ export default function DeviceUtilization({
         [metricA]: pointsA[i]?.value ?? 0,
         ...(metricB !== null && { [metricB]: pointsB[i]?.value ?? 0 }),
       })),
-    [baseData, metricA, metricB, pointsA, pointsB],
+    [baseData, metricA, metricB, pointsA, pointsB]
   );
 
   const xTicks = useMemo(
     () => getSevenTicks(deviceData.map((d) => d.label)),
-    [deviceData],
+    [deviceData]
   );
 
   const handleChangeA = (next: DeviceMetric | null) => {
@@ -120,6 +125,7 @@ export default function DeviceUtilization({
     if (next === metricB) setMetricB(metricA);
     setMetricA(next);
   };
+
   const handleChangeB = (next: DeviceMetric | null) => {
     if (next === metricA) setMetricA(metricB!);
     setMetricB(next);
@@ -138,15 +144,16 @@ export default function DeviceUtilization({
   ).map(([value, label]) => ({ value, label }));
 
   return (
-    <div className="mb-8">
+    <div className="mb-8 w-full min-w-0">
       <div className="font-semibold text-[15px] text-black mb-0.5">
         Device Utilization
       </div>
       <div className="text-[13px] text-gray-400 mb-3">
         Compare up to two types of usage data for devices in your organization
       </div>
-      <div className="bg-white rounded-xl py-5 pb-4 border border-gray-200">
-        <ResponsiveContainer width="100%" height={280}>
+
+      <div className="bg-white rounded-xl py-5 pb-4 border border-gray-200 w-full h-80">
+        <ResponsiveContainer width="100%" height="100%">
           <LineChart
             data={deviceData}
             margin={{
@@ -161,6 +168,7 @@ export default function DeviceUtilization({
               vertical={false}
               horizontal={false}
             />
+
             <XAxis
               dataKey="label"
               tick={{ fontSize: 11, fill: "#000" }}
@@ -168,6 +176,7 @@ export default function DeviceUtilization({
               tickLine={false}
               ticks={xTicks}
             />
+
             <YAxis
               yAxisId="left"
               orientation="left"
@@ -182,13 +191,14 @@ export default function DeviceUtilization({
                 metricA === "hours"
                   ? `${v % 1 === 0 ? v : v.toFixed(1)}hr`
                   : v % 1 === 0
-                    ? `${v}`
-                    : `${parseFloat(v.toFixed(2))}`
+                  ? `${v}`
+                  : `${parseFloat(v.toFixed(2))}`
               }
               label={
                 <LeftAxisLabel label={METRIC_LABELS[metricA]} color="#6860C8" />
               }
             />
+
             {hasTwoMetrics && (
               <YAxis
                 yAxisId="right"
@@ -200,13 +210,6 @@ export default function DeviceUtilization({
                 domain={[0, maxB]}
                 ticks={ticksB}
                 allowDecimals
-                tickFormatter={(v: number) =>
-                  metricB === "hours"
-                    ? `${v % 1 === 0 ? v : v.toFixed(1)}hr`
-                    : v % 1 === 0
-                      ? `${v}`
-                      : `${parseFloat(v.toFixed(2))}`
-                }
                 label={
                   <RightAxisLabel
                     label={METRIC_LABELS[metricB!]}
@@ -215,6 +218,7 @@ export default function DeviceUtilization({
                 }
               />
             )}
+
             {ticksA.map((v) => (
               <ReferenceLine
                 key={v}
@@ -224,6 +228,7 @@ export default function DeviceUtilization({
                 strokeWidth={1}
               />
             ))}
+
             <Tooltip
               content={
                 <ChartTooltip
@@ -238,8 +243,8 @@ export default function DeviceUtilization({
                     key === "hours"
                       ? `${v % 1 === 0 ? v : v.toFixed(1)}hr`
                       : v % 1 === 0
-                        ? String(v)
-                        : String(parseFloat(v.toFixed(2)))
+                      ? String(v)
+                      : String(parseFloat(v.toFixed(2)))
                   }
                 />
               }
@@ -253,6 +258,7 @@ export default function DeviceUtilization({
               dot={{ r: 4, fill: PURPLE, strokeWidth: 0 }}
               activeDot={{ r: 5 }}
             />
+
             {hasTwoMetrics && (
               <Line
                 yAxisId="right"
@@ -266,6 +272,7 @@ export default function DeviceUtilization({
             )}
           </LineChart>
         </ResponsiveContainer>
+
         <div className="flex gap-2.5 mt-3.5 flex-wrap items-center px-6.5">
           <MetricDropdown
             value={metricA}

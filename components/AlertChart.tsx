@@ -29,14 +29,15 @@ const SERIES_CONFIG: Record<string, { label: string; color: string }> = {
 };
 
 export default function AlertsChart({
+  orgId,
   timeRange,
   selectedDevices,
 }: AlertChartProps) {
-  const { data: rawData } = useAlertsChart(timeRange, selectedDevices);
+  const { data: rawData } = useAlertsChart(orgId, timeRange, selectedDevices);
 
   const formattedData = useMemo(
     () => rawData.map((d) => ({ ...d, label: formatShortDate(d.date) })),
-    [rawData],
+    [rawData]
   );
 
   const availableSeries = useMemo(() => {
@@ -65,7 +66,7 @@ export default function AlertsChart({
 
   const xTicks = useMemo(
     () => getSevenTicks(formattedData.map((d) => d.label as string)),
-    [formattedData],
+    [formattedData]
   );
 
   const toggle = (key: string) => {
@@ -159,7 +160,9 @@ export default function AlertsChart({
                 return (
                   <div
                     key={key}
-                    className={`flex items-center gap-2 ${isLastActive ? "cursor-not-allowed" : "cursor-pointer"}`}
+                    className={`flex items-center gap-2 ${
+                      isLastActive ? "cursor-not-allowed" : "cursor-pointer"
+                    }`}
                     onClick={() => toggle(key)}
                   >
                     <span
