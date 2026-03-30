@@ -74,14 +74,14 @@ export default function AlertsChart({
     setActive((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  if (!formattedData.length) {
-    return (
-      <div className="bg-white rounded-xl border border-gray-200 p-6 h-102">
-        <div className="text-black font-semibold">Alerts</div>
-        <div className="text-gray-400 text-sm mt-1">No data available</div>
-      </div>
-    );
-  }
+  // if (!formattedData.length) {
+  //   return (
+  //     <div className="bg-white rounded-xl border border-gray-200 p-6 h-102">
+  //       <div className="text-black font-semibold">Alerts</div>
+  //       <div className="text-gray-400 text-sm mt-1">No data available</div>
+  //     </div>
+  //   );
+  // }
 
   const activeCount = Object.values(active).filter(Boolean).length;
 
@@ -92,102 +92,110 @@ export default function AlertsChart({
         Monitor the quantity and which types of alerts occurred in your fleet
       </div>
       <div className="bg-white rounded-xl border border-gray-200 p-6 pb-4">
-        <div className="w-full h-80 min-w-0">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={formattedData}>
-              <CartesianGrid stroke="#E5E7EB" vertical={false} />
-              <XAxis
-                dataKey="label"
-                ticks={xTicks}
-                tick={{ fontSize: 12 }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                tick={{ fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <Tooltip
-                content={
-                  <ChartTooltip
-                    labelMap={{
-                      ts_app_alerts_unreachable_num: "Unreachable",
-                      ts_app_alerts_rebooted_num: "Rebooted",
-                      ts_app_alerts_template_unassigned_num:
-                        "Unassigned from template",
-                      ts_app_alerts_usb_out_num: "USB unplugged",
-                      ts_app_alerts_usb_in_num: "USB plugged in",
-                      ts_app_alerts_onboarded_num: "Onboarded",
-                      ts_app_alerts_plan_assigned_num: "Plan assigned",
-                    }}
+        {!formattedData.length || formattedData.length === 0 ? (
+          <div className="flex items-center justify-center h-90 text-2xl text-gray-400">
+            No data available
+          </div>
+        ) : (
+          <>
+            <div className="w-full h-80 min-w-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={formattedData}>
+                  <CartesianGrid stroke="#E5E7EB" vertical={false} />
+                  <XAxis
+                    dataKey="label"
+                    ticks={xTicks}
+                    tick={{ fontSize: 12 }}
+                    axisLine={false}
+                    tickLine={false}
                   />
-                }
-              />
+                  <YAxis
+                    tick={{ fontSize: 11 }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip
+                    content={
+                      <ChartTooltip
+                        labelMap={{
+                          ts_app_alerts_unreachable_num: "Unreachable",
+                          ts_app_alerts_rebooted_num: "Rebooted",
+                          ts_app_alerts_template_unassigned_num:
+                            "Unassigned from template",
+                          ts_app_alerts_usb_out_num: "USB unplugged",
+                          ts_app_alerts_usb_in_num: "USB plugged in",
+                          ts_app_alerts_onboarded_num: "Onboarded",
+                          ts_app_alerts_plan_assigned_num: "Plan assigned",
+                        }}
+                      />
+                    }
+                  />
+                  {availableSeries.map((key) => {
+                    if (!active[key]) return null;
+                    const config = SERIES_CONFIG[key];
+                    const color = config?.color ?? "#94A3B8";
+                    return (
+                      <Area
+                        key={key}
+                        type="linear"
+                        dataKey={key}
+                        name={config?.label ?? key}
+                        stackId="1"
+                        stroke={color}
+                        fill={color}
+                        fillOpacity={0.85}
+                      />
+                    );
+                  })}
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex flex-wrap gap-4 mt-6">
               {availableSeries.map((key) => {
-                if (!active[key]) return null;
                 const config = SERIES_CONFIG[key];
                 const color = config?.color ?? "#94A3B8";
+                const label = config?.label ?? key;
+                const isLastActive = active[key] && activeCount === 1;
                 return (
-                  <Area
+                  <div
                     key={key}
-                    type="linear"
-                    dataKey={key}
-                    name={config?.label ?? key}
-                    stackId="1"
-                    stroke={color}
-                    fill={color}
-                    fillOpacity={0.85}
-                  />
+                    className={`flex items-center gap-2 ${isLastActive ? "cursor-not-allowed" : "cursor-pointer"}`}
+                    onClick={() => toggle(key)}
+                  >
+                    <span
+                      className="w-4 h-4 rounded border-2 flex items-center justify-center"
+                      style={{
+                        borderColor: active[key] ? color : "#D1D5DB",
+                        background: active[key] ? color : "#fff",
+                        opacity: isLastActive ? 0.6 : 1,
+                      }}
+                    >
+                      {active[key] && (
+                        <svg width="10" height="8" viewBox="0 0 10 8">
+                          <path
+                            d="M1 4L3.5 6.5L9 1"
+                            stroke="#fff"
+                            strokeWidth="1.8"
+                          />
+                        </svg>
+                      )}
+                    </span>
+                    <span
+                      className="rounded px-3 py-1 text-xs font-medium"
+                      style={{
+                        background: color,
+                        color: "#fff",
+                        opacity: active[key] ? (isLastActive ? 0.6 : 1) : 0.45,
+                      }}
+                    >
+                      {label}
+                    </span>
+                  </div>
                 );
               })}
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="flex flex-wrap gap-4 mt-6">
-          {availableSeries.map((key) => {
-            const config = SERIES_CONFIG[key];
-            const color = config?.color ?? "#94A3B8";
-            const label = config?.label ?? key;
-            const isLastActive = active[key] && activeCount === 1;
-            return (
-              <div
-                key={key}
-                className={`flex items-center gap-2 ${isLastActive ? "cursor-not-allowed" : "cursor-pointer"}`}
-                onClick={() => toggle(key)}
-              >
-                <span
-                  className="w-4 h-4 rounded border-2 flex items-center justify-center"
-                  style={{
-                    borderColor: active[key] ? color : "#D1D5DB",
-                    background: active[key] ? color : "#fff",
-                    opacity: isLastActive ? 0.6 : 1,
-                  }}
-                >
-                  {active[key] && (
-                    <svg width="10" height="8" viewBox="0 0 10 8">
-                      <path
-                        d="M1 4L3.5 6.5L9 1"
-                        stroke="#fff"
-                        strokeWidth="1.8"
-                      />
-                    </svg>
-                  )}
-                </span>
-                <span
-                  className="rounded px-3 py-1 text-xs font-medium"
-                  style={{
-                    background: color,
-                    color: "#fff",
-                    opacity: active[key] ? (isLastActive ? 0.6 : 1) : 0.45,
-                  }}
-                >
-                  {label}
-                </span>
-              </div>
-            );
-          })}
-        </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
