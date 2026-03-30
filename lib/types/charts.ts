@@ -168,6 +168,7 @@ export interface ColumnDef<T extends Record<string, unknown>> {
 }
 
 export interface SelectableDataTableProps<T extends Record<string, unknown>> {
+  orgId: string;
   heading: string;
   subheading: string;
   searchPlaceholder?: string;
