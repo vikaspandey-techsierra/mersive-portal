@@ -107,11 +107,6 @@ export function fillDateGaps(
   return result;
 }
 
-/**
- * Same as fillDateGaps but preserves the `segment` field.
- * Each segment gets its own gap-filled series.
- * Used by UserConnections (segmented area chart).
- */
 export function fillSegmentedDateGaps(
   points: ChartPoint[],
   timeRange: string,

@@ -75,8 +75,6 @@ export function parseTimeseries(
     }
   });
 
-  // console.log("Downtime devices per day:", downtimeDevicesPerDay);
-
   const allDates = generateDateRange(timeRange, referenceDate);
   const result: ParsedMetricsMap = {};
 

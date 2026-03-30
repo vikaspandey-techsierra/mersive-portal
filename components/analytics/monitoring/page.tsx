@@ -4,14 +4,16 @@ import { useState, useCallback } from "react";
 import React from "react";
 import DowntimeChart from "@/components/DowntimeChart";
 import AlertsChart from "@/components/AlertChart";
-import SelectableDataTable, {
-  ColumnDef,
-  DeviceTableRow,
-} from "@/components/SelectedDevices";
+import SelectableDataTable from "@/components/SelectedDevices";
 import LineChartSkeleton from "@/components/skeleton/LineChartSkeleton";
 import AreaChartSkeleton from "@/components/skeleton/AreaChartSkeleton";
 import { useMonitoringMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
-import { AnalyticsPageProps, TimeRange } from "@/lib/types/charts";
+import {
+  AnalyticsPageProps,
+  ColumnDef,
+  DeviceTableRow,
+  TimeRange,
+} from "@/lib/types/charts";
 
 const MONITORING_COLUMNS: ColumnDef<DeviceTableRow>[] = [
   { key: "name", label: "Name", sortable: true },

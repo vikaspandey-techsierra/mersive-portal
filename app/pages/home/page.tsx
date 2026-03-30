@@ -63,7 +63,6 @@ export default function DashboardPage() {
   // BANNER METRICS
   const offlineDevices = useOfflineDevicesMetric();
   const expiredDevices = useExpiredDevicesMetric();
-  console.log("offlineDevices, offlineDevices");
 
   // STATS CARDS METRICS
   const meetingsUnderway = useMeetingsUnderwayMetric();
