@@ -1,33 +1,24 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import React from "react";
 import DowntimeChart from "@/components/DowntimeChart";
 import AlertsChart from "@/components/AlertChart";
-import SelectableDataTable, {
-  ColumnDef,
-  SelectableDataTableHandle,
-  DeviceTableRow,
-} from "@/components/SelectedDevices";
-import React from "react";
+import SelectableDataTable from "@/components/SelectedDevices";
 import LineChartSkeleton from "@/components/skeleton/LineChartSkeleton";
 import AreaChartSkeleton from "@/components/skeleton/AreaChartSkeleton";
 import { useMonitoringMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
+import {
+  AnalyticsPageProps,
+  ColumnDef,
+  DeviceTableRow,
+  TimeRange,
+} from "@/lib/types/charts";
 
 const MONITORING_COLUMNS: ColumnDef<DeviceTableRow>[] = [
   { key: "name", label: "Name", sortable: true },
-  // hoursInUse maps to total downtime hours per device
-  {
-    key: "hoursInUse",
-    label: "Total Downtime (hrs)",
-    sortable: true,
-  },
+  { key: "hoursInUse", label: "Total Downtime (hrs)", sortable: true },
 ];
-
-/* ─────────────────────────────────────────────
-   TIME RANGE CONFIG
-───────────────────────────────────────────── */
-
-type TimeRange = "7d" | "30d" | "60d" | "90d" | "all";
 
 const TIME_RANGES: { key: TimeRange; label: string }[] = [
   { key: "7d", label: "Last 7 days" },
@@ -37,45 +28,15 @@ const TIME_RANGES: { key: TimeRange; label: string }[] = [
   { key: "all", label: "All time" },
 ];
 
-const DAY_COUNTS: Record<TimeRange, number> = {
-  "7d": 7,
-  "30d": 30,
-  "60d": 60,
-  "90d": 90,
-  all: 120,
-};
-
-function tickInterval(days: number): number {
-  if (days <= 7) return 0;
-  if (days <= 30) return 4;
-  if (days <= 60) return 8;
-  return 13;
-}
-
-/* ─────────────────────────────────────────────
-   PROPS
-───────────────────────────────────────────── */
-
-interface MonitoringPageProps {
-  tableRef?: React.Ref<SelectableDataTableHandle>;
-}
-
-/* ─────────────────────────────────────────────
-   PAGE
-───────────────────────────────────────────── */
-
-export default function MonitoringPage({ tableRef }: MonitoringPageProps) {
+export default function MonitoringPage({ tableRef }: AnalyticsPageProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>("7d");
   const [isLoading, setIsLoading] = React.useState(true);
-
   const [selectedDevices, setSelectedDevices] = useState<Set<string>>(
     new Set(),
   );
 
+  // useMonitoringMetrics still handles pre-fetching (ready flag for skeleton)
   const { ready } = useMonitoringMetrics(timeRange);
-
-  const days = DAY_COUNTS[timeRange];
-  const interval = tickInterval(days);
 
   React.useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 800);
@@ -88,7 +49,6 @@ export default function MonitoringPage({ tableRef }: MonitoringPageProps) {
 
   return (
     <div className="w-full flex flex-col min-w-0">
-      {/* ── Time range selector ── */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <span className="text-xl font-bold text-black">Monitoring</span>
         <div className="flex flex-wrap gap-2">
@@ -108,7 +68,6 @@ export default function MonitoringPage({ tableRef }: MonitoringPageProps) {
         </div>
       </div>
 
-      {/* ── Downtime chart ── */}
       <div className="w-full min-w-0">
         {isLoading || !ready ? (
           <LineChartSkeleton
@@ -119,14 +78,12 @@ export default function MonitoringPage({ tableRef }: MonitoringPageProps) {
           <DowntimeChart
             timeRange={timeRange}
             selectedDevices={selectedDevices}
-            interval={interval}
           />
         )}
       </div>
 
       <hr className="my-10 border-t border-gray-200" />
 
-      {/* ── Alerts chart ── */}
       <div className="w-full min-w-0">
         {isLoading || !ready ? (
           <AreaChartSkeleton
@@ -134,10 +91,13 @@ export default function MonitoringPage({ tableRef }: MonitoringPageProps) {
             description="Monitor the quantity and which types of alerts occurred in your fleet"
           />
         ) : (
+          /*
+           * AlertsChart now receives selectedDevices directly.
+           * useAlertsChart inside it handles filtering — no `ready` prop needed.
+           */
           <AlertsChart
             timeRange={timeRange}
             selectedDevices={selectedDevices}
-            interval={interval}
           />
         )}
       </div>

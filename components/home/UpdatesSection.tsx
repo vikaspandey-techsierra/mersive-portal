@@ -3,18 +3,7 @@ import { ChevronDownIcon, ChevronUpIcon, ExternalLinkIcon } from "lucide-react";
 import HelpIcon from "@/components/icons/help.svg";
 import FeedIcon from "@/components/icons/feed.svg";
 import Image from "next/image";
-
-interface ReleaseNote {
-  version: string;
-  date: string;
-  bullets: string[];
-}
-
-interface FaqItem {
-  question: string;
-  answer?: string;
-  link?: string;
-}
+import { FaqItem, ReleaseNote } from "@/lib/types/charts";
 
 const UpdatesSection = ({
   release,

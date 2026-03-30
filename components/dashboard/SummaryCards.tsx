@@ -1,16 +1,11 @@
-interface Props {
-  meetingsUnderway: number;
-  activeUsers: number;
-  avgMeetingLengthMinutes: number;
-  busiestTime: string;
-}
+import { SummaryCardProps } from "@/lib/types/charts";
 
 export default function SummaryCards({
   meetingsUnderway,
   activeUsers,
   avgMeetingLengthMinutes,
   busiestTime,
-}: Props) {
+}: SummaryCardProps) {
   const cards = [
     {
       title: "Meetings underway",

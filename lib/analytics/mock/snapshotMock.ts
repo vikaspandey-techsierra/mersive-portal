@@ -1,4 +1,3 @@
-// lib/analytics/mock/snapshotMock.ts
 
 import { FleetHealthRow, SnapshotRow } from "../snapshot/snapshotTypes";
 

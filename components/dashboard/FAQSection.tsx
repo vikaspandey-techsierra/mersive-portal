@@ -1,12 +1,7 @@
 "use client";
 
+import { FAQ } from "@/lib/types/charts";
 import { useState } from "react";
-
-interface FAQ {
-  id: number;
-  question: string;
-  answer: string;
-}
 
 export default function FAQSection({ faqs }: { faqs: FAQ[] }) {
   const [openId, setOpenId] = useState<number | null>(null);

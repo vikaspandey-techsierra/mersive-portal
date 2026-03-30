@@ -1,18 +1,8 @@
-// components/UpdatesSection.tsx
 "use client";
 
 import React from "react";
 import Link from "next/link";
-
-interface UpdatesSectionProps {
-  updates: {
-    latest: Array<{
-      version: string;
-      releaseNotes: string[];
-    }>;
-    allReleaseNotesLink: string;
-  };
-}
+import { UpdatesSectionProps } from "@/lib/types/homepage";
 
 export const UpdatesSection: React.FC<UpdatesSectionProps> = ({ updates }) => {
   return (

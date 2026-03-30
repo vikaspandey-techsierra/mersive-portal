@@ -2,6 +2,7 @@ import { ChartPoint, MetricsStore } from "../timeseries/timeseriesTypes";
 
 const metricsStore: MetricsStore = {};
 
+
 export function setMetric(key: string, data: ChartPoint[]): void {
   metricsStore[key] = data;
 }
