@@ -12,43 +12,8 @@ import {
 } from "recharts";
 import { useCollaborationUsageMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
 import { formatShortDate, getSevenTicks } from "@/lib/analytics/utils/helpers";
-
-interface TEntry {
-  name: string;
-  value: number;
-  color: string;
-}
-
-const ChartTooltip = ({
-  active,
-  payload,
-  label,
-}: {
-  active?: boolean;
-  payload?: TEntry[];
-  label?: string;
-}) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-[13px] shadow-md">
-      <div className="font-semibold mb-1 text-black">{label}</div>
-      {payload.map((e) => (
-        <div key={e.name} className="mt-1" style={{ color: e.color }}>
-          {e.name}: {e.value ?? 0}
-        </div>
-      ))}
-    </div>
-  );
-};
-
-const LegendPill = ({ label, color }: { label: string; color: string }) => (
-  <div
-    className="inline-flex items-center text-white rounded-md px-3 py-1 text-xs font-medium whitespace-nowrap"
-    style={{ background: color }}
-  >
-    {label}
-  </div>
-);
+import { ChartTooltip } from "./charts/ChartsTooltip";
+import { LegendPill } from "./charts/LegendPill";
 
 export default function CollaborationUsage({
   timeRange = "7d",

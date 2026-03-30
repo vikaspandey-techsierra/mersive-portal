@@ -12,98 +12,17 @@ import {
 import { useMemo } from "react";
 import { formatShortDate, getSevenTicks } from "@/lib/analytics/utils/helpers";
 import { useDowntimeChart } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
-
-interface Props {
-  timeRange: string;
-  selectedDevices: Set<string>;
-  interval?: number;
-}
+import { ChartTooltip } from "./charts/ChartsTooltip";
+import { LeftAxisLabel, RightAxisLabel } from "./charts/AxisLabel";
+import { DowntimeChartProps } from "@/lib/types/charts";
 
 const PURPLE = "#5E54C5";
 const PINK = "#C55483";
 
-const LeftAxisLabel = ({
-  viewBox,
-}: {
-  viewBox?: { x: number; y: number; width: number; height: number };
-}) => {
-  if (!viewBox) return null;
-  const cx = viewBox.x - 34;
-  const cy = viewBox.y + viewBox.height / 2;
-  return (
-    <text
-      x={cx}
-      y={cy}
-      fill={PURPLE}
-      fontSize={16}
-      fontWeight={500}
-      textAnchor="middle"
-      transform={`rotate(-90, ${cx}, ${cy})`}
-    >
-      Number of devices
-    </text>
-  );
-};
-
-const RightAxisLabel = ({
-  viewBox,
-}: {
-  viewBox?: { x: number; y: number; width: number; height: number };
-}) => {
-  if (!viewBox) return null;
-  const cx = viewBox.x + viewBox.width + 44;
-  const cy = viewBox.y + viewBox.height / 2;
-  return (
-    <text
-      x={cx}
-      y={cy}
-      fill={PINK}
-      fontSize={16}
-      fontWeight={500}
-      textAnchor="middle"
-      transform={`rotate(90, ${cx}, ${cy})`}
-    >
-      Number of hours
-    </text>
-  );
-};
-
-const CustomTooltip = ({
-  active,
-  payload,
-  label,
-}: {
-  active?: boolean;
-  payload?: Array<{ dataKey: string; value: number; stroke: string }>;
-  label?: string;
-}) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div
-      style={{
-        background: "white",
-        border: "1px solid #E5E7EB",
-        borderRadius: 10,
-        padding: "10px 14px",
-        boxShadow: "0 4px 16px rgba(0,0,0,0.10)",
-        fontSize: 13,
-      }}
-    >
-      <p style={{ fontWeight: 600, color: "#111", margin: "0 0 6px" }}>
-        {label}
-      </p>
-      {payload.map((p) => (
-        <p key={p.dataKey} style={{ color: p.stroke, margin: "3px 0" }}>
-          {p.dataKey === "devices"
-            ? `Devices: ${p.value}`
-            : `Hours: ${Number(p.value).toFixed(1)} hr`}
-        </p>
-      ))}
-    </div>
-  );
-};
-
-export default function DowntimeChart({ timeRange, selectedDevices }: Props) {
+export default function DowntimeChart({
+  timeRange,
+  selectedDevices,
+}: DowntimeChartProps) {
   const { data: rawData } = useDowntimeChart(timeRange, selectedDevices);
 
   const formattedData = useMemo(
@@ -112,6 +31,7 @@ export default function DowntimeChart({ timeRange, selectedDevices }: Props) {
   );
 
   const deviceTicks = [0, 6, 12, 18, 24];
+
   const xTicks = useMemo(
     () => getSevenTicks(formattedData.map((d) => d.label)),
     [formattedData],
@@ -159,7 +79,13 @@ export default function DowntimeChart({ timeRange, selectedDevices }: Props) {
               axisLine={false}
               tickLine={false}
               width={36}
-              label={<LeftAxisLabel />}
+              label={
+                <LeftAxisLabel
+                  label="Number of devices"
+                  color="#5E54C5"
+                  offset={34} // matches the original cx = viewBox.x - 34
+                />
+              }
             />
             <YAxis
               yAxisId="right"
@@ -171,7 +97,13 @@ export default function DowntimeChart({ timeRange, selectedDevices }: Props) {
               axisLine={false}
               tickLine={false}
               width={52}
-              label={<RightAxisLabel />}
+              label={
+                <RightAxisLabel
+                  label="Number of hours"
+                  color="#C55483"
+                  offset={44} // matches the original cx = viewBox.x + viewBox.width + 44
+                />
+              }
             />
             {deviceTicks.map((tick) => (
               <ReferenceLine
@@ -182,7 +114,19 @@ export default function DowntimeChart({ timeRange, selectedDevices }: Props) {
                 strokeWidth={1}
               />
             ))}
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip
+              content={
+                <ChartTooltip
+                  labelMap={{
+                    devices: "Devices",
+                    hours: "Hours",
+                  }}
+                  formatValue={(v, key) =>
+                    key === "hours" ? `${Number(v).toFixed(1)} hr` : String(v)
+                  }
+                />
+              }
+            />
             <Line
               yAxisId="left"
               type="linear"

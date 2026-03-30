@@ -1,38 +1,5 @@
 
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MOCK DATA — Alert History
-// ─────────────────────────────────────────────────────────────────────────────
-//
-// 📌 BACKEND CONTRACT
-// -------------------
-// Endpoint : GET /api/alert-history?range=7d|30d|60d|90d|all
-//
-// Response shape (JSON):
-// {
-//   "data": AlertHistoryPoint[]
-// }
-//
-// AlertHistoryPoint shape:
-// {
-//   "date": string,              // ISO 8601 date  e.g. "2024-12-16"
-//   "unreachable": number,       // count of "Unreachable" alerts sent that day
-//   "rebooted": number,          // count of "Rebooted" alerts sent that day
-//   "unassignedFromTemplate": number, // count of "Unassigned from template" alerts
-//   "updateAvailable": number,   // count of "Update available" alerts
-//   "updateCompleted": number    // count of "Update completed" alerts
-// }
-//
-// Rules:
-//   - All numeric fields are non-negative integers
-//   - Dates must be sorted ascending (oldest → newest)
-//   - Number of points returned should match the requested range:
-//       7d  → 7  points
-//       30d → 30 points
-//       60d → 60 points
-//       90d → 90 points
-//       all → all available points (no limit)
-// ─────────────────────────────────────────────────────────────────────────────
 
 import { AlertHistoryPoint } from "@/components/AlertGraph";
 

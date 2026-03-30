@@ -12,12 +12,8 @@ import {
 import { useState, useMemo, useEffect } from "react";
 import { formatShortDate, getSevenTicks } from "@/lib/analytics/utils/helpers";
 import { useAlertsChart } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
-
-interface Props {
-  timeRange: string;
-  selectedDevices: Set<string>;
-  interval?: number;
-}
+import { ChartTooltip } from "./charts/ChartsTooltip";
+import { AlertChartProps } from "@/lib/types/charts";
 
 const SERIES_CONFIG: Record<string, { label: string; color: string }> = {
   ts_app_alerts_unreachable_num: { label: "Unreachable", color: "#5B5BD6" },
@@ -32,40 +28,10 @@ const SERIES_CONFIG: Record<string, { label: string; color: string }> = {
   ts_app_alerts_plan_assigned_num: { label: "Plan assigned", color: "#8E56C2" },
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div
-      style={{
-        background: "#fff",
-        border: "1px solid #E5E7EB",
-        borderRadius: 12,
-        padding: "12px 14px",
-        boxShadow: "0 4px 18px rgba(0,0,0,0.12)",
-        fontSize: 13,
-      }}
-    >
-      <div style={{ fontWeight: 600, marginBottom: 6, color: "#111" }}>
-        {label}
-      </div>
-      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-      {payload.map((p: any) => {
-        const config = SERIES_CONFIG[p.dataKey];
-        return (
-          <div
-            key={p.dataKey}
-            style={{ color: config?.color, fontWeight: 500, marginBottom: 2 }}
-          >
-            {config?.label ?? p.dataKey}: {p.value}
-          </div>
-        );
-      })}
-    </div>
-  );
-};
-
-export default function AlertsChart({ timeRange, selectedDevices }: Props) {
+export default function AlertsChart({
+  timeRange,
+  selectedDevices,
+}: AlertChartProps) {
   const { data: rawData } = useAlertsChart(timeRange, selectedDevices);
 
   const formattedData = useMemo(
@@ -110,7 +76,7 @@ export default function AlertsChart({ timeRange, selectedDevices }: Props) {
 
   if (!formattedData.length) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-white rounded-xl border border-gray-200 p-6 h-102">
         <div className="text-black font-semibold">Alerts</div>
         <div className="text-gray-400 text-sm mt-1">No data available</div>
       </div>
@@ -142,7 +108,22 @@ export default function AlertsChart({ timeRange, selectedDevices }: Props) {
                 axisLine={false}
                 tickLine={false}
               />
-              <Tooltip content={<CustomTooltip />} />
+              <Tooltip
+                content={
+                  <ChartTooltip
+                    labelMap={{
+                      ts_app_alerts_unreachable_num: "Unreachable",
+                      ts_app_alerts_rebooted_num: "Rebooted",
+                      ts_app_alerts_template_unassigned_num:
+                        "Unassigned from template",
+                      ts_app_alerts_usb_out_num: "USB unplugged",
+                      ts_app_alerts_usb_in_num: "USB plugged in",
+                      ts_app_alerts_onboarded_num: "Onboarded",
+                      ts_app_alerts_plan_assigned_num: "Plan assigned",
+                    }}
+                  />
+                }
+              />
               {availableSeries.map((key) => {
                 if (!active[key]) return null;
                 const config = SERIES_CONFIG[key];

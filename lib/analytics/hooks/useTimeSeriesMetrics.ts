@@ -2,73 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { fetchTimeseriesMetrics } from "../timeseries/timeseriesManager";
-import { timeseriesMock } from "../mock/timeseriesMock";
 import {
   ChartPoint,
   DeviceUtilizationData,
   CollaborationUsageData,
 } from "../timeseries/timeseriesTypes";
-import { fillDateGaps, fillSegmentedDateGaps } from "../utils/helpers";
-
-interface TimeseriesRow {
-  date: string;
-  metric_name: string;
-  metric_value: string;
-  device_name?: string;
-  segment_1_name?: string;
-  segment_1_value?: string;
-}
-
-function getTimeseriesRows(_timeRange?: string): TimeseriesRow[] {
-  return timeseriesMock as TimeseriesRow[];
-}
-//helper
-function parseDateLocal(dateStr: string): Date {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
-
-function getDateCutoff(timeRange: string): Date | null {
-  const days: Record<string, number> = {
-    "7d": 7,
-    "30d": 30,
-    "60d": 60,
-    "90d": 90,
-  };
-  if (!days[timeRange]) return null;
-  const cutoff = new Date();
-  cutoff.setHours(0, 0, 0, 0);
-  cutoff.setDate(cutoff.getDate() - days[timeRange]);
-  return cutoff;
-}
-
-function rowInRange(dateStr: string, cutoff: Date | null): boolean {
-  if (!cutoff) return true;
-  return parseDateLocal(dateStr) >= cutoff;
-}
-
-//helper
-export function getAllDeviceNames(timeRange: string): Set<string> {
-  const cutoff = getDateCutoff(timeRange);
-  const names = new Set<string>();
-
-  getTimeseriesRows(timeRange).forEach((row) => {
-    if (!row.device_name) return;
-    if (!rowInRange(row.date, cutoff)) return;
-
-    names.add(row.device_name);
-  });
-
-  return names;
-}
-
-function resolveDevices(
-  selectedDevices: Set<string>,
-  timeRange: string,
-): Set<string> {
-  if (selectedDevices.size > 0) return selectedDevices;
-  return getAllDeviceNames(timeRange);
-}
+import { fillDateGaps, fillSegmentedDateGaps, getDateCutoff, getTimeseriesRows, resolveDevices, timeSeriesRowInRange } from "../utils/helpers";
+import { AlertDataPoint } from "@/lib/types/charts";
 
 export function useMetricFromStore(
   metric: string,
@@ -82,9 +22,9 @@ export function useMetricFromStore(
     const devices = resolveDevices(selectedDevices, timeRange);
     const byDate = new Map<string, number>();
 
-    getTimeseriesRows(timeRange).forEach((row) => {
+    getTimeseriesRows().forEach((row) => {
       if (row.metric_name !== metric) return;
-      if (!rowInRange(row.date, cutoff)) return;
+      if (!timeSeriesRowInRange(row.date, cutoff)) return;
       if (row.segment_1_name) return;
       if (row.device_name && !devices.has(row.device_name)) return;
 
@@ -112,9 +52,9 @@ function useSegmentedMetricFromStore(
     const devices = resolveDevices(selectedDevices, timeRange);
     const byKey = new Map<string, number>();
 
-    getTimeseriesRows(timeRange).forEach((row) => {
+    getTimeseriesRows().forEach((row) => {
       if (row.metric_name !== metric) return;
-      if (!rowInRange(row.date, cutoff)) return;
+      if (!timeSeriesRowInRange(row.date, cutoff)) return;
       if (!row.segment_1_name) return;
       if (row.device_name && !devices.has(row.device_name)) return;
 
@@ -271,8 +211,8 @@ export function useDowntimeChart(
     const hoursByDateDevice = new Map<string, number>();
     const devicesByDate = new Map<string, Set<string>>();
 
-    getTimeseriesRows(timeRange).forEach((row) => {
-      if (!rowInRange(row.date, cutoff)) return;
+    getTimeseriesRows().forEach((row) => {
+      if (!timeSeriesRowInRange(row.date, cutoff)) return;
       if (row.device_name && !devices.has(row.device_name)) return;
       if (row.segment_1_name) return;
 
@@ -323,8 +263,6 @@ export function useDowntimeChart(
 
   return { data };
 }
-//types
-export type AlertDataPoint = { date: string } & Record<string, number | string>;
 
 export function useAlertsChart(
   timeRange: string,
@@ -337,9 +275,9 @@ export function useAlertsChart(
     const byDate = new Map<string, AlertDataPoint>();
     const alertKeys = new Set<string>();
 
-    getTimeseriesRows(timeRange).forEach((row) => {
+    getTimeseriesRows().forEach((row) => {
       if (!row.metric_name.startsWith("ts_app_alerts_")) return;
-      if (!rowInRange(row.date, cutoff)) return;
+      if (!timeSeriesRowInRange(row.date, cutoff)) return;
       if (row.device_name && !devices.has(row.device_name)) return;
       if (row.segment_1_name) return;
 

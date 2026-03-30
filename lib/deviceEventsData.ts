@@ -1,3 +1,5 @@
+import { DeviceEvent } from "./analyticsTypes";
+
 export const deviceEvents: DeviceEvent[] = Array.from({ length: 10000 }).map(
   (_, i) => ({
     id: `EVT-${i}`,

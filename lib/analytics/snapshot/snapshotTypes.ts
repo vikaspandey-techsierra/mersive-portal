@@ -21,12 +21,6 @@ export interface PlanTypeData extends ChartData {
   percent: number;
 }
 
-// export interface FleetHealthData {
-//   score: number;
-//   onlineDevices: number;
-//   devicesWithIssues: number;
-// }
-
 export interface FleetHealthRow {
   org_id: string;
   metric_name: string;

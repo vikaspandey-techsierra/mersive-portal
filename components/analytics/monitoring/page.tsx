@@ -6,19 +6,17 @@ import DowntimeChart from "@/components/DowntimeChart";
 import AlertsChart from "@/components/AlertChart";
 import SelectableDataTable, {
   ColumnDef,
-  SelectableDataTableHandle,
   DeviceTableRow,
 } from "@/components/SelectedDevices";
 import LineChartSkeleton from "@/components/skeleton/LineChartSkeleton";
 import AreaChartSkeleton from "@/components/skeleton/AreaChartSkeleton";
 import { useMonitoringMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
+import { AnalyticsPageProps, TimeRange } from "@/lib/types/charts";
 
 const MONITORING_COLUMNS: ColumnDef<DeviceTableRow>[] = [
   { key: "name", label: "Name", sortable: true },
   { key: "hoursInUse", label: "Total Downtime (hrs)", sortable: true },
 ];
-
-type TimeRange = "7d" | "30d" | "60d" | "90d" | "all";
 
 const TIME_RANGES: { key: TimeRange; label: string }[] = [
   { key: "7d", label: "Last 7 days" },
@@ -28,11 +26,7 @@ const TIME_RANGES: { key: TimeRange; label: string }[] = [
   { key: "all", label: "All time" },
 ];
 
-interface MonitoringPageProps {
-  tableRef?: React.Ref<SelectableDataTableHandle>;
-}
-
-export default function MonitoringPage({ tableRef }: MonitoringPageProps) {
+export default function MonitoringPage({ tableRef }: AnalyticsPageProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>("7d");
   const [isLoading, setIsLoading] = React.useState(true);
   const [selectedDevices, setSelectedDevices] = useState<Set<string>>(

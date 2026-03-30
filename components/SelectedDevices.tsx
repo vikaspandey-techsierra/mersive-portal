@@ -9,234 +9,17 @@ import {
   useImperativeHandle,
 } from "react";
 import loading from "../components/icons/loading.svg";
-import { timeseriesMock } from "@/lib/analytics/mock/timeseriesMock";
-
-export type SortDir = "asc" | "desc";
-
-export interface ColumnDef<T extends Record<string, unknown>> {
-  key: keyof T & string;
-  label: string;
-  sortable?: boolean;
-  csvValue?: (value: T[keyof T], row: T) => string | number;
-  render?: (value: T[keyof T], row: T) => React.ReactNode;
-  cellClassName?: string;
-}
-
-export interface SelectableDataTableProps<T extends Record<string, unknown>> {
-  heading: string;
-  subheading: string;
-  searchPlaceholder?: string;
-  rows?: T[];
-  rowKey: keyof T & string;
-  columns: ColumnDef<T>[];
-  defaultSortKey?: keyof T & string;
-  defaultSortDir?: SortDir;
-  defaultAllSelected?: boolean;
-  onSelectionChange?: (selectedIds: Set<string>) => void;
-  timeRange?: string;
-  isLoading?: boolean;
-  csvFilename?: string;
-}
-
-export interface SelectableDataTableHandle {
-  exportCSV: () => void;
-}
-
-export interface DeviceTableRow extends Record<string, unknown> {
-  id: string;
-  name: string;
-  meetings: number | null;
-  totalConnections: number | null;
-  hoursInUse: number | null;
-  contentItems: number | null;
-  avgDuration: string | null;
-  avgDurationMinutes: number | null;
-}
-
-function parseDateLocal(dateStr: string): Date {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
-
-function getDateCutoff(timeRange: string): Date | null {
-  const days: Record<string, number> = {
-    "7d": 7,
-    "30d": 30,
-    "60d": 60,
-    "90d": 90,
-  };
-  if (!days[timeRange]) return null;
-  const cutoff = new Date();
-  cutoff.setHours(0, 0, 0, 0);
-  cutoff.setDate(cutoff.getDate() - days[timeRange]);
-  return cutoff;
-}
-
-function deriveDeviceRows(timeRange: string): DeviceTableRow[] {
-  const cutoff = getDateCutoff(timeRange);
-
-  const map = new Map<
-    string,
-    { meetings: number; connections: number; hours: number; posts: number }
-  >();
-
-  timeseriesMock.forEach((row) => {
-    if (!row.device_name) return;
-    if (cutoff && parseDateLocal(row.date) < cutoff) return;
-    timeseriesMock.forEach((row) => {
-      if (!row.device_name) return;
-      if (cutoff && parseDateLocal(row.date) < cutoff) return;
-
-      if (!map.has(row.device_name)) {
-        map.set(row.device_name, {
-          meetings: 0,
-          connections: 0,
-          hours: 0,
-          posts: 0,
-        });
-      }
-
-      const acc = map.get(row.device_name)!;
-      const val = parseFloat(row.metric_value) || 0;
-
-      // Only aggregate non-segmented metrics
-      if (!row.segment_1_name) {
-        switch (row.metric_name) {
-          case "ts_meetings_num":
-            acc.meetings += val;
-            break;
-          case "ts_connections_num":
-            acc.connections += val;
-            break;
-          case "ts_meetings_duration_tot":
-            acc.hours += val;
-            break;
-          case "ts_posts_num":
-            acc.posts += val;
-            break;
-        }
-      }
-    });
-
-    if (!map.has(row.device_name)) {
-      map.set(row.device_name, {
-        meetings: 0,
-        connections: 0,
-        hours: 0,
-        posts: 0,
-      });
-    }
-
-    const acc = map.get(row.device_name)!;
-    const val = parseFloat(row.metric_value) || 0;
-
-    switch (row.metric_name) {
-      case "ts_meetings_num":
-        acc.meetings += val;
-        break;
-      case "ts_connections_num":
-        acc.connections += val;
-        break;
-      case "ts_meetings_duration_tot":
-        acc.hours += val;
-        break;
-      case "ts_posts_num":
-        acc.posts += val;
-        break;
-    }
-  });
-
-  return Array.from(map.entries()).map(([name, acc]) => {
-    const avgMins =
-      acc.meetings > 0 ? Math.round((acc.hours * 60) / acc.meetings) : null;
-
-    let avgDuration: string | null = null;
-    if (avgMins !== null) {
-      const hrs = Math.floor(avgMins / 60);
-      const mins = avgMins % 60;
-      if (hrs > 0 && mins > 0)
-        avgDuration = `${hrs} hr${hrs > 1 ? "s" : ""} ${mins} min`;
-      else if (hrs > 0) avgDuration = `${hrs} hr${hrs > 1 ? "s" : ""}`;
-      else avgDuration = `${mins} min`;
-    }
-
-    return {
-      id: name,
-      name,
-      meetings: acc.meetings || null,
-      totalConnections: acc.connections || null,
-      hoursInUse: acc.hours ? parseFloat(acc.hours.toFixed(2)) : null,
-      contentItems: acc.posts || null,
-      avgDuration,
-      avgDurationMinutes: avgMins,
-    };
-  });
-}
+import {
+  SelectableDataTableHandle,
+  SelectableDataTableProps,
+  SortDir,
+} from "@/lib/types/charts";
+import { deriveDeviceRows, escapeCSV } from "@/lib/analytics/utils/helpers";
+import { Checkbox } from "./Checkbox";
+import { SortIcon } from "./SortIcon";
 
 const defaultRender = (value: unknown): React.ReactNode =>
   value === null || value === undefined ? "-" : String(value);
-
-function escapeCSV(value: unknown): string {
-  if (value === null || value === undefined) return "";
-  const str = String(value);
-  if (str.includes(",") || str.includes('"') || str.includes("\n")) {
-    return `"${str.replace(/"/g, '""')}"`;
-  }
-  return str;
-}
-
-const SortIcon = ({ active, dir }: { active: boolean; dir: SortDir }) => (
-  <span className="ml-1 inline-flex flex-col items-center justify-center gap-0.5">
-    <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
-      <path
-        d="M2 4L5 1L8 4"
-        stroke={active && dir === "asc" ? "#6860C8" : "#9CA3AF"}
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-    <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
-      <path
-        d="M2 2L5 5L8 2"
-        stroke={active && dir === "desc" ? "#6860C8" : "#9CA3AF"}
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  </span>
-);
-
-const Checkbox = ({
-  checked,
-  onChange,
-}: {
-  checked: boolean;
-  onChange: () => void;
-}) => (
-  <span
-    onClick={(e) => {
-      e.stopPropagation();
-      onChange();
-    }}
-    className={`w-5 h-5 rounded-md border-2 flex items-center justify-center cursor-pointer shrink-0 transition-colors ${
-      checked ? "bg-[#6860C8] border-[#6860C8]" : "bg-white border-gray-300"
-    }`}
-  >
-    {checked && (
-      <svg width="11" height="9" viewBox="0 0 11 9">
-        <path
-          d="M1 4.5L4 7.5L10 1"
-          stroke="#fff"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    )}
-  </span>
-);
 
 function SelectableDataTableInner<T extends Record<string, unknown>>(
   {
@@ -267,6 +50,7 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
     return deriveDeviceRows(timeRange) as unknown as T[];
   }, [rowsProp, timeRange]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const rows: T[] = rowsProp ?? dynamicRows ?? [];
 
   const [selected, setSelected] = useState<Set<string>>(

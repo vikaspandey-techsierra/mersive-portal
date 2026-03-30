@@ -4,7 +4,6 @@ import CollaborationUsage from "@/components/CollaborationChart";
 import DeviceUtilization from "@/components/DeviceUtilizationChart";
 import SelectableDataTable, {
   ColumnDef,
-  SelectableDataTableHandle,
   DeviceTableRow,
 } from "@/components/SelectedDevices";
 import UserConnections from "@/components/UserConnectionsChart";
@@ -14,6 +13,7 @@ import LineChartSkeleton from "@/components/skeleton/LineChartSkeleton";
 import AreaChartSkeleton from "@/components/skeleton/AreaChartSkeleton";
 import { registerMetric } from "@/lib/analytics/utils/metricsManager";
 import { useUsageMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
+import { AnalyticsPageProps, TimeRange } from "@/lib/types/charts";
 
 const USAGE_COLUMNS: ColumnDef<DeviceTableRow>[] = [
   { key: "name", label: "Name", sortable: true },
@@ -30,8 +30,6 @@ const USAGE_COLUMNS: ColumnDef<DeviceTableRow>[] = [
   },
 ];
 
-type TimeRange = "7d" | "30d" | "60d" | "90d" | "all";
-
 const TIME_RANGES: { key: TimeRange; label: string }[] = [
   { key: "7d", label: "Last 7 days" },
   { key: "30d", label: "Last 30 days" },
@@ -47,11 +45,8 @@ const METRIC_API_MAP: Record<string, string> = {
   posts: "ts_posts_num",
   avgLength: "ts_meetings_duration_avg",
 };
-interface UsagePageProps {
-  tableRef?: React.Ref<SelectableDataTableHandle>;
-}
 
-export default function UsagePage({ tableRef }: UsagePageProps) {
+export default function UsagePage({ tableRef }: AnalyticsPageProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>("7d");
   const [isLoading, setIsLoading] = React.useState(true);
   const [selectedDevices, setSelectedDevices] = useState<Set<string>>(
@@ -77,7 +72,6 @@ export default function UsagePage({ tableRef }: UsagePageProps) {
 
   return (
     <>
-      {/* Time range */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
         <span className="text-xl font-bold text-black">Usage</span>
         <div className="flex flex-wrap gap-2">
