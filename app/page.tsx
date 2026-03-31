@@ -1,7 +1,5 @@
 "use client";
-
 import { useRouter } from "next/navigation";
-
 export default function Home() {
   const router = useRouter();
 
@@ -12,7 +10,7 @@ export default function Home() {
           📊 Analytics Dashboard
         </h1>
         <button
-          onClick={() => router.push("/pages/home")}
+          onClick={() => router.push("/GDeZNiL4IS3QrYdLQTf6-clney/home")}
           className="bg-violet-600 hover:bg-violet-700 transition-all duration-300 px-6 py-3 rounded-lg font-medium shadow-lg hover:scale-105 active:scale-95 text-white"
         >
           Analytics Dashboard →

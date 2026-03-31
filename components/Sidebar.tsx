@@ -7,8 +7,8 @@ export default function Sidebar() {
   const pathname = usePathname();
 
   const navItems = [
-    { name: "Home", href: "/pages/home" },
-    { name: "Analytics", href: "/pages/analytics" },
+    { name: "Home", href: "/GDeZNiL4IS3QrYdLQTf6-clney/home" },
+    { name: "Analytics", href: "/GDeZNiL4IS3QrYdLQTf6-clney/analytics" },
   ];
 
   return (

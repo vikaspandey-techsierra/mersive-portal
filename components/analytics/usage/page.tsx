@@ -48,7 +48,10 @@ const METRIC_API_MAP: Record<string, string> = {
   avgLength: "ts_meetings_duration_avg",
 };
 
-export default function UsagePage({ tableRef }: AnalyticsPageProps) {
+export default function UsagePage({
+  tableRef,
+  orgId,
+}: AnalyticsPageProps & { orgId: string }) {
   const [timeRange, setTimeRange] = useState<TimeRange>("7d");
   const [isLoading, setIsLoading] = React.useState(true);
   const [selectedDevices, setSelectedDevices] = useState<Set<string>>(
@@ -62,7 +65,7 @@ export default function UsagePage({ tableRef }: AnalyticsPageProps) {
     return () => clearTimeout(timer);
   }, []);
 
-  const { ready } = useUsageMetrics(timeRange, {
+  const { ready } = useUsageMetrics(orgId, timeRange, {
     deviceMetricA: METRIC_API_MAP["meetings"],
     deviceMetricB: METRIC_API_MAP["connections"],
     userConnectionsMetric: "ts_connections_num_by_os",
@@ -100,6 +103,7 @@ export default function UsagePage({ tableRef }: AnalyticsPageProps) {
         />
       ) : (
         <DeviceUtilization
+          orgId={orgId}
           timeRange={timeRange}
           selectedDevices={selectedDevices}
         />
@@ -114,6 +118,7 @@ export default function UsagePage({ tableRef }: AnalyticsPageProps) {
         />
       ) : (
         <UserConnections
+          orgId={orgId}
           timeRange={timeRange}
           selectedDevices={selectedDevices}
           title="User Connections"
@@ -130,6 +135,7 @@ export default function UsagePage({ tableRef }: AnalyticsPageProps) {
         />
       ) : (
         <CollaborationUsage
+          orgId={orgId}
           timeRange={timeRange}
           selectedDevices={selectedDevices}
         />
@@ -138,6 +144,7 @@ export default function UsagePage({ tableRef }: AnalyticsPageProps) {
       <hr className="pb-5" />
 
       <SelectableDataTable
+        orgId={orgId}
         ref={tableRef}
         heading="Selected Devices"
         subheading="Select all or narrow the data down to a specific group of devices"

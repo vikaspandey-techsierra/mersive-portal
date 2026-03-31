@@ -41,6 +41,7 @@ import PlanTypePieEmptyState from "@/components/charts/plan-type/PlanTypePieEmpt
 import FleetHealthGaugeEmptyState from "@/components/charts/fleet-health/FleetHealthGaugeEmptyState";
 import DeviceStatusSkeleton from "@/components/charts/device-status/DeviceStatusSkeleton";
 import { useState } from "react";
+import { useParams } from "next/navigation";
 
 export default function DashboardPage() {
   const [refreshKey, setRefreshKey] = useState(0);
@@ -48,33 +49,41 @@ export default function DashboardPage() {
     new Date().toISOString(),
   );
 
+  const params = useParams();
+  const orgId = params.orgId as string;
+
   const handleRefresh = () => {
     setRefreshKey((prev) => prev + 1);
     setLastRefreshedAt(new Date().toISOString());
   };
-
   // DEVICE BREAKDOWN METRICS
-  const { data: deviceTypeData, loading: typeLoading } =
-    useDeviceTypeMetric(refreshKey);
+  const { data: deviceTypeData, loading: typeLoading } = useDeviceTypeMetric(
+    orgId,
+    refreshKey,
+  );
 
   const { data: deviceStatusData, loading: statusLoading } =
-    useDeviceStatusMetric(refreshKey);
+    useDeviceStatusMetric(orgId, refreshKey);
 
-  const { data: planTypeData, loading: planLoading } =
-    usePlanTypeMetric(refreshKey);
+  const { data: planTypeData, loading: planLoading } = usePlanTypeMetric(
+    orgId,
+    refreshKey,
+  );
 
-  const { data: fleetHealthData, loading: fleetLoading } =
-    useFleetHealthMetric(refreshKey);
+  const { data: fleetHealthData, loading: fleetLoading } = useFleetHealthMetric(
+    orgId,
+    refreshKey,
+  );
 
   // BANNER METRICS
-  const offlineDevices = useOfflineDevicesMetric();
-  const expiredDevices = useExpiredDevicesMetric();
+  const offlineDevices = useOfflineDevicesMetric(orgId);
+  const expiredDevices = useExpiredDevicesMetric(orgId);
 
   // STATS CARDS METRICS
-  const meetingsUnderway = useMeetingsUnderwayMetric();
-  const activeUsers = useActiveDevicesMetric();
-  const avgMeetingLength = useAvgMeetingLengthMetric();
-  const busiestTime = useBusiestTimeMetric();
+  const meetingsUnderway = useMeetingsUnderwayMetric(orgId);
+  const activeUsers = useActiveDevicesMetric(orgId);
+  const avgMeetingLength = useAvgMeetingLengthMetric(orgId);
+  const busiestTime = useBusiestTimeMetric(orgId);
 
   // RELEASE + FAQ DATA
   const release = {

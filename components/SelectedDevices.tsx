@@ -19,6 +19,12 @@ import { Checkbox } from "./Checkbox";
 import { SortIcon } from "./SortIcon";
 import EmptyState from "./emptyStates/emptyStates";
 
+interface PropsWithOrg<
+  T extends Record<string, unknown>,
+> extends SelectableDataTableProps<T> {
+  orgId: string;
+}
+
 const defaultRender = (value: unknown): React.ReactNode =>
   value === null || value === undefined ? "-" : String(value);
 
@@ -39,7 +45,8 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
     csvFilename = "export",
     emptyStateTitle = "No results found",
     emptyStateDescription = "No data for this date range",
-  }: SelectableDataTableProps<T>,
+    orgId,
+  }: PropsWithOrg<T>,
   ref: React.Ref<SelectableDataTableHandle>,
 ) {
   const [search, setSearch] = useState("");
@@ -50,8 +57,8 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
 
   const dynamicRows = useMemo(() => {
     if (rowsProp !== undefined) return null;
-    return deriveDeviceRows(timeRange) as unknown as T[];
-  }, [rowsProp, timeRange]);
+    return deriveDeviceRows(timeRange, orgId) as unknown as T[];
+  }, [rowsProp, timeRange, orgId]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const rows: T[] = rowsProp ?? dynamicRows ?? [];
@@ -292,7 +299,7 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
 const SelectableDataTable = forwardRef(SelectableDataTableInner) as <
   T extends Record<string, unknown>,
 >(
-  props: SelectableDataTableProps<T> & {
+  props: PropsWithOrg<T> & {
     ref?: React.Ref<SelectableDataTableHandle>;
   },
 ) => ReturnType<typeof SelectableDataTableInner>;

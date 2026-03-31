@@ -19,6 +19,7 @@ export interface ChartTooltipProps {
 }
 
 export interface DeviceUtilizationProps {
+  orgId: string;
   timeRange: string;
   selectedDevices: Set<string>;
 }
@@ -30,30 +31,29 @@ export type DeviceMetric =
   | "posts"
   | "avgLength";
 
+export interface DropdownOption<T extends string = string> {
+  value: T;
+  label: string;
+}
 
-  export interface DropdownOption<T extends string = string> {
-    value: T;
-    label: string;
-  }
-  
-  export interface MetricDropdownProps<T extends string = string> {
-    value: T | null;
-    options: DropdownOption<T>[];
-    color: string;
-    onChange: (value: T | null) => void;
-    disabledValue?: T | null;
-    showNone?: boolean;
-    placeholder?: string;
-  }
+export interface MetricDropdownProps<T extends string = string> {
+  value: T | null;
+  options: DropdownOption<T>[];
+  color: string;
+  onChange: (value: T | null) => void;
+  disabledValue?: T | null;
+  showNone?: boolean;
+  placeholder?: string;
+}
 
-  export interface DropdownRowProps {
+export interface DropdownRowProps {
   label: string;
   isSelected: boolean;
   isDisabled: boolean;
   onSelect: () => void;
 }
 
- export interface AxisLabelProps {
+export interface AxisLabelProps {
   viewBox?: { x: number; y: number; width: number; height: number };
   label: string;
   color?: string;
@@ -68,8 +68,8 @@ export interface TEntry {
 
 export type ChartRow = { label: string; [key: string]: string | number };
 
-
 export interface DowntimeChartProps {
+  orgId: string; // ✅ added
   timeRange: string;
   selectedDevices: Set<string>;
   interval?: number;
@@ -102,7 +102,9 @@ export type TimeRange = "7d" | "30d" | "60d" | "90d" | "all";
 
 export interface AnalyticsPageProps {
   tableRef?: React.Ref<SelectableDataTableHandle>;
+  orgId: string; // ✅ required now
 }
+
 export interface FAQ {
   id: number;
   question: string;
@@ -123,7 +125,7 @@ export interface UpdatesSectionProps {
 }
 
 export interface AlertChipProps {
-   icon: string;
+  icon: string;
   label: string;
   value: number;
   iconColor?: string;
@@ -143,17 +145,17 @@ export interface FaqItem {
 }
 
 export interface AlertChartProps {
+  orgId: string;
   timeRange: string;
   selectedDevices: Set<string>;
   interval?: number;
 }
 
 export interface CardProps {
-   title: string;
+  title: string;
   children: React.ReactNode;
-  icon: string
+  icon: string;
 }
-
 
 export type SortDir = "asc" | "desc";
 
@@ -167,6 +169,7 @@ export interface ColumnDef<T extends Record<string, unknown>> {
 }
 
 export interface SelectableDataTableProps<T extends Record<string, unknown>> {
+  orgId: string;
   heading: string;
   subheading: string;
   searchPlaceholder?: string;
@@ -210,22 +213,23 @@ export interface SortProps {
 }
 
 export interface UserConnectionsProp {
-   timeRange?: string;
+  orgId: string;
+  timeRange?: string;
   title: string;
   subtitle?: string;
   selectedDevices: Set<string>;
 }
 
 export interface TimeseriesRow {
-  date: string;
+  aggregation_level: string;
   metric_name: string;
+  segment_1_name: string | null;
+  segment_1_value: string | null;
+  date: string;
+  org_id: string;
+  device_name: string | null;
   metric_value: string;
-  device_name?: string;
-  segment_1_name?: string;
-  segment_1_value?: string;
 }
-
-export type AlertDataPoint = { date: string } & Record<string, number | string>;
 
 
 export type EmptyStateProps = {
@@ -234,3 +238,6 @@ export type EmptyStateProps = {
   description?: string;
   className?: string;
 };
+export type AlertDataPoint = {
+  date: string;
+} & Record<string, number | string>;

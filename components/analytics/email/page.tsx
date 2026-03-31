@@ -105,7 +105,7 @@ interface EmailAlertPayload {
 
 function buildAlertSettings(
   myAlerts: AlertConfig,
-  recipients: Recipient[],
+  recipients: Recipient[]
 ): EmailAlertSetting[] {
   const toSettings = (config: AlertConfig): AlertSetting[] => [
     {
@@ -388,8 +388,8 @@ function AnimatedRecipientCard({
           show
             ? "translate-y-0 duration-400"
             : isRemoving
-              ? "-translate-y-2 duration-300"
-              : "translate-y-4 duration-400"
+            ? "-translate-y-2 duration-300"
+            : "translate-y-4 duration-400"
         }`}
       >
         <div className="pb-3">
@@ -858,7 +858,7 @@ const TIME_RANGES: { key: TimeRange; label: string }[] = [
   { key: "all", label: "All time" },
 ];
 
-export default function EmailAlertsPage() {
+export default function EmailAlertsPage({ orgId }: { orgId: string }) {
   const [collapsed, setCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState<"my" | "additional">("my");
   const [timeRange, setTimeRange] = useState<TimeRange>("7d");
@@ -895,11 +895,11 @@ export default function EmailAlertsPage() {
     const effectiveRecipients = patch?.recipients ?? recipients;
 
     const payload: EmailAlertPayload = {
-      org_id: "org_7f21c4a9", // TODO: replace with value from Phoenix app context
+      org_id: orgId,
       user_id: "user_8c9130bd", // TODO: replace with value from Phoenix app context
       email_alert_settings: buildAlertSettings(
         effectiveMyAlerts,
-        effectiveRecipients,
+        effectiveRecipients
       ),
     };
 
@@ -923,7 +923,7 @@ export default function EmailAlertsPage() {
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
       setSaveError(
-        err instanceof Error ? err.message : "Failed to save settings.",
+        err instanceof Error ? err.message : "Failed to save settings."
       );
     } finally {
       setIsSaving(false);

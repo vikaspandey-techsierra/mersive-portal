@@ -51,6 +51,7 @@ const PURPLE = "#6860C8";
 const PINK = "#D44E80";
 
 export default function DeviceUtilization({
+  orgId,
   timeRange,
   selectedDevices,
 }: DeviceUtilizationProps) {
@@ -61,11 +62,14 @@ export default function DeviceUtilization({
     metricA !== "avgLength"
       ? METRIC_API_MAP[metricA as Exclude<DeviceMetric, "avgLength">]
       : "ts_meetings_num";
+
   const apiMetricB =
     metricB && metricB !== "avgLength"
       ? METRIC_API_MAP[metricB as Exclude<DeviceMetric, "avgLength">]
       : "ts_meetings_duration_tot";
+
   const { dataA: rawA, dataB: rawB } = useDeviceUtilizationMetrics(
+    orgId,
     apiMetricA,
     apiMetricB,
     timeRange,
@@ -74,6 +78,7 @@ export default function DeviceUtilization({
 
   const { dataA: filteredMeetings, dataB: filteredDuration } =
     useDeviceUtilizationMetrics(
+      orgId,
       "ts_meetings_num",
       "ts_meetings_duration_tot",
       timeRange,
@@ -121,6 +126,7 @@ export default function DeviceUtilization({
     if (next === metricB) setMetricB(metricA);
     setMetricA(next);
   };
+
   const handleChangeB = (next: DeviceMetric | null) => {
     if (next === metricA) setMetricA(metricB!);
     setMetricB(next);
