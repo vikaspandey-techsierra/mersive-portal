@@ -3,7 +3,6 @@
 import EmailAlertsPage from "@/components/analytics/email/page";
 import MonitoringPage from "@/components/analytics/monitoring/page";
 import UsagePage from "@/components/analytics/usage/page";
-import Sidebar from "@/components/Sidebar";
 import { useState, useRef, useEffect } from "react";
 import { Download } from "lucide-react";
 import { SelectableDataTableHandle } from "@/lib/types/charts";
@@ -67,13 +66,7 @@ export default function AnalyticsLayout() {
 
   return (
     <div className="flex min-h-screen w-full bg-white overflow-x-hidden">
-      <Sidebar />
-
       <div className="flex-1 min-w-0 bg-white p-8">
-        <div className="text-sm text-gray-500 mb-2">
-          Current Org: <strong>{orgId}</strong>
-        </div>
-
         {/* Header */}
         <div className="flex items-center gap-2 mb-3">
           <div className="w-7 h-7 rounded-md bg-[#6860C8] flex items-center justify-center">

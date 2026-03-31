@@ -14,7 +14,6 @@ import DeviceType from "@/components/icons/tv_black.svg";
 import PlanType from "@/components/icons/dvr.svg";
 import OverallFleetHealth from "@/components/icons/health_and_safety.svg";
 import DeviceStatus from "@/components/icons/assignment.svg";
-import Sidebar from "@/components/Sidebar";
 import { formatDate } from "@/lib/analytics/utils/helpers";
 
 // Skeletons
@@ -36,9 +35,13 @@ import {
   useBusiestTimeMetric,
 } from "@/lib/analytics/hooks/useSnapshotMetric";
 import { useState } from "react";
+import { useParams } from "next/navigation";
 
 export default function DashboardPage() {
   const [refreshKey, setRefreshKey] = useState(0);
+
+  const params = useParams();
+  const orgId = params.orgId as string;
 
   const handleRefresh = () => {
     setRefreshKey((prev) => prev + 1);
@@ -49,26 +52,30 @@ export default function DashboardPage() {
     data: deviceTypeData,
     createdAt,
     loading: typeLoading,
-  } = useDeviceTypeMetric(refreshKey);
+  } = useDeviceTypeMetric(orgId, refreshKey);
 
   const { data: deviceStatusData, loading: statusLoading } =
-    useDeviceStatusMetric(refreshKey);
+    useDeviceStatusMetric(orgId, refreshKey);
 
-  const { data: planTypeData, loading: planLoading } =
-    usePlanTypeMetric(refreshKey);
+  const { data: planTypeData, loading: planLoading } = usePlanTypeMetric(
+    orgId,
+    refreshKey
+  );
 
-  const { data: fleetHealthData, loading: fleetLoading } =
-    useFleetHealthMetric(refreshKey);
+  const { data: fleetHealthData, loading: fleetLoading } = useFleetHealthMetric(
+    orgId,
+    refreshKey
+  );
 
   // BANNER METRICS
-  const offlineDevices = useOfflineDevicesMetric();
-  const expiredDevices = useExpiredDevicesMetric();
+  const offlineDevices = useOfflineDevicesMetric(orgId);
+  const expiredDevices = useExpiredDevicesMetric(orgId);
 
   // STATS CARDS METRICS
-  const meetingsUnderway = useMeetingsUnderwayMetric();
-  const activeUsers = useActiveDevicesMetric();
-  const avgMeetingLength = useAvgMeetingLengthMetric();
-  const busiestTime = useBusiestTimeMetric();
+  const meetingsUnderway = useMeetingsUnderwayMetric(orgId);
+  const activeUsers = useActiveDevicesMetric(orgId);
+  const avgMeetingLength = useAvgMeetingLengthMetric(orgId);
+  const busiestTime = useBusiestTimeMetric(orgId);
 
   // RELEASE + FAQ DATA
   const release = {
@@ -117,7 +124,6 @@ export default function DashboardPage() {
 
   return (
     <div className="flex min-h-screen bg-white text-[#090814]">
-      <Sidebar />
       <div className="flex-1">
         <AlertBanner
           alert={{
