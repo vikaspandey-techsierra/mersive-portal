@@ -117,6 +117,8 @@ export default function MonitoringPage({ tableRef }: AnalyticsPageProps) {
         onSelectionChange={handleSelectionChange}
         isLoading={isLoading}
         csvFilename="monitoring-devices"
+        emptyStateTitle="No data for this date range"
+        emptyStateDescription="Device monitoring data will appear once devices have been added and are online"
       />
     </div>
   );

@@ -54,11 +54,8 @@ export default function DashboardPage() {
   };
 
   // DEVICE BREAKDOWN METRICS
-  const {
-    data: deviceTypeData,
-    createdAt,
-    loading: typeLoading,
-  } = useDeviceTypeMetric(refreshKey);
+  const { data: deviceTypeData, loading: typeLoading } =
+    useDeviceTypeMetric(refreshKey);
 
   const { data: deviceStatusData, loading: statusLoading } =
     useDeviceStatusMetric(refreshKey);

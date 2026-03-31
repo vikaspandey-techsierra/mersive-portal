@@ -6,14 +6,6 @@ import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 const COLORS = ["#5B84C4", "#8B5CF6", "#D97706"];
 
 export default function DeviceStatusPie({ data }: DeviceStatusPieProps) {
-  if (!data || data.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-55 text-2xl text-gray-400">
-        No data available
-      </div>
-    );
-  }
-
   return (
     <div className="flex items-center justify-between w-full max-md:flex-col">
       <div className="w-55 h-55">

@@ -6,7 +6,7 @@ import UsagePage from "@/components/analytics/usage/page";
 import Sidebar from "@/components/Sidebar";
 import { useState, useRef } from "react";
 import { Download } from "lucide-react";
-import { SelectableDataTableHandle } from "@/components/SelectedDevices";
+import { SelectableDataTableHandle } from "@/lib/types/charts";
 
 type Tab = "Usage" | "Monitoring" | "Email Alerts";
 

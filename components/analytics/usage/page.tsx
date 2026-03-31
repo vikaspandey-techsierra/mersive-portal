@@ -2,10 +2,7 @@
 
 import CollaborationUsage from "@/components/CollaborationChart";
 import DeviceUtilization from "@/components/DeviceUtilizationChart";
-import SelectableDataTable, {
-  ColumnDef,
-  DeviceTableRow,
-} from "@/components/SelectedDevices";
+import SelectableDataTable from "@/components/SelectedDevices";
 import UserConnections from "@/components/UserConnectionsChart";
 import { useState, useCallback } from "react";
 import React from "react";
@@ -13,7 +10,12 @@ import LineChartSkeleton from "@/components/skeleton/LineChartSkeleton";
 import AreaChartSkeleton from "@/components/skeleton/AreaChartSkeleton";
 import { registerMetric } from "@/lib/analytics/utils/metricsManager";
 import { useUsageMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
-import { AnalyticsPageProps, TimeRange } from "@/lib/types/charts";
+import {
+  AnalyticsPageProps,
+  ColumnDef,
+  DeviceTableRow,
+  TimeRange,
+} from "@/lib/types/charts";
 
 const USAGE_COLUMNS: ColumnDef<DeviceTableRow>[] = [
   { key: "name", label: "Name", sortable: true },
@@ -148,6 +150,8 @@ export default function UsagePage({ tableRef }: AnalyticsPageProps) {
         onSelectionChange={handleSelectionChange}
         isLoading={isLoading}
         csvFilename="usage-devices"
+        emptyStateTitle="No data for this date range"
+        emptyStateDescription="Room activity data appears when meetings take place on your devices."
       />
     </>
   );

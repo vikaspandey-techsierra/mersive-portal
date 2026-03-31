@@ -14,6 +14,8 @@ import { formatShortDate, getSevenTicks } from "@/lib/analytics/utils/helpers";
 import { useAlertsChart } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
 import { ChartTooltip } from "./charts/ChartsTooltip";
 import { AlertChartProps } from "@/lib/types/charts";
+import EmptyState from "./emptyStates/emptyStates";
+import notificationsNoneIcon from "../components/icons/notifications_none.svg";
 
 const SERIES_CONFIG: Record<string, { label: string; color: string }> = {
   ts_app_alerts_unreachable_num: { label: "Unreachable", color: "#5B5BD6" },
@@ -87,19 +89,23 @@ export default function AlertsChart({
 
   return (
     <div className="mb-8">
-      <div className="font-semibold text-[15px] text-black mb-0.5">Alerts</div>
+      <div className="font-semibold text-[20px] text-[#090814] mb-0.5">
+        Alerts
+      </div>
       <div className="text-[13px] text-gray-400 mb-4">
         Monitor the quantity and which types of alerts occurred in your fleet
       </div>
-      <div className="bg-white rounded-xl border border-gray-200 p-6 pb-4">
+      <div className="bg-white rounded-xl border border-gray-200 p-6 pb-4 ">
         {!formattedData.length || formattedData.length === 0 ? (
-          <div className="flex items-center justify-center h-90 text-2xl text-gray-400">
-            No data available
-          </div>
+          <EmptyState
+            title="No data for this date range"
+            description="Alert data appears when events like reboots, unreachable states, or firmware updates occur"
+            icon={notificationsNoneIcon}
+          />
         ) : (
           <>
             <div className="w-full h-80 min-w-0">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height={336}>
                 <AreaChart data={formattedData}>
                   <CartesianGrid stroke="#E5E7EB" vertical={false} />
                   <XAxis
@@ -150,7 +156,7 @@ export default function AlertsChart({
                 </AreaChart>
               </ResponsiveContainer>
             </div>
-            <div className="flex flex-wrap gap-4 mt-6">
+            <div className="flex flex-wrap gap-4 mt-8 mb-1">
               {availableSeries.map((key) => {
                 const config = SERIES_CONFIG[key];
                 const color = config?.color ?? "#94A3B8";

@@ -1,4 +1,5 @@
-import { ReactNode } from "react";
+import { StaticImageData } from "next/image";
+import React, { ReactNode } from "react";
 
 export interface TooltipEntry {
   dataKey: string;
@@ -179,6 +180,8 @@ export interface SelectableDataTableProps<T extends Record<string, unknown>> {
   timeRange?: string;
   isLoading?: boolean;
   csvFilename?: string;
+  emptyStateTitle?: string;
+  emptyStateDescription?: string;
 }
 
 export interface SelectableDataTableHandle {
@@ -223,3 +226,11 @@ export interface TimeseriesRow {
 }
 
 export type AlertDataPoint = { date: string } & Record<string, number | string>;
+
+
+export type EmptyStateProps = {
+  icon?: StaticImageData;
+  title?: string;
+  description?: string;
+  className?: string;
+};

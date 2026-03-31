@@ -17,6 +17,7 @@ import {
 import { deriveDeviceRows, escapeCSV } from "@/lib/analytics/utils/helpers";
 import { Checkbox } from "./Checkbox";
 import { SortIcon } from "./SortIcon";
+import EmptyState from "./emptyStates/emptyStates";
 
 const defaultRender = (value: unknown): React.ReactNode =>
   value === null || value === undefined ? "-" : String(value);
@@ -36,6 +37,8 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
     timeRange = "7d",
     isLoading: isLoadingProp,
     csvFilename = "export",
+    emptyStateTitle = "No results found",
+    emptyStateDescription = "No data for this date range",
   }: SelectableDataTableProps<T>,
   ref: React.Ref<SelectableDataTableHandle>,
 ) {
@@ -168,6 +171,8 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
     });
   };
 
+  console.log("sorted", sorted);
+
   return (
     <div className="mb-8 w-full min-w-0">
       <div className="font-bold text-lg text-black mb-1">
@@ -270,7 +275,10 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
                   colSpan={columns.length + 1}
                   className="px-6 py-8 text-center text-sm text-gray-400"
                 >
-                  No results found.
+                  <EmptyState
+                    title={emptyStateTitle}
+                    description={emptyStateDescription}
+                  />
                 </td>
               </tr>
             )}

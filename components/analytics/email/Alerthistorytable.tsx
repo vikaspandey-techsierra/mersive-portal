@@ -3,8 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import loader from "../../../components/icons/loading.svg";
-import { SortDir } from "@/components/SelectedDevices";
-import { DataTableProps } from "@/lib/types/charts";
+import { DataTableProps, SortDir } from "@/lib/types/charts";
 
 function SortArrows({ active, dir }: { active: boolean; dir: SortDir }) {
   return (

@@ -13,18 +13,10 @@ const COLORS = [
 ];
 
 export default function PlanTypePie({ data }: PlanTypePieProps) {
-  if (!data || data.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-55 text-gray-400">
-        No plan data available
-      </div>
-    );
-  }
-
   const total = data.reduce((sum, item) => sum + item.value, 0);
 
   return (
-    <div className="flex items-center justify-between text-[#090814] w-[90%] max-md:flex-col">
+    <div className="flex items-center justify-between w-full max-md:flex-col">
       {/* Chart */}
       <div className="w-64 h-64">
         <ResponsiveContainer width="100%" height="100%">

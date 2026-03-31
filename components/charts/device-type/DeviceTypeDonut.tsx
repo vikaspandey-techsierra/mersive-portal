@@ -6,14 +6,6 @@ import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 const COLORS = ["#5B84C4", "#D97706", "#8B5CF6"];
 
 export default function DeviceTypeDonut({ data }: DeviceTypeDonutProps) {
-  if (!data || data.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-55 text-gray-400">
-        No device data available
-      </div>
-    );
-  }
-
   const total = data.reduce((acc, item) => acc + item.value, 0);
 
   return (

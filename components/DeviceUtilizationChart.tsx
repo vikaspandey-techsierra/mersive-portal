@@ -26,6 +26,8 @@ import {
   DropdownOption,
 } from "@/lib/types/charts";
 import { MetricDropdown } from "./charts/MetricDropdown";
+import EmptyState from "./emptyStates/emptyStates";
+import trendingUpIcon from "../components/icons/trending_up_black.svg";
 
 function computeAvgLength(
   meetings: ChartPoint[],
@@ -70,7 +72,6 @@ export default function DeviceUtilization({
     selectedDevices,
   );
 
-  // Always fetch meetings + duration so avgLength can be derived for either axis
   const { dataA: filteredMeetings, dataB: filteredDuration } =
     useDeviceUtilizationMetrics(
       "ts_meetings_num",
@@ -137,135 +138,154 @@ export default function DeviceUtilization({
     Object.entries(METRIC_LABELS) as [DeviceMetric, string][]
   ).map(([value, label]) => ({ value, label }));
 
+  const isAllZeroData = useMemo(() => {
+    return deviceData.every((d) => {
+      const valA = d[metricA] ?? 0;
+      const valB = metricB ? (d[metricB] ?? 0) : 0;
+      return valA === 0 && valB === 0;
+    });
+  }, [deviceData, metricA, metricB]);
+
   return (
     <div className="mb-8">
-      <div className="font-semibold text-[15px] text-black mb-0.5">
+      <div className="font-semibold text-[20px] text-[#090814] mb-0.5">
         Device Utilization
       </div>
-      <div className="text-[13px] text-gray-400 mb-3">
+      <div className="text-[13px] text-[#8F8F91] mt-2 mb-6">
         Compare up to two types of usage data for devices in your organization
       </div>
-      <div className="bg-white rounded-xl py-5 pb-4 border border-gray-200">
-        <ResponsiveContainer width="100%" height={280}>
-          <LineChart
-            data={deviceData}
-            margin={{
-              top: 8,
-              right: hasTwoMetrics ? 38 : 30,
-              left: 24,
-              bottom: 0,
-            }}
-          >
-            <CartesianGrid
-              stroke="#f0f0f0"
-              vertical={false}
-              horizontal={false}
-            />
-            <XAxis
-              dataKey="label"
-              tick={{ fontSize: 11, fill: "#000" }}
-              axisLine={{ stroke: "#f0f0f0" }}
-              tickLine={false}
-              ticks={xTicks}
-            />
-            <YAxis
-              yAxisId="left"
-              orientation="left"
-              tick={{ fontSize: 11, fill: "#9CA3AF" }}
-              axisLine={false}
-              tickLine={false}
-              width={30}
-              domain={[0, maxA]}
-              ticks={ticksA}
-              allowDecimals
-              tickFormatter={(v: number) =>
-                metricA === "hours"
-                  ? `${v % 1 === 0 ? v : v.toFixed(1)}hr`
-                  : v % 1 === 0
-                    ? `${v}`
-                    : `${parseFloat(v.toFixed(2))}`
-              }
-              label={
-                <LeftAxisLabel label={METRIC_LABELS[metricA]} color="#6860C8" />
-              }
-            />
-            {hasTwoMetrics && (
+      <div className="bg-white rounded-xl py-5 pb-4 border border-gray-200 ">
+        {isAllZeroData || deviceData.length === 0 ? (
+          <EmptyState
+            title="No data for this date range"
+            description="Device utilization data appears when meetings occur on your devices"
+            icon={trendingUpIcon}
+          />
+        ) : (
+          <ResponsiveContainer width="100%" height={336}>
+            <LineChart
+              data={deviceData}
+              margin={{
+                top: 8,
+                right: hasTwoMetrics ? 38 : 30,
+                left: 24,
+                bottom: 0,
+              }}
+            >
+              <CartesianGrid
+                stroke="#f0f0f0"
+                vertical={false}
+                horizontal={false}
+              />
+              <XAxis
+                dataKey="label"
+                tick={{ fontSize: 11, fill: "#000" }}
+                axisLine={{ stroke: "#f0f0f0" }}
+                tickLine={false}
+                ticks={xTicks}
+              />
               <YAxis
-                yAxisId="right"
-                orientation="right"
+                yAxisId="left"
+                orientation="left"
                 tick={{ fontSize: 11, fill: "#9CA3AF" }}
                 axisLine={false}
                 tickLine={false}
                 width={30}
-                domain={[0, maxB]}
-                ticks={ticksB}
+                domain={[0, maxA]}
+                ticks={ticksA}
                 allowDecimals
                 tickFormatter={(v: number) =>
-                  metricB === "hours"
+                  metricA === "hours"
                     ? `${v % 1 === 0 ? v : v.toFixed(1)}hr`
                     : v % 1 === 0
                       ? `${v}`
                       : `${parseFloat(v.toFixed(2))}`
                 }
                 label={
-                  <RightAxisLabel
-                    label={METRIC_LABELS[metricB!]}
-                    color="#D44E80"
+                  <LeftAxisLabel
+                    label={METRIC_LABELS[metricA]}
+                    color="#6860C8"
                   />
                 }
               />
-            )}
-            {ticksA.map((v) => (
-              <ReferenceLine
-                key={v}
-                yAxisId="left"
-                y={v}
-                stroke="#f0f0f0"
-                strokeWidth={1}
-              />
-            ))}
-            <Tooltip
-              content={
-                <ChartTooltip
-                  labelMap={{
-                    meetings: "Number of meetings",
-                    hours: "Hours in use",
-                    connections: "Number of connections",
-                    posts: "Number of posts",
-                    avgLength: "Avg. length of meetings",
-                  }}
-                  formatValue={(v, key) =>
-                    key === "hours"
+              {hasTwoMetrics && (
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
+                  tick={{ fontSize: 11, fill: "#9CA3AF" }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={30}
+                  domain={[0, maxB]}
+                  ticks={ticksB}
+                  allowDecimals
+                  tickFormatter={(v: number) =>
+                    metricB === "hours"
                       ? `${v % 1 === 0 ? v : v.toFixed(1)}hr`
                       : v % 1 === 0
-                        ? String(v)
-                        : String(parseFloat(v.toFixed(2)))
+                        ? `${v}`
+                        : `${parseFloat(v.toFixed(2))}`
+                  }
+                  label={
+                    <RightAxisLabel
+                      label={METRIC_LABELS[metricB!]}
+                      color="#D44E80"
+                    />
                   }
                 />
-              }
-            />
-            <Line
-              yAxisId="left"
-              type="linear"
-              dataKey={metricA}
-              stroke={PURPLE}
-              strokeWidth={2}
-              dot={{ r: 4, fill: PURPLE, strokeWidth: 0 }}
-              activeDot={{ r: 5 }}
-            />
-            {hasTwoMetrics && (
+              )}
+              {ticksA.map((v) => (
+                <ReferenceLine
+                  key={v}
+                  yAxisId="left"
+                  y={v}
+                  stroke="#f0f0f0"
+                  strokeWidth={1}
+                />
+              ))}
+              <Tooltip
+                content={
+                  <ChartTooltip
+                    labelMap={{
+                      meetings: "Number of meetings",
+                      hours: "Hours in use",
+                      connections: "Number of connections",
+                      posts: "Number of posts",
+                      avgLength: "Avg. length of meetings",
+                    }}
+                    formatValue={(v, key) =>
+                      key === "hours"
+                        ? `${v % 1 === 0 ? v : v.toFixed(1)}hr`
+                        : v % 1 === 0
+                          ? String(v)
+                          : String(parseFloat(v.toFixed(2)))
+                    }
+                  />
+                }
+              />
               <Line
-                yAxisId="right"
+                yAxisId="left"
                 type="linear"
-                dataKey={metricB!}
-                stroke={PINK}
+                dataKey={metricA}
+                stroke={PURPLE}
                 strokeWidth={2}
-                dot={{ r: 4, fill: PINK, strokeWidth: 0 }}
+                dot={{ r: 4, fill: PURPLE, strokeWidth: 0 }}
                 activeDot={{ r: 5 }}
               />
-            )}
-          </LineChart>
-        </ResponsiveContainer>
+              {hasTwoMetrics && (
+                <Line
+                  yAxisId="right"
+                  type="linear"
+                  dataKey={metricB!}
+                  stroke={PINK}
+                  strokeWidth={2}
+                  dot={{ r: 4, fill: PINK, strokeWidth: 0 }}
+                  activeDot={{ r: 5 }}
+                />
+              )}
+            </LineChart>
+          </ResponsiveContainer>
+        )}
         <div className="flex gap-2.5 mt-3.5 flex-wrap items-center px-6.5">
           <MetricDropdown
             value={metricA}
