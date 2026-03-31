@@ -1,10 +1,10 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import Card from "@/components/Card";
-import DeviceStatusPie from "@/components/DeviceStatusPie";
-import PlanTypePie from "@/components/PlanTypePie";
-import FleetHealthGauge from "@/components/FleetHealthGauge";
-import DeviceTypeDonut from "@/components/DeviceTypeDonut";
+import DeviceStatusPie from "@/components/charts/device-status/DeviceStatusPie";
+import PlanTypePie from "@/components/charts/plan-type/PlanTypePie";
+import FleetHealthGauge from "@/components/charts/fleet-health/FleetHealthGauge";
+import DeviceTypeDonut from "@/components/charts/device-type/DeviceTypeDonut";
 
 // Mock Next.js Image
 jest.mock("next/image", () => ({

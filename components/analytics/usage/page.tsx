@@ -2,11 +2,7 @@
 
 import CollaborationUsage from "@/components/CollaborationChart";
 import DeviceUtilization from "@/components/DeviceUtilizationChart";
-import SelectableDataTable, {
-  ColumnDef,
-  SelectableDataTableHandle,
-  DeviceTableRow,
-} from "@/components/SelectedDevices";
+import SelectableDataTable from "@/components/SelectedDevices";
 import UserConnections from "@/components/UserConnectionsChart";
 import { useState, useCallback } from "react";
 import React from "react";
@@ -14,10 +10,12 @@ import LineChartSkeleton from "@/components/skeleton/LineChartSkeleton";
 import AreaChartSkeleton from "@/components/skeleton/AreaChartSkeleton";
 import { registerMetric } from "@/lib/analytics/utils/metricsManager";
 import { useUsageMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
-
-/* ─────────────────────────────────────────────
-   COLUMNS
-───────────────────────────────────────────── */
+import {
+  AnalyticsPageProps,
+  ColumnDef,
+  DeviceTableRow,
+  TimeRange,
+} from "@/lib/types/charts";
 
 const USAGE_COLUMNS: ColumnDef<DeviceTableRow>[] = [
   { key: "name", label: "Name", sortable: true },
@@ -33,12 +31,6 @@ const USAGE_COLUMNS: ColumnDef<DeviceTableRow>[] = [
     csvValue: (_v, row) => row.avgDuration ?? "",
   },
 ];
-
-/* ─────────────────────────────────────────────
-   TIME RANGE
-───────────────────────────────────────────── */
-
-type TimeRange = "7d" | "30d" | "60d" | "90d" | "all";
 
 const TIME_RANGES: { key: TimeRange; label: string }[] = [
   { key: "7d", label: "Last 7 days" },
@@ -56,21 +48,12 @@ const METRIC_API_MAP: Record<string, string> = {
   avgLength: "ts_meetings_duration_avg",
 };
 
-/* ─────────────────────────────────────────────
-   PAGE
-───────────────────────────────────────────── */
-
-interface UsagePageProps {
-  tableRef?: React.Ref<SelectableDataTableHandle>;
-}
-
-export default function UsagePage({ tableRef }: UsagePageProps) {
+export default function UsagePage({
+  tableRef,
+  orgId,
+}: AnalyticsPageProps & { orgId: string }) {
   const [timeRange, setTimeRange] = useState<TimeRange>("7d");
   const [isLoading, setIsLoading] = React.useState(true);
-  /**
-   * Empty Set = user unchecked all rows.
-   * The filtered hooks treat an empty Set as "all devices" so charts never blank out.
-   */
   const [selectedDevices, setSelectedDevices] = useState<Set<string>>(
     new Set(),
   );
@@ -82,7 +65,7 @@ export default function UsagePage({ tableRef }: UsagePageProps) {
     return () => clearTimeout(timer);
   }, []);
 
-  const { ready } = useUsageMetrics(timeRange, {
+  const { ready } = useUsageMetrics(orgId, timeRange, {
     deviceMetricA: METRIC_API_MAP["meetings"],
     deviceMetricB: METRIC_API_MAP["connections"],
     userConnectionsMetric: "ts_connections_num_by_os",
@@ -94,7 +77,6 @@ export default function UsagePage({ tableRef }: UsagePageProps) {
 
   return (
     <>
-      {/* Time range */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
         <span className="text-xl font-bold text-black">Usage</span>
         <div className="flex flex-wrap gap-2">
@@ -121,6 +103,7 @@ export default function UsagePage({ tableRef }: UsagePageProps) {
         />
       ) : (
         <DeviceUtilization
+          orgId={orgId}
           timeRange={timeRange}
           selectedDevices={selectedDevices}
         />
@@ -135,6 +118,7 @@ export default function UsagePage({ tableRef }: UsagePageProps) {
         />
       ) : (
         <UserConnections
+          orgId={orgId}
           timeRange={timeRange}
           selectedDevices={selectedDevices}
           title="User Connections"
@@ -151,6 +135,7 @@ export default function UsagePage({ tableRef }: UsagePageProps) {
         />
       ) : (
         <CollaborationUsage
+          orgId={orgId}
           timeRange={timeRange}
           selectedDevices={selectedDevices}
         />
@@ -158,13 +143,8 @@ export default function UsagePage({ tableRef }: UsagePageProps) {
 
       <hr className="pb-5" />
 
-      {/*
-        No `rows` prop → derives device names from timeseriesMock.
-        `timeRange` drives both row derivation and column aggregation.
-        `onSelectionChange` lifts selection state up to this page.
-        Empty selection → hooks treat as "all selected" (no blank charts).
-      */}
       <SelectableDataTable
+        orgId={orgId}
         ref={tableRef}
         heading="Selected Devices"
         subheading="Select all or narrow the data down to a specific group of devices"
@@ -177,6 +157,8 @@ export default function UsagePage({ tableRef }: UsagePageProps) {
         onSelectionChange={handleSelectionChange}
         isLoading={isLoading}
         csvFilename="usage-devices"
+        emptyStateTitle="No data for this date range"
+        emptyStateDescription="Room activity data appears when meetings take place on your devices."
       />
     </>
   );

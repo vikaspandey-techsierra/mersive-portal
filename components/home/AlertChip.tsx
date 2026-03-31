@@ -1,3 +1,4 @@
+import { AlertChipProps } from "@/lib/types/charts";
 import Image from "next/image";
 
 const AlertChip = ({
@@ -5,13 +6,7 @@ const AlertChip = ({
   label,
   value,
   className = "text-gray",
-}: {
-  icon: string;
-  label: string;
-  value: number;
-  iconColor?: string;
-  className?: string;
-}) => {
+}: AlertChipProps) => {
   return (
     <div
       className={`flex items-center gap-0 bg-white border border-gray-200 rounded-lg px-4 py-2.5 ${className} h-11`}

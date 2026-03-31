@@ -1,14 +1,10 @@
-interface Props {
-  latestVersion: string;
-  releaseDate: string;
-  releaseNotes: string[];
-}
+import { UpdatesSectionProps } from "@/lib/types/charts";
 
 export default function UpdatesSection({
   latestVersion,
   releaseDate,
   releaseNotes,
-}: Props) {
+}: UpdatesSectionProps) {
   return (
     <div className="bg-white border rounded-xl p-5">
       <h3 className="font-semibold mb-3">Latest Updates</h3>

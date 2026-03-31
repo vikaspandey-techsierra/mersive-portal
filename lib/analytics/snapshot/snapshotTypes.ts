@@ -4,7 +4,7 @@ export interface SnapshotRow {
   segment_1_name?: string;
   segment_1_value?: string;
   metric_value: string;
-  devices_list?: string[] | null;
+  devices_list?: string | null;
   created_at?: string;
 }
 
@@ -20,12 +20,6 @@ export interface DeviceStatusData extends ChartData {
 export interface PlanTypeData extends ChartData {
   percent: number;
 }
-
-// export interface FleetHealthData {
-//   score: number;
-//   onlineDevices: number;
-//   devicesWithIssues: number;
-// }
 
 export interface FleetHealthRow {
   org_id: string;

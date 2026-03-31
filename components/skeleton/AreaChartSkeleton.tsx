@@ -10,7 +10,7 @@ export default function AreaChartSkeleton({ title, description }: Props) {
     <div className="w-full mb-10">
       <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
       {description && (
-        <p className="text-sm text-gray-500 mt-1">{description}</p>
+        <p className="text-[13px] text-[#8F8F91] mt-2 mb-6">{description}</p>
       )}
       {/* Chart container */}
       <div className="animate-pulse border border-[#ECECF4] rounded-xl p-6 mt-4 bg-white">

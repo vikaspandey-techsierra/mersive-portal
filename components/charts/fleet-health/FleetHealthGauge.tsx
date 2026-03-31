@@ -2,18 +2,13 @@
 
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { ExternalLinkIcon } from "lucide-react";
-
-interface Props {
-  score: number;
-  totalDevices: number;
-  devicesWithIssues: number;
-}
+import { FleetHealthGaugeProps } from "@/lib/types/homepage";
 
 export default function FleetHealthGauge({
   score,
   totalDevices,
   devicesWithIssues,
-}: Props) {
+}: FleetHealthGaugeProps) {
   const data = [
     { name: "Health", value: score },
     { name: "Rest", value: 10 - score },

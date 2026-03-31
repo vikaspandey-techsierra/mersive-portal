@@ -9,211 +9,24 @@ import {
   useImperativeHandle,
 } from "react";
 import loading from "../components/icons/loading.svg";
-import { timeseriesMock } from "@/lib/analytics/mock/timeseriesMock";
+import {
+  SelectableDataTableHandle,
+  SelectableDataTableProps,
+  SortDir,
+} from "@/lib/types/charts";
+import { deriveDeviceRows, escapeCSV } from "@/lib/analytics/utils/helpers";
+import { Checkbox } from "./Checkbox";
+import { SortIcon } from "./SortIcon";
+import EmptyState from "./emptyStates/emptyStates";
 
-/* ─────────────────────────────────────────────
-   TYPES
-───────────────────────────────────────────── */
-
-export type SortDir = "asc" | "desc";
-
-export interface ColumnDef<T extends Record<string, unknown>> {
-  key: keyof T & string;
-  label: string;
-  sortable?: boolean;
-  csvValue?: (value: T[keyof T], row: T) => string | number;
-  render?: (value: T[keyof T], row: T) => React.ReactNode;
-  cellClassName?: string;
+interface PropsWithOrg<
+  T extends Record<string, unknown>,
+> extends SelectableDataTableProps<T> {
+  orgId: string;
 }
-
-export interface SelectableDataTableProps<T extends Record<string, unknown>> {
-  heading: string;
-  subheading: string;
-  searchPlaceholder?: string;
-  rows?: T[];
-  rowKey: keyof T & string;
-  columns: ColumnDef<T>[];
-  defaultSortKey?: keyof T & string;
-  defaultSortDir?: SortDir;
-  defaultAllSelected?: boolean;
-  onSelectionChange?: (selectedIds: Set<string>) => void;
-  timeRange?: string;
-  isLoading?: boolean;
-  csvFilename?: string;
-}
-
-export interface SelectableDataTableHandle {
-  exportCSV: () => void;
-}
-
-export interface DeviceTableRow extends Record<string, unknown> {
-  id: string;
-  name: string;
-  meetings: number | null;
-  totalConnections: number | null;
-  hoursInUse: number | null;
-  contentItems: number | null;
-  avgDuration: string | null;
-  avgDurationMinutes: number | null;
-}
-
-function getDateCutoff(timeRange: string): Date | null {
-  const days: Record<string, number> = {
-    "7d": 7,
-    "30d": 30,
-    "60d": 60,
-    "90d": 90,
-  };
-  if (!days[timeRange]) return null;
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - days[timeRange]);
-  return cutoff;
-}
-
-function deriveDeviceRows(timeRange: string): DeviceTableRow[] {
-  const cutoff = getDateCutoff(timeRange);
-
-  const map = new Map<
-    string,
-    { meetings: number; connections: number; hours: number; posts: number }
-  >();
-
-  timeseriesMock.forEach((row) => {
-    if (!row.device_name) return;
-    if (cutoff && new Date(row.date) < cutoff) return;
-    if (row.segment_1_name) return;
-
-    if (!map.has(row.device_name)) {
-      map.set(row.device_name, {
-        meetings: 0,
-        connections: 0,
-        hours: 0,
-        posts: 0,
-      });
-    }
-
-    const acc = map.get(row.device_name)!;
-    const val = parseFloat(row.metric_value) || 0;
-
-    switch (row.metric_name) {
-      case "ts_meetings_num":
-        acc.meetings += val;
-        break;
-      case "ts_connections_num":
-        acc.connections += val;
-        break;
-      case "ts_meetings_duration_tot":
-        acc.hours += val;
-        break;
-      case "ts_posts_num":
-        acc.posts += val;
-        break;
-    }
-  });
-
-  return Array.from(map.entries()).map(([name, acc]) => {
-    const avgMins =
-      acc.meetings > 0 ? Math.round((acc.hours * 60) / acc.meetings) : null;
-
-    let avgDuration: string | null = null;
-    if (avgMins !== null) {
-      const hrs = Math.floor(avgMins / 60);
-      const mins = avgMins % 60;
-      if (hrs > 0 && mins > 0)
-        avgDuration = `${hrs} hr${hrs > 1 ? "s" : ""} ${mins} min`;
-      else if (hrs > 0) avgDuration = `${hrs} hr${hrs > 1 ? "s" : ""}`;
-      else avgDuration = `${mins} min`;
-    }
-
-    return {
-      id: name,
-      name,
-      meetings: acc.meetings || null,
-      totalConnections: acc.connections || null,
-      hoursInUse: acc.hours ? parseFloat(acc.hours.toFixed(2)) : null,
-      contentItems: acc.posts || null,
-      avgDuration,
-      avgDurationMinutes: avgMins,
-    };
-  });
-}
-
-/* ─────────────────────────────────────────────
-   HELPERS
-───────────────────────────────────────────── */
 
 const defaultRender = (value: unknown): React.ReactNode =>
   value === null || value === undefined ? "-" : String(value);
-
-function escapeCSV(value: unknown): string {
-  if (value === null || value === undefined) return "";
-  const str = String(value);
-  if (str.includes(",") || str.includes('"') || str.includes("\n")) {
-    return `"${str.replace(/"/g, '""')}"`;
-  }
-  return str;
-}
-
-/* ─────────────────────────────────────────────
-   SORT ICON
-───────────────────────────────────────────── */
-
-const SortIcon = ({ active, dir }: { active: boolean; dir: SortDir }) => (
-  <span className="ml-1 inline-flex flex-col items-center justify-center gap-0.5">
-    <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
-      <path
-        d="M2 4L5 1L8 4"
-        stroke={active && dir === "asc" ? "#6860C8" : "#9CA3AF"}
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-    <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
-      <path
-        d="M2 2L5 5L8 2"
-        stroke={active && dir === "desc" ? "#6860C8" : "#9CA3AF"}
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  </span>
-);
-
-const Checkbox = ({
-  checked,
-  onChange,
-}: {
-  checked: boolean;
-  onChange: () => void;
-}) => (
-  <span
-    onClick={(e) => {
-      e.stopPropagation();
-      onChange();
-    }}
-    className={`w-5 h-5 rounded-md border-2 flex items-center justify-center cursor-pointer shrink-0 transition-colors ${
-      checked ? "bg-[#6860C8] border-[#6860C8]" : "bg-white border-gray-300"
-    }`}
-  >
-    {checked && (
-      <svg width="11" height="9" viewBox="0 0 11 9">
-        <path
-          d="M1 4.5L4 7.5L10 1"
-          stroke="#fff"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    )}
-  </span>
-);
-
-/* ─────────────────────────────────────────────
-   INNER COMPONENT
-───────────────────────────────────────────── */
 
 function SelectableDataTableInner<T extends Record<string, unknown>>(
   {
@@ -230,7 +43,10 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
     timeRange = "7d",
     isLoading: isLoadingProp,
     csvFilename = "export",
-  }: SelectableDataTableProps<T>,
+    emptyStateTitle = "No results found",
+    emptyStateDescription = "No data for this date range",
+    orgId,
+  }: PropsWithOrg<T>,
   ref: React.Ref<SelectableDataTableHandle>,
 ) {
   const [search, setSearch] = useState("");
@@ -239,23 +55,18 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
   );
   const [sortDir, setSortDir] = useState<SortDir>(defaultSortDir);
 
-  // ── Rows: static prop takes priority, else derive from mock ──
   const dynamicRows = useMemo(() => {
     if (rowsProp !== undefined) return null;
-    return deriveDeviceRows(timeRange) as unknown as T[];
-  }, [rowsProp, timeRange]);
+    return deriveDeviceRows(timeRange, orgId) as unknown as T[];
+  }, [rowsProp, timeRange, orgId]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const rows: T[] = rowsProp ?? dynamicRows ?? [];
 
-  // ── Selection state ──
-  // Stores exactly what the user has explicitly chosen.
-  // Empty Set = user unchecked everything. Parent interprets this as
-  // "show all devices" to prevent blank charts.
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set(defaultAllSelected ? rows.map((r) => String(r[rowKey])) : []),
   );
 
-  // Internal loading fallback
   const [internalLoading, setInternalLoading] = useState(
     isLoadingProp === undefined,
   );
@@ -267,7 +78,6 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
 
   const isLoading = isLoadingProp ?? internalLoading;
 
-  // ── Re-select all when rows change (time range switch, fresh data) ──
   useEffect(() => {
     if (defaultAllSelected) {
       setSelected(new Set(rows.map((r) => String(r[rowKey]))));
@@ -275,12 +85,10 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows]);
 
-  // ── Notify parent on every selection change ──
   useEffect(() => {
     onSelectionChange?.(new Set(selected));
   }, [selected, onSelectionChange]);
 
-  /* ── Filter ── */
   const filtered = useMemo(
     () =>
       rows.filter((r) => {
@@ -293,7 +101,6 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
     [rows, columns, search],
   );
 
-  /* ── Sort ── */
   const sorted = useMemo(
     () =>
       [...filtered].sort((a, b) => {
@@ -313,7 +120,6 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
     [filtered, sortKey, sortDir],
   );
 
-  /* ── CSV Export ── */
   const exportCSV = () => {
     const selectedRows = sorted.filter((r) => selected.has(String(r[rowKey])));
     const header = columns.map((c) => escapeCSV(c.label)).join(",");
@@ -340,9 +146,9 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
     URL.revokeObjectURL(url);
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useImperativeHandle(ref, () => ({ exportCSV }), [sorted, selected, columns]);
 
-  /* ── Sort handler ── */
   const handleSort = (key: string) => {
     if (sortKey === key) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -352,11 +158,9 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
     }
   };
 
-  /* ── Header checkbox  ── */
   const allVisibleSelected =
     sorted.length > 0 && sorted.every((r) => selected.has(String(r[rowKey])));
 
-  /* ── Header toggle ── */
   const toggleAll = () => {
     if (allVisibleSelected) {
       setSelected(new Set());
@@ -368,21 +172,19 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
   const toggleOne = (id: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
+      // eslint-disable-next-line @typescript-eslint/no-unused-expressions
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
   };
 
-  /* ── Render ── */
   return (
     <div className="mb-8 w-full min-w-0">
-      {/* Header */}
       <div className="font-bold text-lg text-black mb-1">
         {heading} ({selected.size})
       </div>
       <div className="text-sm text-gray-400 mb-4">{subheading}</div>
 
-      {/* Search */}
       <div className="mb-6">
         <div className="inline-flex items-center border border-gray-200 rounded-lg px-3 py-2 bg-white w-full sm:w-60">
           <input
@@ -395,7 +197,6 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
         </div>
       </div>
 
-      {/* Table */}
       <div className="relative w-full overflow-x-auto overflow-y-auto max-h-80 border border-gray-200 rounded-lg">
         {isLoading && (
           <div className="absolute inset-0 z-20 mt-15 flex items-center justify-center bg-white rounded-lg">
@@ -412,7 +213,6 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
         <table className="min-w-max w-full">
           <thead className="sticky top-0 z-10 bg-white">
             <tr className="border-b border-gray-200">
-              {/* Header checkbox: checked only when ALL rows are checked */}
               <th className="px-6 py-3 w-12">
                 <Checkbox checked={allVisibleSelected} onChange={toggleAll} />
               </th>
@@ -480,7 +280,10 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
                   colSpan={columns.length + 1}
                   className="px-6 py-8 text-center text-sm text-gray-400"
                 >
-                  No results found.
+                  <EmptyState
+                    title={emptyStateTitle}
+                    description={emptyStateDescription}
+                  />
                 </td>
               </tr>
             )}
@@ -491,14 +294,10 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
   );
 }
 
-/* ─────────────────────────────────────────────
-   EXPORT
-───────────────────────────────────────────── */
-
 const SelectableDataTable = forwardRef(SelectableDataTableInner) as <
   T extends Record<string, unknown>,
 >(
-  props: SelectableDataTableProps<T> & {
+  props: PropsWithOrg<T> & {
     ref?: React.Ref<SelectableDataTableHandle>;
   },
 ) => ReturnType<typeof SelectableDataTableInner>;

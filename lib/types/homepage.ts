@@ -47,3 +47,44 @@ export interface AlertHistoryRow {
   description: string;
   recipients: string;
 }
+export interface DeviceStatusItem {
+  name: string;
+  value: number;
+  percent: number;
+}
+
+export interface DeviceStatusPieProps {
+  data: DeviceStatusItem[];
+}
+
+export interface DeviceTypeItem {
+  name: string;
+  value: number;
+}
+
+export interface DeviceTypeDonutProps {
+  data: DeviceTypeItem[];
+}
+export interface FleetHealthGaugeProps {
+  score: number;
+  totalDevices: number;
+  devicesWithIssues: number;
+}
+export interface PlanTypeItem {
+  name: string;
+  value: number;
+  percent?: number;
+}
+
+export interface PlanTypePieProps {
+  data: PlanTypeItem[];
+}
+export interface UpdatesSectionProps {
+  updates: {
+    latest: Array<{
+      version: string;
+      releaseNotes: string[];
+    }>;
+    allReleaseNotesLink: string;
+  };
+}
