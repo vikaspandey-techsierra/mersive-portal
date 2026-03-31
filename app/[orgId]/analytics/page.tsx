@@ -70,10 +70,6 @@ export default function AnalyticsLayout() {
       <Sidebar />
 
       <div className="flex-1 min-w-0 bg-white p-8">
-        <div className="text-sm text-gray-500 mb-2">
-          Current Org: <strong>{orgId}</strong>
-        </div>
-
         {/* Header */}
         <div className="flex items-center gap-2 mb-3">
           <div className="w-7 h-7 rounded-md bg-[#6860C8] flex items-center justify-center">
