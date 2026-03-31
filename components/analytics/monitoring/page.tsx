@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import React from "react";
 import DowntimeChart from "@/components/DowntimeChart";
 import AlertsChart from "@/components/AlertChart";
@@ -14,6 +14,7 @@ import {
   DeviceTableRow,
   TimeRange,
 } from "@/lib/types/charts";
+import { clearMetricsByOrg } from "@/lib/analytics/utils/metricsStore";
 
 const MONITORING_COLUMNS: ColumnDef<DeviceTableRow>[] = [
   { key: "name", label: "Name", sortable: true },
@@ -28,20 +29,28 @@ const TIME_RANGES: { key: TimeRange; label: string }[] = [
   { key: "all", label: "All time" },
 ];
 
-export default function MonitoringPage({ tableRef }: AnalyticsPageProps) {
+export default function MonitoringPage({
+  tableRef,
+  orgId,
+}: AnalyticsPageProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>("7d");
   const [isLoading, setIsLoading] = React.useState(true);
   const [selectedDevices, setSelectedDevices] = useState<Set<string>>(
-    new Set(),
+    new Set()
   );
 
-  // useMonitoringMetrics still handles pre-fetching (ready flag for skeleton)
-  const { ready } = useMonitoringMetrics(timeRange);
+  useEffect(() => {
+    clearMetricsByOrg(orgId);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsLoading(true);
+  }, [orgId]);
+
+  const { ready } = useMonitoringMetrics(orgId, timeRange);
 
   React.useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 800);
     return () => clearTimeout(timer);
-  }, []);
+  }, [timeRange, orgId]);
 
   const handleSelectionChange = useCallback((ids: Set<string>) => {
     setSelectedDevices(new Set(ids));
@@ -76,6 +85,7 @@ export default function MonitoringPage({ tableRef }: AnalyticsPageProps) {
           />
         ) : (
           <DowntimeChart
+            orgId={orgId}
             timeRange={timeRange}
             selectedDevices={selectedDevices}
           />
@@ -91,11 +101,8 @@ export default function MonitoringPage({ tableRef }: AnalyticsPageProps) {
             description="Monitor the quantity and which types of alerts occurred in your fleet"
           />
         ) : (
-          /*
-           * AlertsChart now receives selectedDevices directly.
-           * useAlertsChart inside it handles filtering — no `ready` prop needed.
-           */
           <AlertsChart
+            orgId={orgId}
             timeRange={timeRange}
             selectedDevices={selectedDevices}
           />
@@ -105,6 +112,7 @@ export default function MonitoringPage({ tableRef }: AnalyticsPageProps) {
       <hr className="my-10 border-t border-gray-200" />
 
       <SelectableDataTable
+        orgId={orgId}
         ref={tableRef}
         heading="Selected Devices"
         subheading="Select all or narrow the data down to a specific group of devices"
@@ -117,6 +125,8 @@ export default function MonitoringPage({ tableRef }: AnalyticsPageProps) {
         onSelectionChange={handleSelectionChange}
         isLoading={isLoading}
         csvFilename="monitoring-devices"
+        emptyStateTitle="No data for this date range"
+        emptyStateDescription="Device monitoring data will appear once devices have been added and are online"
       />
     </div>
   );

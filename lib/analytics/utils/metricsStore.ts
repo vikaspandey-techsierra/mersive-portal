@@ -2,17 +2,33 @@ import { ChartPoint, MetricsStore } from "../timeseries/timeseriesTypes";
 
 const metricsStore: MetricsStore = {};
 
-
-export function setMetric(key: string, data: ChartPoint[]): void {
+export function setMetric(
+  orgId: string,
+  metric: string,
+  timeRange: string,
+  data: ChartPoint[]
+): void {
+  const key = `${orgId}__${metric}__${timeRange}`;
+  console.log("SET METRIC →", key, "points:", data.length);
   metricsStore[key] = data;
 }
 
-export function getMetric(key: string): ChartPoint[] | null {
+export function getMetric(
+  orgId: string,
+  metric: string,
+  timeRange: string
+): ChartPoint[] | null {
+  const key = `${orgId}__${metric}__${timeRange}`;
   const data = metricsStore[key];
+  console.log("GET METRIC →", key, data ? "CACHE HIT" : "CACHE MISS");
   return data ?? null;
 }
-
-export function hasMetric(key: string): boolean {
+export function hasMetric(
+  orgId: string,
+  metric: string,
+  timeRange: string
+): boolean {
+  const key = `${orgId}__${metric}__${timeRange}`;
   return key in metricsStore;
 }
 
@@ -20,9 +36,17 @@ export function getAllMetrics(): MetricsStore {
   return metricsStore;
 }
 
-export function clearMetricsByRange(timeRange: string): void {
+export function clearMetricsByRange(orgId: string, timeRange: string): void {
   Object.keys(metricsStore).forEach((key) => {
-    if (key.endsWith(`__${timeRange}`)) {
+    if (key.startsWith(`${orgId}__`) && key.endsWith(`__${timeRange}`)) {
+      delete metricsStore[key];
+    }
+  });
+}
+
+export function clearMetricsByOrg(orgId: string): void {
+  Object.keys(metricsStore).forEach((key) => {
+    if (key.startsWith(`${orgId}__`)) {
       delete metricsStore[key];
     }
   });

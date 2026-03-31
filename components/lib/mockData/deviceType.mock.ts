@@ -1,4 +1,4 @@
-import { DeviceTypeApiResponse } from "@/components/DeviceTypeDonut";
+import { DeviceTypeApiResponse } from "@/components/charts/device-type/DeviceTypeDonut";
 
 export const deviceTypeMock: DeviceTypeApiResponse = {
   asOf: "2025-12-23T15:40:00Z",

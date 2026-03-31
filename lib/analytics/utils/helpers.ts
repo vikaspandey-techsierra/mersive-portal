@@ -15,7 +15,6 @@ export function formatDate(dateString?: string) {
   });
 }
 
-// Short date for chart x-axis labels
 export function formatShortDate(dateString?: string): string {
   if (!dateString) return "";
   return new Date(dateString).toLocaleDateString("en-US", {
@@ -33,7 +32,6 @@ export function rowInRange(dateStr: string, cutoff: Date | null): boolean {
   return new Date(dateStr) >= cutoff;
 }
 
-/// Returns exactly 7 evenly-spaced labels from the provided array.
 export function getSevenTicks(labels: string[]): string[] {
   const len = labels.length;
   if (len === 0) return [];
@@ -46,7 +44,10 @@ export function getSevenTicks(labels: string[]): string[] {
   return [...selected].sort((a, b) => a - b).map((i) => labels[i]);
 }
 
-export function getNiceTicks(points: ChartPoint[]): { ticks: number[]; max: number } {
+export function getNiceTicks(points: ChartPoint[]): {
+  ticks: number[];
+  max: number;
+} {
   if (!points.length) return { ticks: [0, 1, 2, 3, 4], max: 4 };
   const rawMax = Math.max(...points.map((p) => p.value));
   if (rawMax === 0) return { ticks: [0, 1, 2, 3, 4], max: 4 };
@@ -57,14 +58,14 @@ export function getNiceTicks(points: ChartPoint[]): { ticks: number[]; max: numb
     candidates.find((c) => c >= roughStep) ?? candidates[candidates.length - 1];
   const niceMax = niceStep * 4;
   const ticks = [0, 1, 2, 3, 4].map(
-    (i) => Math.round(niceStep * i * 1e10) / 1e10,
+    (i) => Math.round(niceStep * i * 1e10) / 1e10
   );
   return { ticks, max: niceMax };
 }
 
 export function fillDateGaps(
   points: ChartPoint[],
-  timeRange: string,
+  timeRange: string
 ): ChartPoint[] {
   const days: Record<string, number> = {
     "7d": 7,
@@ -73,7 +74,6 @@ export function fillDateGaps(
     "90d": 90,
   };
 
-  // Build lookup of existing data
   const byDate = new Map<string, number>();
   points.forEach((p) => byDate.set(p.date, p.value));
 
@@ -88,7 +88,6 @@ export function fillDateGaps(
     startDate = new Date(today);
     startDate.setDate(today.getDate() - days[timeRange] + 1);
   } else {
-    // "all" — span only the actual data range (no gaps beyond data)
     if (!points.length) return [];
     const sorted = [...points].sort((a, b) => a.date.localeCompare(b.date));
     startDate = new Date(sorted[0].date);
@@ -109,15 +108,14 @@ export function fillDateGaps(
 
 export function fillSegmentedDateGaps(
   points: ChartPoint[],
-  timeRange: string,
+  timeRange: string
 ): ChartPoint[] {
   if (!points.length) return [];
 
   const segments = Array.from(
-    new Set(points.map((p) => p.segment ?? "__none__")),
+    new Set(points.map((p) => p.segment ?? "__none__"))
   );
 
-  // Build nested map: segment -> date -> value
   const bySegDate = new Map<string, Map<string, number>>();
   segments.forEach((seg) => bySegDate.set(seg, new Map()));
   points.forEach((p) => {
@@ -166,7 +164,10 @@ export function fillSegmentedDateGaps(
   return result;
 }
 
-export function buildAvailableDimensions(): { label: string; metric: string }[] {
+export function buildAvailableDimensions(): {
+  label: string;
+  metric: string;
+}[] {
   const map = new Map<string, string>();
   timeseriesMock.forEach((row) => {
     if (!row.segment_1_name) return;
@@ -207,8 +208,10 @@ export function getDateCutoff(timeRange: string): Date | null {
   return cutoff;
 }
 
-
-export function deriveDeviceRows(timeRange: string): DeviceTableRow[] {
+export function deriveDeviceRows(
+  timeRange: string,
+  orgId: string
+): DeviceTableRow[] {
   const cutoff = getDateCutoff(timeRange);
 
   const map = new Map<
@@ -217,42 +220,9 @@ export function deriveDeviceRows(timeRange: string): DeviceTableRow[] {
   >();
 
   timeseriesMock.forEach((row) => {
+    if (row.org_id !== orgId) return;
     if (!row.device_name) return;
     if (cutoff && parseDateLocal(row.date) < cutoff) return;
-    timeseriesMock.forEach((row) => {
-      if (!row.device_name) return;
-      if (cutoff && parseDateLocal(row.date) < cutoff) return;
-
-      if (!map.has(row.device_name)) {
-        map.set(row.device_name, {
-          meetings: 0,
-          connections: 0,
-          hours: 0,
-          posts: 0,
-        });
-      }
-
-      const acc = map.get(row.device_name)!;
-      const val = parseFloat(row.metric_value) || 0;
-
-      // Only aggregate non-segmented metrics
-      if (!row.segment_1_name) {
-        switch (row.metric_name) {
-          case "ts_meetings_num":
-            acc.meetings += val;
-            break;
-          case "ts_connections_num":
-            acc.connections += val;
-            break;
-          case "ts_meetings_duration_tot":
-            acc.hours += val;
-            break;
-          case "ts_posts_num":
-            acc.posts += val;
-            break;
-        }
-      }
-    });
 
     if (!map.has(row.device_name)) {
       map.set(row.device_name, {
@@ -266,19 +236,21 @@ export function deriveDeviceRows(timeRange: string): DeviceTableRow[] {
     const acc = map.get(row.device_name)!;
     const val = parseFloat(row.metric_value) || 0;
 
-    switch (row.metric_name) {
-      case "ts_meetings_num":
-        acc.meetings += val;
-        break;
-      case "ts_connections_num":
-        acc.connections += val;
-        break;
-      case "ts_meetings_duration_tot":
-        acc.hours += val;
-        break;
-      case "ts_posts_num":
-        acc.posts += val;
-        break;
+    if (!row.segment_1_name) {
+      switch (row.metric_name) {
+        case "ts_meetings_num":
+          acc.meetings += val;
+          break;
+        case "ts_connections_num":
+          acc.connections += val;
+          break;
+        case "ts_meetings_duration_tot":
+          acc.hours += val;
+          break;
+        case "ts_posts_num":
+          acc.posts += val;
+          break;
+      }
     }
   });
 
@@ -313,16 +285,23 @@ export function getTimeseriesRows(): TimeseriesRow[] {
   return timeseriesMock as TimeseriesRow[];
 }
 
-export function timeSeriesRowInRange(dateStr: string, cutoff: Date | null): boolean {
+export function timeSeriesRowInRange(
+  dateStr: string,
+  cutoff: Date | null
+): boolean {
   if (!cutoff) return true;
   return parseDateLocal(dateStr) >= cutoff;
 }
 
-export function getAllDeviceNames(timeRange: string): Set<string> {
+export function getAllDeviceNames(
+  timeRange: string,
+  orgId: string
+): Set<string> {
   const cutoff = getDateCutoff(timeRange);
   const names = new Set<string>();
 
   getTimeseriesRows().forEach((row) => {
+    if (row.org_id !== orgId) return; // ADDED
     if (!row.device_name) return;
     if (!rowInRange(row.date, cutoff)) return;
 
@@ -333,9 +312,10 @@ export function getAllDeviceNames(timeRange: string): Set<string> {
 }
 
 export function resolveDevices(
-  selectedDevices: Set<string>,
+  selectedDevices: Set<string> | undefined,
   timeRange: string,
+  orgId: string
 ): Set<string> {
-  if (selectedDevices.size > 0) return selectedDevices;
-  return getAllDeviceNames(timeRange);
+  if (selectedDevices && selectedDevices.size > 0) return selectedDevices;
+  return getAllDeviceNames(timeRange, orgId);
 }

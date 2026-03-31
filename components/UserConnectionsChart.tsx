@@ -18,12 +18,15 @@ import {
 } from "@/lib/analytics/utils/helpers";
 import { ChartTooltip } from "./charts/ChartsTooltip";
 import { ChartRow, UserConnectionsProp } from "@/lib/types/charts";
+import EmptyState from "./emptyStates/emptyStates";
+import phoneLinkIcon from "../components/icons/phonelink.svg";
 
 const COLOR_PALETTE = ["#6860C8", "#D44E80", "#4D9EC4", "#7E9E2E", "#E8902A"];
 
 const AVAILABLE_DIMENSIONS = buildAvailableDimensions();
 
 export default function UserConnections({
+  orgId,
   timeRange = "7d",
   title,
   subtitle,
@@ -33,15 +36,16 @@ export default function UserConnections({
   const selected = selectedMetric || AVAILABLE_DIMENSIONS[0]?.metric || "";
 
   const metricData = useUserConnectionsMetrics(
+    orgId,
     selected,
     timeRange,
-    selectedDevices,
+    selectedDevices
   );
 
   const segments = useMemo(() => {
     if (!metricData.length) return [];
     return Array.from(
-      new Set(metricData.map((d) => d.segment).filter(Boolean)),
+      new Set(metricData.map((d) => d.segment).filter(Boolean))
     ) as string[];
   }, [metricData]);
 
@@ -54,7 +58,7 @@ export default function UserConnections({
   }, [segments]);
 
   const [activeSegments, setActiveSegments] = useState<Record<string, boolean>>(
-    {},
+    {}
   );
 
   useEffect(() => {
@@ -94,21 +98,23 @@ export default function UserConnections({
 
   const xTicks = useMemo(
     () => getSevenTicks(chartData.map((d) => d.label as string)),
-    [chartData],
+    [chartData]
   );
 
   return (
     <div className="mb-8 w-full">
       <div className="text-[15px] font-semibold text-black mb-1">{title}</div>
-      <div className="text-[13px] text-gray-400 mb-3">{subtitle}</div>
-      <div className="bg-white rounded-xl p-5 border border-gray-200">
+      <div className="text-[13px] text-[#8F8F91] mt-2 mb-6">{subtitle}</div>
+      <div className="bg-white rounded-xl py-5 pb-4 border border-gray-200 ">
         {!chartData.length ? (
-          <div className="flex items-center justify-center h-55 text-2xl text-gray-400">
-            No data available
-          </div>
+          <EmptyState
+            title="No data for this date range"
+            description="Connection data appears when users share via Web, AirPlay, Miracast, Google Cast, or HDMI-IN"
+            icon={phoneLinkIcon}
+          />
         ) : (
           <>
-            <ResponsiveContainer width="100%" height={260}>
+            <ResponsiveContainer width="100%" height={336}>
               <AreaChart data={chartData}>
                 <CartesianGrid stroke="#f0f0f0" vertical={false} />
                 <XAxis
@@ -137,56 +143,55 @@ export default function UserConnections({
                 ))}
               </AreaChart>
             </ResponsiveContainer>
-
-            <div className="flex items-center gap-3 mt-3.5 flex-wrap">
-              <select
-                value={selected}
-                onChange={(e) => setSelectedMetric(e.target.value)}
-                className="border border-gray-300 rounded-md px-2.5 py-1.5 text-[13px] text-black bg-white font-medium"
-              >
-                {AVAILABLE_DIMENSIONS.map((item) => (
-                  <option key={item.metric} value={item.metric}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-
-              {segments.map((segment) => {
-                const activeCount =
-                  Object.values(activeSegments).filter(Boolean).length;
-                const isChecked = activeSegments[segment] ?? true;
-                const isLastActive = isChecked && activeCount === 1;
-
-                return (
-                  <label
-                    key={segment}
-                    className={`flex items-center gap-2 ${
-                      isLastActive ? "cursor-not-allowed" : "cursor-pointer"
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      disabled={isLastActive}
-                      onChange={() =>
-                        setActiveSegments((prev) => ({
-                          ...prev,
-                          [segment]: !prev[segment],
-                        }))
-                      }
-                    />
-                    <span
-                      className="px-3 py-1 rounded-full text-white text-xs font-medium"
-                      style={{ backgroundColor: segmentColorMap[segment] }}
-                    >
-                      {segment}
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
           </>
         )}
+        <div className="flex items-center gap-3 mt-3.5 flex-wrap ml-6">
+          <select
+            value={selected}
+            onChange={(e) => setSelectedMetric(e.target.value)}
+            className="border border-gray-300 rounded-md px-2.5 py-1.5 text-[13px] text-black bg-white font-medium w-32.5"
+          >
+            {AVAILABLE_DIMENSIONS.map((item) => (
+              <option key={item.metric} value={item.metric}>
+                {item.label}
+              </option>
+            ))}
+          </select>
+
+          {segments.map((segment) => {
+            const activeCount =
+              Object.values(activeSegments).filter(Boolean).length;
+            const isChecked = activeSegments[segment] ?? true;
+            const isLastActive = isChecked && activeCount === 1;
+
+            return (
+              <label
+                key={segment}
+                className={`flex items-center gap-2 ${
+                  isLastActive ? "cursor-not-allowed" : "cursor-pointer"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={isChecked}
+                  disabled={isLastActive}
+                  onChange={() =>
+                    setActiveSegments((prev) => ({
+                      ...prev,
+                      [segment]: !prev[segment],
+                    }))
+                  }
+                />
+                <span
+                  className="px-3 py-1 rounded-full text-white text-xs font-medium"
+                  style={{ backgroundColor: segmentColorMap[segment] }}
+                >
+                  {segment}
+                </span>
+              </label>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
