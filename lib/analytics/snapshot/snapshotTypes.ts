@@ -4,7 +4,7 @@ export interface SnapshotRow {
   segment_1_name?: string;
   segment_1_value?: string;
   metric_value: string;
-  devices_list?: string[] | null;
+  devices_list?: string | null;
   created_at?: string;
 }
 

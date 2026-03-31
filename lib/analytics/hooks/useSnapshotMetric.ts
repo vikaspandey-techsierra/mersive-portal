@@ -1,5 +1,4 @@
 "use client";
-
 import { useEffect, useState } from "react";
 import { getSnapshotMetric } from "../snapshot/snapshotManager";
 import { parseSnapshot } from "../snapshot/snapshotParser";
@@ -8,21 +7,20 @@ import {
   DeviceStatusData,
   PlanTypeData,
   FleetHealthData,
-  FleetHealthRow,
+  SnapshotRow,
 } from "../snapshot/snapshotTypes";
-import { fleetHealthMock } from "../mock/snapshotMock";
+import { mockSnapshotCloudFunction } from "../mock/snapshotMock";
 
 //  DEVICE TYPE
-export function useDeviceTypeMetric(refreshKey?: number) {
+export function useDeviceTypeMetric(orgId: string, refreshKey?: number) {
   const [data, setData] = useState<ChartData[]>([]);
   const [createdAt, setCreatedAt] = useState<string | undefined>();
   const [loading, setLoading] = useState(true);
-
   useEffect(() => {
     async function loadMetric() {
       setLoading(true);
 
-      const rows = await getSnapshotMetric("cs_devices_num_by_type");
+      const rows = await getSnapshotMetric(orgId, "cs_devices_num_by_type");
       const parsed = parseSnapshot(rows);
 
       setData(parsed);
@@ -31,13 +29,13 @@ export function useDeviceTypeMetric(refreshKey?: number) {
     }
 
     loadMetric();
-  }, [refreshKey]);
+  }, [orgId, refreshKey]);
 
   return { data, createdAt, loading };
 }
 
 // DEVICE STATUS
-export function useDeviceStatusMetric(refreshKey?: number) {
+export function useDeviceStatusMetric(orgId: string, refreshKey?: number) {
   const [data, setData] = useState<DeviceStatusData[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -45,29 +43,27 @@ export function useDeviceStatusMetric(refreshKey?: number) {
     async function loadMetric() {
       setLoading(true);
 
-      const rows = await getSnapshotMetric("cs_devices_num_by_status");
+      const rows = await getSnapshotMetric(orgId, "cs_devices_num_by_status");
       const parsed = parseSnapshot(rows);
 
       const total = parsed.reduce((sum, r) => sum + r.value, 0);
-
       const processed = parsed.map((r) => ({
         name: r.name,
         value: r.value,
         percent: total ? Math.round((r.value / total) * 100) : 0,
       }));
-
       setData(processed);
       setLoading(false);
     }
 
     loadMetric();
-  }, [refreshKey]);
+  }, [orgId, refreshKey]);
 
   return { data, loading };
 }
 
 // PLAN TYPE
-export function usePlanTypeMetric(refreshKey?: number) {
+export function usePlanTypeMetric(orgId: string, refreshKey?: number) {
   const [data, setData] = useState<PlanTypeData[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -75,42 +71,41 @@ export function usePlanTypeMetric(refreshKey?: number) {
     async function loadMetric() {
       setLoading(true);
 
-      const rows = await getSnapshotMetric("cs_devices_num_by_plan");
+      const rows = await getSnapshotMetric(orgId, "cs_devices_num_by_plan");
       const parsed = parseSnapshot(rows);
 
       const total = parsed.reduce((sum, r) => sum + r.value, 0);
-
       const processed = parsed.map((r) => ({
         name: r.name,
         value: r.value,
         percent: total ? Math.round((r.value / total) * 100) : 0,
       }));
-
       setData(processed);
       setLoading(false);
     }
 
     loadMetric();
-  }, [refreshKey]);
+  }, [orgId, refreshKey]);
 
   return { data, loading };
 }
 
 // FLEET HEALTH
-export function useFleetHealthMetric(refreshKey?: number) {
+export function useFleetHealthMetric(orgId: string, refreshKey?: number) {
   const [data, setData] = useState<FleetHealthData>({
     score: 0,
     totalDevices: 0,
     devicesWithIssues: 0,
   });
   const [loading, setLoading] = useState(true);
-
   useEffect(() => {
     async function loadMetric() {
       setLoading(true);
 
-      // Using mock
-      const rows: FleetHealthRow[] = fleetHealthMock;
+      const rows: SnapshotRow[] = await mockSnapshotCloudFunction(
+        orgId,
+        "cs_overall_fleet_health"
+      );
 
       const allDevicesRow = rows.find(
         (r) => r.segment_1_value === "All devices"
@@ -118,10 +113,8 @@ export function useFleetHealthMetric(refreshKey?: number) {
       const issuesRow = rows.find(
         (r) => r.segment_1_value === "Devices with issues"
       );
-
       const totalDevices = Number(allDevicesRow?.metric_value ?? 0);
       const devicesWithIssues = Number(issuesRow?.metric_value ?? 0);
-
       const score =
         totalDevices > 0
           ? Number(
@@ -132,7 +125,6 @@ export function useFleetHealthMetric(refreshKey?: number) {
             )
           : 0;
 
-      // simulate new data on refresh (so you can see refresh working)
       const randomAdjust = Math.floor(Math.random() * 3);
 
       setData({
@@ -140,142 +132,144 @@ export function useFleetHealthMetric(refreshKey?: number) {
         totalDevices: totalDevices + randomAdjust,
         devicesWithIssues,
       });
-
       setLoading(false);
     }
 
     loadMetric();
-  }, [refreshKey]); // ← THIS is why refresh will work
+  }, [orgId, refreshKey]);
 
   return { data, loading };
 }
 
 // BANNER METRICS
-export function useOfflineDevicesMetric() {
+export function useOfflineDevicesMetric(orgId: string) {
   const [value, setValue] = useState(0);
 
   useEffect(() => {
     async function load() {
-      const rows = await getSnapshotMetric("cs_offline_devices_num");
-
+      const rows = await getSnapshotMetric(orgId, "cs_offline_devices_num");
       setValue(Number(rows?.[0]?.metric_value ?? 0));
     }
 
     load();
-  }, []);
+  }, [orgId]);
 
   return value;
 }
 
-export function useExpiredDevicesMetric() {
+export function useExpiredDevicesMetric(orgId: string) {
   const [value, setValue] = useState(0);
 
   useEffect(() => {
     async function load() {
-      const rows = await getSnapshotMetric("cs_expired_and_soon_devices_num");
-
+      const rows = await getSnapshotMetric(
+        orgId,
+        "cs_expired_and_soon_devices_num"
+      );
       setValue(Number(rows?.[0]?.metric_value ?? 0));
     }
 
     load();
-  }, []);
+  }, [orgId]);
 
   return value;
 }
 
-export function useOutdatedFirmwareMetric() {
+export function useOutdatedFirmwareMetric(orgId: string) {
   const [value, setValue] = useState(0);
 
   useEffect(() => {
     async function load() {
-      const rows = await getSnapshotMetric("cs_outdated_firmware_devices_num");
+      const rows = await getSnapshotMetric(
+        orgId,
+        "cs_outdated_firmware_devices_num"
+      );
 
       setValue(Number(rows?.[0]?.metric_value ?? 0));
     }
 
     load();
-  }, []);
+  }, [orgId]);
 
   return value;
 }
 
-export function useOtherIssuesMetric() {
+export function useOtherIssuesMetric(orgId: string) {
   const [value, setValue] = useState(0);
 
   useEffect(() => {
     async function load() {
-      const rows = await getSnapshotMetric("cs_other_issues_devices_num");
+      const rows = await getSnapshotMetric(
+        orgId,
+        "cs_other_issues_devices_num"
+      );
 
       setValue(Number(rows?.[0]?.metric_value ?? 0));
     }
 
     load();
-  }, []);
+  }, [orgId]);
 
   return value;
 }
 
 // STATS CARDS
-export function useMeetingsUnderwayMetric() {
+export function useMeetingsUnderwayMetric(orgId: string) {
   const [value, setValue] = useState(0);
 
   useEffect(() => {
     async function load() {
-      const rows = await getSnapshotMetric("cs_meetings_num");
-
+      const rows = await getSnapshotMetric(orgId, "cs_meetings_num");
       setValue(Number(rows?.[0]?.metric_value ?? 0));
     }
 
     load();
-  }, []);
+  }, [orgId]);
 
   return value;
 }
 
-export function useActiveDevicesMetric() {
+export function useActiveDevicesMetric(orgId: string) {
   const [value, setValue] = useState(0);
 
   useEffect(() => {
     async function load() {
-      const rows = await getSnapshotMetric("agg_active_devices_num");
-
+      const rows = await getSnapshotMetric(orgId, "agg_active_devices_num");
       setValue(Number(rows?.[0]?.metric_value ?? 0));
     }
 
     load();
-  }, []);
+  }, [orgId]);
 
   return value;
 }
 
-export function useAvgMeetingLengthMetric() {
+export function useAvgMeetingLengthMetric(orgId: string) {
   const [value, setValue] = useState(0);
 
   useEffect(() => {
     async function load() {
-      const rows = await getSnapshotMetric("agg_meetings_duration_avg");
-
+      const rows = await getSnapshotMetric(orgId, "agg_meetings_duration_avg");
       setValue(Number(rows?.[0]?.metric_value ?? 0));
     }
 
     load();
-  }, []);
+  }, [orgId]);
 
   return value;
 }
 
-export function useBusiestTimeMetric() {
+export function useBusiestTimeMetric(orgId: string) {
   const [value, setValue] = useState("");
 
   useEffect(() => {
     async function load() {
-      const rows = await getSnapshotMetric("agg_busiest_time");
-
+      const rows = await getSnapshotMetric(orgId, "agg_busiest_time");
       setValue(rows?.[0]?.metric_value ?? "");
     }
 
     load();
-  }, []);
+  }, [orgId]);
 
   return value;
 }
