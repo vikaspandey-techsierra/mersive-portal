@@ -30,14 +30,14 @@ export default function DowntimeChart({
 
   const formattedData = useMemo(
     () => rawData.map((d) => ({ ...d, label: formatShortDate(d.date) })),
-    [rawData]
+    [rawData],
   );
 
   const deviceTicks = [0, 6, 12, 18, 24];
 
   const xTicks = useMemo(
     () => getSevenTicks(formattedData.map((d) => d.label)),
-    [formattedData]
+    [formattedData],
   );
 
   const maxHours = useMemo(
@@ -45,13 +45,11 @@ export default function DowntimeChart({
       formattedData.length > 0
         ? Math.max(...formattedData.map((d) => d.hours), 1)
         : 1,
-    [formattedData]
+    [formattedData],
   );
   const hourTicks = [0, 0.25, 0.5, 0.75, 1].map((f) =>
-    Number((maxHours * f).toFixed(1))
+    Number((maxHours * f).toFixed(1)),
   );
-
-  console.log("formattedData --->", formattedData);
 
   const isAllZeroData = useMemo(() => {
     return formattedData.every(

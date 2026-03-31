@@ -178,8 +178,6 @@ function SelectableDataTableInner<T extends Record<string, unknown>>(
     });
   };
 
-  console.log("sorted", sorted);
-
   return (
     <div className="mb-8 w-full min-w-0">
       <div className="font-bold text-lg text-black mb-1">
