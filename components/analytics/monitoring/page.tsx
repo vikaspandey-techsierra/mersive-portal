@@ -1,166 +1,25 @@
 "use client";
 
-import { useState } from "react";
-import DowntimeChart, { type DowntimePoint } from "@/components/DowntimeChart";
-import AlertsChart, { type AlertPoint } from "@/components/AlertChart";
-import SelectedDevices from "@/components/SelectedDevices";
+import { useState, useCallback, useEffect } from "react";
+import React from "react";
+import DowntimeChart from "@/components/DowntimeChart";
+import AlertsChart from "@/components/AlertChart";
+import SelectableDataTable from "@/components/SelectedDevices";
+import LineChartSkeleton from "@/components/skeleton/LineChartSkeleton";
+import AreaChartSkeleton from "@/components/skeleton/AreaChartSkeleton";
+import { useMonitoringMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
+import {
+  AnalyticsPageProps,
+  ColumnDef,
+  DeviceTableRow,
+  TimeRange,
+} from "@/lib/types/charts";
+import { clearMetricsByOrg } from "@/lib/analytics/utils/metricsStore";
 
-
-interface Device {
-  id: string;
-  name: string;
-  meetings: number | null;
-  totalUsers: number | null;
-  hoursInUse: number | null;
-  contentItems: number | null;
-  avgDuration: string | null;
-  avgDurationMinutes: number | null;
-  contentTypes: number | null;
-}
-
-
-export interface MonitoringApiResponse {
-  range: "7d" | "30d" | "60d" | "90d" | "all";
-  downtime: DowntimePoint[];
-  alerts: AlertPoint[];
-  selectedDevices: Device[];
-}
-
-
-const MOCK_DEVICES: Device[] = [
-  {
-    id: "1",
-    name: "Board Room",
-    meetings: 2,
-    totalUsers: 3,
-    hoursInUse: 2,
-    contentItems: 1,
-    avgDuration: "1 hr",
-    avgDurationMinutes: 60,
-    contentTypes: 2,
-  },
-  {
-    id: "2",
-    name: "Corner Conference",
-    meetings: 1,
-    totalUsers: 2,
-    hoursInUse: 0.5,
-    contentItems: 2,
-    avgDuration: "30 min",
-    avgDurationMinutes: 30,
-    contentTypes: 1,
-  },
-  {
-    id: "3",
-    name: "Hallway",
-    meetings: 1,
-    totalUsers: 1,
-    hoursInUse: 0.75,
-    contentItems: 1,
-    avgDuration: "45 min",
-    avgDurationMinutes: 45,
-    contentTypes: 1,
-  },
-  {
-    id: "4",
-    name: "John’s Office",
-    meetings: 2,
-    totalUsers: 1,
-    hoursInUse: 4,
-    contentItems: 4,
-    avgDuration: "2 hrs",
-    avgDurationMinutes: 120,
-    contentTypes: 3,
-  },
-  {
-    id: "5",
-    name: "Temp Office",
-    meetings: null,
-    totalUsers: null,
-    hoursInUse: null,
-    contentItems: null,
-    avgDuration: null,
-    avgDurationMinutes: null,
-    contentTypes: null,
-  },
+const MONITORING_COLUMNS: ColumnDef<DeviceTableRow>[] = [
+  { key: "name", label: "Name", sortable: true },
+  { key: "hoursInUse", label: "Total Downtime (hrs)", sortable: true },
 ];
-
-
-function generateDowntime(days: number): DowntimePoint[] {
-  const baseDate = new Date("2024-12-16");
-  const wave = [9, 13, 3, 11, 19, 0, 0];
-
-  const rand = (base: number, spread = 0.2) =>
-    Math.max(0, Math.round(base + (Math.random() - 0.5) * base * spread));
-
-  return Array.from({ length: days }, (_, i) => {
-    const d = new Date(baseDate);
-    d.setDate(d.getDate() + i);
-
-    const month = d.toLocaleString("en-US", { month: "short" });
-    const day = d.getDate();
-    const p = wave[i % 7];
-
-    return {
-      date: `${month} ${day}`,
-      devices: rand(p),
-      hours: Number((1 + p / 20).toFixed(2)),
-    };
-  });
-}
-
-
-function generateAlerts(days: number): AlertPoint[] {
-  const baseDate = new Date("2024-12-16");
-
-  return Array.from({ length: days }, (_, i) => {
-    const d = new Date(baseDate);
-    d.setDate(d.getDate() + i);
-
-    const month = d.toLocaleString("en-US", { month: "short" });
-    const day = d.getDate();
-    const factor = [8, 12, 4, 10, 18, 6, 3][i % 7];
-
-    return {
-      date: `${month} ${day}`,
-      unreachable: Math.round(factor * 0.5),
-      rebooted: Math.round(factor * 0.4),
-      unassigned: Math.round(factor * 0.6),
-      usbUnplugged: Math.round(factor * 0.3),
-      usbPlugged: Math.round(factor * 0.25),
-      onboarded: Math.round(factor * 0.2),
-      planAssigned: Math.round(factor * 0.15),
-    };
-  });
-}
-
-
-function buildMock(days: number): MonitoringApiResponse {
-  const rangeKey: Record<number, string> = {
-    7: "7d",
-    30: "30d",
-    60: "60d",
-    90: "90d",
-  };
-
-  return {
-    range: (rangeKey[days] ?? "all") as MonitoringApiResponse["range"],
-    downtime: generateDowntime(days),
-    alerts: generateAlerts(days),
-    selectedDevices: MOCK_DEVICES,
-  };
-}
-
-const MOCK: Record<string, MonitoringApiResponse> = {
-  "7d": buildMock(7),
-  "30d": buildMock(30),
-  "60d": buildMock(60),
-  "90d": buildMock(90),
-  all: buildMock(120),
-};
-
-
-type TimeRange = "7d" | "30d" | "60d" | "90d" | "all";
 
 const TIME_RANGES: { key: TimeRange; label: string }[] = [
   { key: "7d", label: "Last 7 days" },
@@ -170,34 +29,37 @@ const TIME_RANGES: { key: TimeRange; label: string }[] = [
   { key: "all", label: "All time" },
 ];
 
-const DAY_COUNTS: Record<TimeRange, number> = {
-  "7d": 7,
-  "30d": 30,
-  "60d": 60,
-  "90d": 90,
-  all: 120,
-};
-
-function tickInterval(days: number): number {
-  if (days <= 7) return 0;
-  if (days <= 30) return 4;
-  if (days <= 60) return 8;
-  return 13;
-}
-
-
-export default function MonitoringPage() {
+export default function MonitoringPage({
+  tableRef,
+  orgId,
+}: AnalyticsPageProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>("7d");
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [selectedDevices, setSelectedDevices] = useState<Set<string>>(
+    new Set()
+  );
 
-  const apiData = MOCK[timeRange];
-  const days = DAY_COUNTS[timeRange];
-  const interval = tickInterval(days);
+  useEffect(() => {
+    clearMetricsByOrg(orgId);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsLoading(true);
+  }, [orgId]);
+
+  const { ready } = useMonitoringMetrics(orgId, timeRange);
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 800);
+    return () => clearTimeout(timer);
+  }, [timeRange, orgId]);
+
+  const handleSelectionChange = useCallback((ids: Set<string>) => {
+    setSelectedDevices(new Set(ids));
+  }, []);
 
   return (
-    <div className="w-full">
+    <div className="w-full flex flex-col min-w-0">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <span className="text-xl font-bold text-black">Monitoring</span>
-
         <div className="flex flex-wrap gap-2">
           {TIME_RANGES.map(({ key, label }) => (
             <button
@@ -215,11 +77,57 @@ export default function MonitoringPage() {
         </div>
       </div>
 
-      <DowntimeChart data={apiData.downtime} interval={interval} />
+      <div className="w-full min-w-0">
+        {isLoading || !ready ? (
+          <LineChartSkeleton
+            title="Downtime"
+            description="Monitor how many devices are down and for long the downtime lasted"
+          />
+        ) : (
+          <DowntimeChart
+            orgId={orgId}
+            timeRange={timeRange}
+            selectedDevices={selectedDevices}
+          />
+        )}
+      </div>
+
       <hr className="my-10 border-t border-gray-200" />
-      <AlertsChart data={apiData.alerts} interval={interval} />
+
+      <div className="w-full min-w-0">
+        {isLoading || !ready ? (
+          <AreaChartSkeleton
+            title="Alerts"
+            description="Monitor the quantity and which types of alerts occurred in your fleet"
+          />
+        ) : (
+          <AlertsChart
+            orgId={orgId}
+            timeRange={timeRange}
+            selectedDevices={selectedDevices}
+          />
+        )}
+      </div>
+
       <hr className="my-10 border-t border-gray-200" />
-      <SelectedDevices />
+
+      <SelectableDataTable
+        orgId={orgId}
+        ref={tableRef}
+        heading="Selected Devices"
+        subheading="Select all or narrow the data down to a specific group of devices"
+        rowKey="id"
+        columns={MONITORING_COLUMNS}
+        defaultSortKey="name"
+        defaultSortDir="asc"
+        defaultAllSelected
+        timeRange={timeRange}
+        onSelectionChange={handleSelectionChange}
+        isLoading={isLoading}
+        csvFilename="monitoring-devices"
+        emptyStateTitle="No data for this date range"
+        emptyStateDescription="Device monitoring data will appear once devices have been added and are online"
+      />
     </div>
   );
 }

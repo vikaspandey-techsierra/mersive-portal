@@ -9,151 +9,202 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { formatShortDate, getSevenTicks } from "@/lib/analytics/utils/helpers";
+import { useAlertsChart } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
+import { ChartTooltip } from "./charts/ChartsTooltip";
+import { AlertChartProps } from "@/lib/types/charts";
+import EmptyState from "./emptyStates/emptyStates";
+import notificationsNoneIcon from "../components/icons/notifications_none.svg";
 
-export interface AlertPoint {
-  date: string;
-  unreachable: number;
-  rebooted: number;
-  unassigned: number;
-  usbUnplugged: number;
-  usbPlugged: number;
-  onboarded: number;
-  planAssigned: number;
-}
+const SERIES_CONFIG: Record<string, { label: string; color: string }> = {
+  ts_app_alerts_unreachable_num: { label: "Unreachable", color: "#5B5BD6" },
+  ts_app_alerts_rebooted_num: { label: "Rebooted", color: "#C34F7D" },
+  ts_app_alerts_template_unassigned_num: {
+    label: "Unassigned from template",
+    color: "#5F87C2",
+  },
+  ts_app_alerts_usb_out_num: { label: "USB unplugged", color: "#8B1A00" },
+  ts_app_alerts_usb_in_num: { label: "USB plugged in", color: "#8A9B2F" },
+  ts_app_alerts_onboarded_num: { label: "Onboarded", color: "#D47A00" },
+  ts_app_alerts_plan_assigned_num: { label: "Plan assigned", color: "#8E56C2" },
+};
 
-interface Props {
-  data: AlertPoint[];
-  interval: number;
-}
+export default function AlertsChart({
+  orgId,
+  timeRange,
+  selectedDevices,
+}: AlertChartProps) {
+  const { data: rawData } = useAlertsChart(orgId, timeRange, selectedDevices);
 
-const SERIES = [
-  { key: "unreachable", label: "Unreachable", color: "#5B5BD6" },
-  { key: "rebooted", label: "Rebooted", color: "#C34F7D" },
-  { key: "unassigned", label: "Unassigned from template", color: "#5F87C2" },
-  { key: "usbUnplugged", label: "USB unplugged", color: "#8B1A00" },
-  { key: "usbPlugged", label: "USB plugged in", color: "#8A9B2F" },
-  { key: "onboarded", label: "Onboarded", color: "#D47A00" },
-  { key: "planAssigned", label: "Plan assigned", color: "#8E56C2" },
-];
-
-export default function AlertsChart({ data, interval }: Props) {
-  const [active, setActive] = useState<Record<string, boolean>>(
-    Object.fromEntries(SERIES.map((s) => [s.key, true]))
+  const formattedData = useMemo(
+    () => rawData.map((d) => ({ ...d, label: formatShortDate(d.date) })),
+    [rawData]
   );
 
-  const toggle = (key: string) =>
+  const availableSeries = useMemo(() => {
+    if (!formattedData.length) return [];
+    const allKeys = new Set<string>();
+    formattedData.forEach((row) => {
+      Object.keys(row).forEach((k) => {
+        if (k.startsWith("ts_app_alerts_")) allKeys.add(k);
+      });
+    });
+    return Array.from(allKeys);
+  }, [formattedData]);
+
+  const [active, setActive] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setActive((prev) => {
+      const next: Record<string, boolean> = {};
+      availableSeries.forEach((key) => {
+        next[key] = prev[key] ?? true;
+      });
+      return next;
+    });
+  }, [availableSeries]);
+
+  const xTicks = useMemo(
+    () => getSevenTicks(formattedData.map((d) => d.label as string)),
+    [formattedData]
+  );
+
+  const toggle = (key: string) => {
+    const activeCount = Object.values(active).filter(Boolean).length;
+    if (active[key] && activeCount === 1) return;
     setActive((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  // if (!formattedData.length) {
+  //   return (
+  //     <div className="bg-white rounded-xl border border-gray-200 p-6 h-102">
+  //       <div className="text-black font-semibold">Alerts</div>
+  //       <div className="text-gray-400 text-sm mt-1">No data available</div>
+  //     </div>
+  //   );
+  // }
+
+  const activeCount = Object.values(active).filter(Boolean).length;
 
   return (
     <div className="mb-8">
-      <div className="font-semibold text-[15px] text-black mb-0.5">Alerts</div>
-
+      <div className="font-semibold text-[20px] text-[#090814] mb-0.5">
+        Alerts
+      </div>
       <div className="text-[13px] text-gray-400 mb-4">
         Monitor the quantity and which types of alerts occurred in your fleet
       </div>
-
-      <div className="bg-white rounded-xl border border-gray-200 p-6 pb-4">
-        <ResponsiveContainer width="100%" height={300}>
-          <AreaChart
-            data={data}
-            margin={{ top: 10, right: 20, left: 10, bottom: 0 }}
-          >
-            <CartesianGrid stroke="#E5E7EB" vertical={false} />
-
-            <XAxis
-              dataKey="date"
-              interval={interval}
-              tick={{ fontSize: 12, fill: "#374151" }}
-              axisLine={false}
-              tickLine={false}
-              padding={{ left: 10, right: 10 }}
-            />
-            <YAxis
-              tickCount={5}
-              tick={{ fontSize: 11, fill: "#000" }}
-              axisLine={false}
-              tickLine={false}
-            />
-
-            <Tooltip
-              content={({ active, payload, label }) => {
-                if (!active || !payload?.length) return null;
-                const items = [...payload].reverse();
-
+      <div className="bg-white rounded-xl border border-gray-200 p-6 pb-4 ">
+        {!formattedData.length || formattedData.length === 0 ? (
+          <EmptyState
+            title="No data for this date range"
+            description="Alert data appears when events like reboots, unreachable states, or firmware updates occur"
+            icon={notificationsNoneIcon}
+          />
+        ) : (
+          <>
+            <div className="w-full h-80 min-w-0">
+              <ResponsiveContainer width="100%" height={336}>
+                <AreaChart data={formattedData}>
+                  <CartesianGrid stroke="#E5E7EB" vertical={false} />
+                  <XAxis
+                    dataKey="label"
+                    ticks={xTicks}
+                    tick={{ fontSize: 12 }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11 }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip
+                    content={
+                      <ChartTooltip
+                        labelMap={{
+                          ts_app_alerts_unreachable_num: "Unreachable",
+                          ts_app_alerts_rebooted_num: "Rebooted",
+                          ts_app_alerts_template_unassigned_num:
+                            "Unassigned from template",
+                          ts_app_alerts_usb_out_num: "USB unplugged",
+                          ts_app_alerts_usb_in_num: "USB plugged in",
+                          ts_app_alerts_onboarded_num: "Onboarded",
+                          ts_app_alerts_plan_assigned_num: "Plan assigned",
+                        }}
+                      />
+                    }
+                  />
+                  {availableSeries.map((key) => {
+                    if (!active[key]) return null;
+                    const config = SERIES_CONFIG[key];
+                    const color = config?.color ?? "#94A3B8";
+                    return (
+                      <Area
+                        key={key}
+                        type="linear"
+                        dataKey={key}
+                        name={config?.label ?? key}
+                        stackId="1"
+                        stroke={color}
+                        fill={color}
+                        fillOpacity={0.85}
+                      />
+                    );
+                  })}
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex flex-wrap gap-4 mt-8 mb-1">
+              {availableSeries.map((key) => {
+                const config = SERIES_CONFIG[key];
+                const color = config?.color ?? "#94A3B8";
+                const label = config?.label ?? key;
+                const isLastActive = active[key] && activeCount === 1;
                 return (
-                  <div className="bg-white border border-gray-200 rounded-md px-3 py-2 text-sm shadow-md">
-                    <div className="font-semibold text-black mb-1">{label}</div>
-                    {items
-                      .filter((e) => e.value && e.value > 0)
-                      .map((e) => (
-                        <div key={e.dataKey} style={{ color: e.color }}>
-                          {e.name}: {e.value}
-                        </div>
-                      ))}
+                  <div
+                    key={key}
+                    className={`flex items-center gap-2 ${
+                      isLastActive ? "cursor-not-allowed" : "cursor-pointer"
+                    }`}
+                    onClick={() => toggle(key)}
+                  >
+                    <span
+                      className="w-4 h-4 rounded border-2 flex items-center justify-center"
+                      style={{
+                        borderColor: active[key] ? color : "#D1D5DB",
+                        background: active[key] ? color : "#fff",
+                        opacity: isLastActive ? 0.6 : 1,
+                      }}
+                    >
+                      {active[key] && (
+                        <svg width="10" height="8" viewBox="0 0 10 8">
+                          <path
+                            d="M1 4L3.5 6.5L9 1"
+                            stroke="#fff"
+                            strokeWidth="1.8"
+                          />
+                        </svg>
+                      )}
+                    </span>
+                    <span
+                      className="rounded px-3 py-1 text-xs font-medium"
+                      style={{
+                        background: color,
+                        color: "#fff",
+                        opacity: active[key] ? (isLastActive ? 0.6 : 1) : 0.45,
+                      }}
+                    >
+                      {label}
+                    </span>
                   </div>
                 );
-              }}
-            />
-
-            {SERIES.map(
-              (s) =>
-                active[s.key] && (
-                  <Area
-                    key={s.key}
-                    type="linear"
-                    dataKey={s.key}
-                    name={s.label}
-                    stackId="1"
-                    stroke="none"
-                    fill={s.color}
-                    fillOpacity={0.95}
-                  />
-                )
-            )}
-          </AreaChart>
-        </ResponsiveContainer>
-
-        <div className="flex flex-wrap gap-4 mt-6">
-          {SERIES.map((s) => (
-            <div
-              key={s.key}
-              className="flex items-center gap-2 cursor-pointer"
-              onClick={() => toggle(s.key)}
-            >
-              <span
-                className="w-4 h-4 rounded border-2 flex items-center justify-center"
-                style={{
-                  borderColor: active[s.key] ? s.color : "#D1D5DB",
-                  background: active[s.key] ? s.color : "#fff",
-                }}
-              >
-                {active[s.key] && (
-                  <svg width="10" height="8" viewBox="0 0 10 8">
-                    <path
-                      d="M1 4L3.5 6.5L9 1"
-                      stroke="#fff"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                )}
-              </span>
-
-              <span
-                className="rounded px-3 py-1 text-xs font-medium whitespace-nowrap"
-                style={{
-                  background: s.color,
-                  color: "#fff",
-                  opacity: active[s.key] ? 1 : 0.45,
-                }}
-              >
-                {s.label}
-              </span>
+              })}
             </div>
-          ))}
-        </div>
+          </>
+        )}
       </div>
     </div>
   );

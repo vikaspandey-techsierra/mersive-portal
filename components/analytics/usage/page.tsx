@@ -2,117 +2,35 @@
 
 import CollaborationUsage from "@/components/CollaborationChart";
 import DeviceUtilization from "@/components/DeviceUtilizationChart";
-import SelectedDevices from "@/components/SelectedDevices";
+import SelectableDataTable from "@/components/SelectedDevices";
 import UserConnections from "@/components/UserConnectionsChart";
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import React from "react";
+import LineChartSkeleton from "@/components/skeleton/LineChartSkeleton";
+import AreaChartSkeleton from "@/components/skeleton/AreaChartSkeleton";
+import { registerMetric } from "@/lib/analytics/utils/metricsManager";
+import { useUsageMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
+import {
+  AnalyticsPageProps,
+  ColumnDef,
+  DeviceTableRow,
+  TimeRange,
+} from "@/lib/types/charts";
 
-
-// BACKEND API CONTRACT
-export interface DeviceUtilizationPoint {
-  date: string;
-  meetings: number;
-  connections: number;
-}
-
-export interface UserConnectionPoint {
-  date: string;
-  wireless: number;
-  wired: number;
-  web: number;
-  airplay: number;
-  miracast: number;
-  googleCast: number;
-  hdmiIn: number;
-  macos: number;
-  windows: number;
-  ios: number;
-  android: number;
-  otherOs: number;
-  teams: number;
-  zoom: number;
-  presentationOnly: number;
-}
-
-export interface AnalyticsApiResponse {
-  range: "7d" | "30d" | "60d" | "90d" | "all";
-  deviceUtilization: DeviceUtilizationPoint[];
-  userConnections: UserConnectionPoint[];
-}
-
-// MOCK DATA GENERATOR
-function generateMockData(days: number): AnalyticsApiResponse {
-  const deviceUtilization: DeviceUtilizationPoint[] = [];
-  const userConnections: UserConnectionPoint[] = [];
-  const baseDate = new Date("2024-12-16");
-  const wave = [10, 13, 3, 11, 20, 4, 2];
-  const r = (base: number, spread = 0.1) =>
-    Math.max(0, Math.round(base + (Math.random() - 0.5) * base * spread));
-
-  for (let i = 0; i < days; i++) {
-    const d = new Date(baseDate);
-    d.setDate(d.getDate() + i);
-    const date = d.toISOString().split("T")[0];
-    const p = wave[i % 7];
-
-    deviceUtilization.push({
-      date,
-      meetings: r(p * 0.9),
-      connections: r(p * 1.1),
-    });
-
-    userConnections.push({
-      date,
-      wireless: r(p * 0.7),
-      wired: r(p * 0.3),
-      web: r(p * 0.35),
-      airplay: r(p * 0.28),
-      miracast: r(p * 0.15),
-      googleCast: r(p * 0.12),
-      hdmiIn: r(p * 0.1),
-      macos: r(p * 0.3),
-      windows: r(p * 0.25),
-      ios: r(p * 0.2),
-      android: r(p * 0.15),
-      otherOs: r(p * 0.1),
-      teams: r(p * 0.4),
-      zoom: r(p * 0.35),
-      presentationOnly: r(p * 0.25),
-    });
-  }
-
-  const rangeKey = { 7: "7d", 30: "30d", 60: "60d", 90: "90d" } as Record<number, string>;
-  return {
-    range: (rangeKey[days] ?? "all") as AnalyticsApiResponse["range"],
-    deviceUtilization,
-    userConnections,
-  };
-}
-
-const MOCK: Record<string, AnalyticsApiResponse> = {
-  "7d": generateMockData(7),
-  "30d": generateMockData(30),
-  "60d": generateMockData(60),
-  "90d": generateMockData(90),
-  all: generateMockData(120),
-};
-
-// HELPERS
-function tickInterval(days: number): number {
-  if (days <= 7) return 0;
-  if (days <= 30) return 4;
-  if (days <= 60) return 8;
-  return 13;
-}
-
-const DAY_COUNTS: Record<string, number> = {
-  "7d": 7,
-  "30d": 30,
-  "60d": 60,
-  "90d": 90,
-  all: 120,
-};
-
-type TimeRange = "7d" | "30d" | "60d" | "90d" | "all";
+const USAGE_COLUMNS: ColumnDef<DeviceTableRow>[] = [
+  { key: "name", label: "Name", sortable: true },
+  { key: "meetings", label: "Meetings", sortable: true },
+  { key: "totalConnections", label: "Total Connections", sortable: true },
+  { key: "hoursInUse", label: "Hours in Use", sortable: true },
+  { key: "contentItems", label: "Content Items", sortable: true },
+  {
+    key: "avgDurationMinutes",
+    label: "Avg. Duration",
+    sortable: true,
+    render: (_v, row) => row.avgDuration ?? "-",
+    csvValue: (_v, row) => row.avgDuration ?? "",
+  },
+];
 
 const TIME_RANGES: { key: TimeRange; label: string }[] = [
   { key: "7d", label: "Last 7 days" },
@@ -122,19 +40,45 @@ const TIME_RANGES: { key: TimeRange; label: string }[] = [
   { key: "all", label: "All time" },
 ];
 
-// PAGE
-export default function UsagePage() {
-  const [timeRange, setTimeRange] = useState<TimeRange>("7d");
+const METRIC_API_MAP: Record<string, string> = {
+  meetings: "ts_meetings_num",
+  hours: "ts_meetings_duration_tot",
+  connections: "ts_connections_num",
+  posts: "ts_posts_num",
+  avgLength: "ts_meetings_duration_avg",
+};
 
-  const apiData = MOCK[timeRange];
-  const days = DAY_COUNTS[timeRange];
-  const interval = tickInterval(days);
+export default function UsagePage({
+  tableRef,
+  orgId,
+}: AnalyticsPageProps & { orgId: string }) {
+  const [timeRange, setTimeRange] = useState<TimeRange>("7d");
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [selectedDevices, setSelectedDevices] = useState<Set<string>>(
+    new Set(),
+  );
+
+  registerMetric("ts_connections_num_by_os");
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 1000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const { ready } = useUsageMetrics(orgId, timeRange, {
+    deviceMetricA: METRIC_API_MAP["meetings"],
+    deviceMetricB: METRIC_API_MAP["connections"],
+    userConnectionsMetric: "ts_connections_num_by_os",
+  });
+
+  const handleSelectionChange = useCallback((ids: Set<string>) => {
+    setSelectedDevices(new Set(ids));
+  }, []);
 
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
         <span className="text-xl font-bold text-black">Usage</span>
-
         <div className="flex flex-wrap gap-2">
           {TIME_RANGES.map(({ key, label }) => (
             <button
@@ -152,13 +96,70 @@ export default function UsagePage() {
         </div>
       </div>
 
-      <DeviceUtilization data={apiData.deviceUtilization} interval={interval} />
-      <hr className="pb-5"/>
-      <UserConnections data={apiData.userConnections} interval={interval} />
-      <hr className="pb-5"/>
-      <CollaborationUsage data={apiData.deviceUtilization} interval={interval} />
-      <hr className="pb-5"/>
-      <SelectedDevices />
+      {isLoading || !ready ? (
+        <LineChartSkeleton
+          title="Device Utilization"
+          description="Compare up to two types of usage data for devices in your organization"
+        />
+      ) : (
+        <DeviceUtilization
+          orgId={orgId}
+          timeRange={timeRange}
+          selectedDevices={selectedDevices}
+        />
+      )}
+
+      <hr className="pb-5" />
+
+      {isLoading || !ready ? (
+        <AreaChartSkeleton
+          title="User Connections"
+          description="Compare connection modes, sharing protocols, user operating systems, and types of conferencing solutions used"
+        />
+      ) : (
+        <UserConnections
+          orgId={orgId}
+          timeRange={timeRange}
+          selectedDevices={selectedDevices}
+          title="User Connections"
+          subtitle="Compare connection modes, sharing protocols, user operating systems, and types of conferencing solutions used"
+        />
+      )}
+
+      <hr className="pb-5" />
+
+      {isLoading || !ready ? (
+        <LineChartSkeleton
+          title="Collaboration Usage"
+          description="Compare how many users connect versus how often they share a post within a meeting on average"
+        />
+      ) : (
+        <CollaborationUsage
+          orgId={orgId}
+          timeRange={timeRange}
+          selectedDevices={selectedDevices}
+        />
+      )}
+
+      <hr className="pb-5" />
+
+      <SelectableDataTable
+        orgId={orgId}
+        ref={tableRef}
+        heading="Selected Devices"
+        subheading="Select all or narrow the data down to a specific group of devices"
+        rowKey="id"
+        columns={USAGE_COLUMNS}
+        defaultSortKey="name"
+        defaultSortDir="asc"
+        defaultAllSelected
+        timeRange={timeRange}
+        onSelectionChange={handleSelectionChange}
+        isLoading={isLoading}
+        csvFilename="usage-devices"
+        emptyStateTitle="No data for this date range"
+        emptyStateDescription="Room activity data appears when meetings take place on your devices."
+      />
     </>
   );
 }

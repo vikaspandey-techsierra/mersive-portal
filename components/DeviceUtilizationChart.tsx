@@ -1,188 +1,125 @@
 "use client";
 
-import { DeviceUtilizationPoint } from "@/components/analytics/usage/page";
-import { useState, useRef, useEffect } from "react";
+import { useState, useMemo } from "react";
 import {
   LineChart,
   Line,
   XAxis,
   YAxis,
   CartesianGrid,
+  ReferenceLine,
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { Check } from "lucide-react";
+import { useDeviceUtilizationMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
+import { ChartPoint } from "@/lib/analytics/timeseries/timeseriesTypes";
+import {
+  formatShortDate,
+  getNiceTicks,
+  getSevenTicks,
+} from "@/lib/analytics/utils/helpers";
+import { ChartTooltip } from "./charts/ChartsTooltip";
+import { LeftAxisLabel, RightAxisLabel } from "./charts/AxisLabel";
+import {
+  DeviceMetric,
+  DeviceUtilizationProps,
+  DropdownOption,
+} from "@/lib/types/charts";
+import { MetricDropdown } from "./charts/MetricDropdown";
+import EmptyState from "./emptyStates/emptyStates";
+import trendingUpIcon from "../components/icons/trending_up_black.svg";
 
-function fmtDate(dateStr: string): string {
-  const d = new Date(dateStr);
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+function computeAvgLength(
+  meetings: ChartPoint[],
+  duration: ChartPoint[],
+): ChartPoint[] {
+  const durationMap = new Map(duration.map((d) => [d.date, d.value]));
+  return meetings.map((m) => ({
+    date: m.date,
+    value: m.value ? (durationMap.get(m.date) ?? 0) / m.value : 0,
+  }));
 }
 
-interface TEntry {
-  name: string;
-  value: number;
-  color: string;
-}
-
-const ChartTooltip = ({
-  active,
-  payload,
-  label,
-}: {
-  active?: boolean;
-  payload?: TEntry[];
-  label?: string;
-}) => {
-  if (!active || !payload?.length) return null;
-
-  return (
-    <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-[13px] shadow-md">
-      <div className="font-semibold mb-1 text-black">{label}</div>
-      {payload
-        .filter((e) => e.value > 0)
-        .map((e) => (
-          <div key={e.name} className="mt-1" style={{ color: e.color }}>
-            {e.name}: {e.value}
-          </div>
-        ))}
-    </div>
-  );
+const METRIC_API_MAP: Record<Exclude<DeviceMetric, "avgLength">, string> = {
+  meetings: "ts_meetings_num",
+  hours: "ts_meetings_duration_tot",
+  connections: "ts_connections_num",
+  posts: "ts_posts_num",
 };
 
-type DeviceMetric =
-  | "meetings"
-  | "users"
-  | "hours"
-  | "connections"
-  | "posts"
-  | "avgLength";
-
-const METRIC_LABELS: Record<DeviceMetric, string> = {
-  meetings: "Number of meetings",
-  users: "Number of users",
-  hours: "Hours in use",
-  connections: "Number of connections",
-  posts: "Number of posts",
-  avgLength: "Avg. length of meetings",
-};
-
-const METRIC_KEYS = Object.keys(METRIC_LABELS) as DeviceMetric[];
-
-const MetricDropdown = ({
-  value,
-  color,
-  disabledOption,
-  showNone,
-  onChange,
-}: {
-  value: DeviceMetric | null;
-  color: string;
-  disabledOption: DeviceMetric | null;
-  showNone?: boolean;
-  onChange: (v: DeviceMetric | null) => void;
-}) => {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  const displayLabel = value ? METRIC_LABELS[value] : "None";
-
-  return (
-    <div ref={ref} className="relative inline-block">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="inline-flex items-center gap-2 text-white text-[13px] font-medium rounded-md px-4 py-1.5 whitespace-nowrap"
-        style={{ background: color }}
-      >
-        {displayLabel}
-        <svg width="12" height="12" viewBox="0 0 12 12">
-          <path
-            d="M2 4l4 4 4-4"
-            stroke="#fff"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </button>
-
-      {open && (
-        <div className="absolute left-0 top-full mt-1.5 bg-white border border-gray-200 rounded-xl shadow-lg min-w-55 z-999 py-1.5">
-          {showNone && (
-            <div
-              onClick={() => {
-                onChange(null);
-                setOpen(false);
-              }}
-              className={`flex items-center justify-between px-4 py-2.5 text-sm cursor-pointer transition ${
-                value === null
-                  ? "text-black font-medium"
-                  : "text-gray-700 hover:bg-gray-100"
-              }`}
-            >
-              <span>None</span>
-              {value === null && (
-                <Check size={16} strokeWidth={2.5} className="text-[#6860C8]" />
-              )}
-            </div>
-          )}
-
-          {METRIC_KEYS.map((key) => {
-            const isSelected = value === key;
-            const isDisabled = key === disabledOption;
-
-            return (
-              <div
-                key={key}
-                onClick={() => {
-                  if (!isDisabled) {
-                    onChange(key);
-                    setOpen(false);
-                  }
-                }}
-                className={`flex items-center justify-between px-4 py-2.5 text-sm transition ${
-                  isDisabled
-                    ? "text-gray-400 cursor-default"
-                    : "cursor-pointer hover:bg-gray-100 text-gray-800"
-                } ${isSelected ? "font-medium" : ""}`}
-              >
-                <span>{METRIC_LABELS[key]}</span>
-                {isSelected && (
-                  <Check
-                    size={16}
-                    strokeWidth={2.5}
-                    className="text-[#6860C8]"
-                  />
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-};
-
-interface DeviceUtilizationProps {
-  data: DeviceUtilizationPoint[];
-  interval: number;
-}
+const PURPLE = "#6860C8";
+const PINK = "#D44E80";
 
 export default function DeviceUtilization({
-  data,
-  interval,
+  orgId,
+  timeRange,
+  selectedDevices,
 }: DeviceUtilizationProps) {
   const [metricA, setMetricA] = useState<DeviceMetric>("meetings");
   const [metricB, setMetricB] = useState<DeviceMetric | null>("connections");
+
+  const apiMetricA =
+    metricA !== "avgLength"
+      ? METRIC_API_MAP[metricA as Exclude<DeviceMetric, "avgLength">]
+      : "ts_meetings_num";
+
+  const apiMetricB =
+    metricB && metricB !== "avgLength"
+      ? METRIC_API_MAP[metricB as Exclude<DeviceMetric, "avgLength">]
+      : "ts_meetings_duration_tot";
+
+  const { dataA: rawA, dataB: rawB } = useDeviceUtilizationMetrics(
+    orgId,
+    apiMetricA,
+    apiMetricB,
+    timeRange,
+    selectedDevices,
+  );
+
+  const { dataA: filteredMeetings, dataB: filteredDuration } =
+    useDeviceUtilizationMetrics(
+      orgId,
+      "ts_meetings_num",
+      "ts_meetings_duration_tot",
+      timeRange,
+      selectedDevices,
+    );
+
+  const pointsA: ChartPoint[] = useMemo(
+    () =>
+      metricA === "avgLength"
+        ? computeAvgLength(filteredMeetings, filteredDuration)
+        : rawA,
+    [metricA, rawA, filteredMeetings, filteredDuration],
+  );
+
+  const pointsB: ChartPoint[] = useMemo(
+    () =>
+      metricB === "avgLength"
+        ? computeAvgLength(filteredMeetings, filteredDuration)
+        : rawB,
+    [metricB, rawB, filteredMeetings, filteredDuration],
+  );
+
+  const { ticks: ticksA, max: maxA } = getNiceTicks(pointsA);
+  const { ticks: ticksB, max: maxB } = getNiceTicks(pointsB);
+  const hasTwoMetrics = metricB !== null;
+  const baseData = pointsA.length >= pointsB.length ? pointsA : pointsB;
+
+  const deviceData = useMemo(
+    () =>
+      baseData.map((d, i) => ({
+        label: formatShortDate(d.date),
+        [metricA]: pointsA[i]?.value ?? 0,
+        ...(metricB !== null && { [metricB]: pointsB[i]?.value ?? 0 }),
+      })),
+    [baseData, metricA, metricB, pointsA, pointsB],
+  );
+
+  const xTicks = useMemo(
+    () => getSevenTicks(deviceData.map((d) => d.label)),
+    [deviceData],
+  );
 
   const handleChangeA = (next: DeviceMetric | null) => {
     if (next === null) return;
@@ -195,86 +132,181 @@ export default function DeviceUtilization({
     setMetricB(next);
   };
 
-  const deviceData = data.map((d) => ({
-    label: fmtDate(d.date),
-    meetings: d.meetings,
-    users: Math.round(d.meetings * 1.4),
-    hours: Math.round(d.meetings * 2.3),
-    connections: d.connections,
-    posts: Math.round(d.meetings * 0.8),
-    avgLength: Math.round(d.meetings * 5),
-  }));
+  const METRIC_LABELS: Record<DeviceMetric, string> = {
+    meetings: "Number of meetings",
+    hours: "Hours in use",
+    connections: "Number of connections",
+    posts: "Number of posts",
+    avgLength: "Avg. length of meetings",
+  };
+
+  const METRIC_OPTIONS: DropdownOption<DeviceMetric>[] = (
+    Object.entries(METRIC_LABELS) as [DeviceMetric, string][]
+  ).map(([value, label]) => ({ value, label }));
+
+  const isAllZeroData = useMemo(() => {
+    return deviceData.every((d) => {
+      const valA = d[metricA] ?? 0;
+      const valB = metricB ? (d[metricB] ?? 0) : 0;
+      return valA === 0 && valB === 0;
+    });
+  }, [deviceData, metricA, metricB]);
 
   return (
     <div className="mb-8">
-      <div className="font-semibold text-[15px] text-black mb-0.5">
+      <div className="font-semibold text-[20px] text-[#090814] mb-0.5">
         Device Utilization
       </div>
-
-      <div className="text-[13px] text-gray-400 mb-3">
+      <div className="text-[13px] text-[#8F8F91] mt-2 mb-6">
         Compare up to two types of usage data for devices in your organization
       </div>
-
-      <div className="bg-white rounded-xl p-5 pb-4 border border-gray-200">
-        <ResponsiveContainer width="100%" height={240}>
-          <LineChart
-            data={deviceData}
-            margin={{ top: 8, right: 16, left: -20, bottom: 0 }}
-          >
-            <CartesianGrid stroke="#f0f0f0" vertical={false} />
-
-            <XAxis
-              dataKey="label"
-              tick={{ fontSize: 11, fill: "#000" }}
-              interval={interval}
-              axisLine={false}
-              tickLine={false}
-            />
-
-            <YAxis
-              tick={{ fontSize: 11, fill: "#000" }}
-              axisLine={false}
-              tickLine={false}
-            />
-
-            <Tooltip content={<ChartTooltip />} />
-
-            <Line
-              type="linear"
-              dataKey={metricA}
-              name={METRIC_LABELS[metricA]}
-              stroke="#6860C8"
-              strokeWidth={2}
-              dot={{ r: 4, fill: "#6860C8", strokeWidth: 0 }}
-              activeDot={{ r: 5 }}
-            />
-
-            {metricB && (
+      <div className="bg-white rounded-xl py-5 pb-4 border border-gray-200 ">
+        {isAllZeroData || deviceData.length === 0 ? (
+          <EmptyState
+            title="No data for this date range"
+            description="Device utilization data appears when meetings occur on your devices"
+            icon={trendingUpIcon}
+          />
+        ) : (
+          <ResponsiveContainer width="100%" height={336}>
+            <LineChart
+              data={deviceData}
+              margin={{
+                top: 8,
+                right: hasTwoMetrics ? 38 : 30,
+                left: 24,
+                bottom: 0,
+              }}
+            >
+              <CartesianGrid
+                stroke="#f0f0f0"
+                vertical={false}
+                horizontal={false}
+              />
+              <XAxis
+                dataKey="label"
+                tick={{ fontSize: 11, fill: "#000" }}
+                axisLine={{ stroke: "#f0f0f0" }}
+                tickLine={false}
+                ticks={xTicks}
+              />
+              <YAxis
+                yAxisId="left"
+                orientation="left"
+                tick={{ fontSize: 11, fill: "#9CA3AF" }}
+                axisLine={false}
+                tickLine={false}
+                width={30}
+                domain={[0, maxA]}
+                ticks={ticksA}
+                allowDecimals
+                tickFormatter={(v: number) =>
+                  metricA === "hours"
+                    ? `${v % 1 === 0 ? v : v.toFixed(1)}hr`
+                    : v % 1 === 0
+                      ? `${v}`
+                      : `${parseFloat(v.toFixed(2))}`
+                }
+                label={
+                  <LeftAxisLabel
+                    label={METRIC_LABELS[metricA]}
+                    color="#6860C8"
+                  />
+                }
+              />
+              {hasTwoMetrics && (
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
+                  tick={{ fontSize: 11, fill: "#9CA3AF" }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={30}
+                  domain={[0, maxB]}
+                  ticks={ticksB}
+                  allowDecimals
+                  tickFormatter={(v: number) =>
+                    metricB === "hours"
+                      ? `${v % 1 === 0 ? v : v.toFixed(1)}hr`
+                      : v % 1 === 0
+                        ? `${v}`
+                        : `${parseFloat(v.toFixed(2))}`
+                  }
+                  label={
+                    <RightAxisLabel
+                      label={METRIC_LABELS[metricB!]}
+                      color="#D44E80"
+                    />
+                  }
+                />
+              )}
+              {ticksA.map((v) => (
+                <ReferenceLine
+                  key={v}
+                  yAxisId="left"
+                  y={v}
+                  stroke="#f0f0f0"
+                  strokeWidth={1}
+                />
+              ))}
+              <Tooltip
+                content={
+                  <ChartTooltip
+                    labelMap={{
+                      meetings: "Number of meetings",
+                      hours: "Hours in use",
+                      connections: "Number of connections",
+                      posts: "Number of posts",
+                      avgLength: "Avg. length of meetings",
+                    }}
+                    formatValue={(v, key) =>
+                      key === "hours"
+                        ? `${v % 1 === 0 ? v : v.toFixed(1)}hr`
+                        : v % 1 === 0
+                          ? String(v)
+                          : String(parseFloat(v.toFixed(2)))
+                    }
+                  />
+                }
+              />
               <Line
+                yAxisId="left"
                 type="linear"
-                dataKey={metricB}
-                name={METRIC_LABELS[metricB]}
-                stroke="#D44E80"
+                dataKey={metricA}
+                stroke={PURPLE}
                 strokeWidth={2}
-                dot={{ r: 4, fill: "#D44E80", strokeWidth: 0 }}
+                dot={{ r: 4, fill: PURPLE, strokeWidth: 0 }}
                 activeDot={{ r: 5 }}
               />
-            )}
-          </LineChart>
-        </ResponsiveContainer>
-
-        <div className="flex gap-2.5 mt-3.5 flex-wrap items-center">
+              {hasTwoMetrics && (
+                <Line
+                  yAxisId="right"
+                  type="linear"
+                  dataKey={metricB!}
+                  stroke={PINK}
+                  strokeWidth={2}
+                  dot={{ r: 4, fill: PINK, strokeWidth: 0 }}
+                  activeDot={{ r: 5 }}
+                />
+              )}
+            </LineChart>
+          </ResponsiveContainer>
+        )}
+        <div className="flex gap-2.5 mt-3.5 flex-wrap items-center px-6.5">
           <MetricDropdown
             value={metricA}
+            options={METRIC_OPTIONS}
             color="#6860C8"
-            disabledOption={metricB}
+            disabledValue={metricB}
             showNone={false}
             onChange={handleChangeA}
           />
+
           <MetricDropdown
             value={metricB}
+            options={METRIC_OPTIONS}
             color="#D44E80"
-            disabledOption={metricA}
+            disabledValue={metricA}
             showNone={true}
             onChange={handleChangeB}
           />

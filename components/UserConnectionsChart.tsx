@@ -1,7 +1,6 @@
 "use client";
 
-import { UserConnectionPoint } from "@/components/analytics/usage/page";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   AreaChart,
   Area,
@@ -11,271 +10,187 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { useUserConnectionsMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
+import {
+  buildAvailableDimensions,
+  formatShortDate,
+  getSevenTicks,
+} from "@/lib/analytics/utils/helpers";
+import { ChartTooltip } from "./charts/ChartsTooltip";
+import { ChartRow, UserConnectionsProp } from "@/lib/types/charts";
+import EmptyState from "./emptyStates/emptyStates";
+import phoneLinkIcon from "../components/icons/phonelink.svg";
 
-function fmtDate(dateStr: string): string {
-  const d = new Date(dateStr);
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
+const COLOR_PALETTE = ["#6860C8", "#D44E80", "#4D9EC4", "#7E9E2E", "#E8902A"];
 
-interface TEntry {
-  name: string;
-  value: number;
-  color: string;
-}
-
-const ChartTooltip = ({
-  active,
-  payload,
-  label,
-}: {
-  active?: boolean;
-  payload?: TEntry[];
-  label?: string;
-}) => {
-  if (!active || !payload?.length) return null;
-  const items = [...payload].reverse();
-
-  return (
-    <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-[13px] shadow-md">
-      <div className="font-semibold mb-1 text-gray-800">{label}</div>
-      {items
-        .filter((e) => e.value > 0)
-        .map((e) => (
-          <div key={e.name} className="mt-1" style={{ color: e.color }}>
-            {e.name}: {e.value}
-          </div>
-        ))}
-    </div>
-  );
-};
-
-interface SeriesItem {
-  key: keyof Omit<UserConnectionPoint, "date">;
-  label: string;
-  color: string;
-}
-
-interface FilterGroup {
-  id: string;
-  label: string;
-  items: SeriesItem[];
-}
-
-const FILTER_GROUPS: FilterGroup[] = [
-  {
-    id: "mode",
-    label: "Mode",
-    items: [
-      { key: "wired", label: "Wired", color: "#D44E80" },
-      { key: "wireless", label: "Wireless", color: "#6860C8" },
-    ],
-  },
-  {
-    id: "protocol",
-    label: "Protocol",
-    items: [
-      { key: "hdmiIn", label: "HDMI in", color: "#E8902A" },
-      { key: "googleCast", label: "Google Cast", color: "#7E9E2E" },
-      { key: "miracast", label: "Miracast", color: "#4D9EC4" },
-      { key: "airplay", label: "AirPlay", color: "#D44E80" },
-      { key: "web", label: "Web", color: "#6860C8" },
-    ],
-  },
-  {
-    id: "os",
-    label: "OS",
-    items: [
-      { key: "otherOs", label: "Other", color: "#E8902A" },
-      { key: "android", label: "Android", color: "#7E9E2E" },
-      { key: "ios", label: "iOS", color: "#4D9EC4" },
-      { key: "windows", label: "Windows", color: "#D44E80" },
-      { key: "macos", label: "MacOS", color: "#6860C8" },
-    ],
-  },
-  {
-    id: "conference",
-    label: "Conference",
-    items: [
-      { key: "presentationOnly", label: "Presentation only", color: "#4D9EC4" },
-      { key: "zoom", label: "Zoom", color: "#D44E80" },
-      { key: "teams", label: "Teams", color: "#6860C8" },
-    ],
-  },
-];
-
-const SeriesToggle = ({
-  item,
-  checked,
-  onToggle,
-}: {
-  item: SeriesItem;
-  checked: boolean;
-  onToggle: () => void;
-}) => (
-  <div
-    className="inline-flex items-center gap-1.5 cursor-pointer"
-    onClick={onToggle}
-  >
-    <span
-      className={`w-4.5 h-4.5 rounded border-2 flex items-center justify-center transition-all ${
-        checked ? "" : "border-gray-300 bg-white"
-      }`}
-      style={
-        checked
-          ? {
-              borderColor: item.color,
-              background: item.color,
-            }
-          : undefined
-      }
-    >
-      {checked && (
-        <svg width="10" height="8" viewBox="0 0 10 8">
-          <path
-            d="M1 4L3.5 6.5L9 1"
-            stroke="#fff"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      )}
-    </span>
-
-    <span
-      className="rounded px-2.5 py-1 text-xs font-medium whitespace-nowrap transition-opacity"
-      style={{
-        background: item.color,
-        color: "#fff",
-        opacity: checked ? 1 : 0.45,
-      }}
-    >
-      {item.label}
-    </span>
-  </div>
-);
-
-interface UserConnectionsProps {
-  data: UserConnectionPoint[];
-  interval: number;
-}
+const AVAILABLE_DIMENSIONS = buildAvailableDimensions();
 
 export default function UserConnections({
-  data,
-  interval,
-}: UserConnectionsProps) {
-  const [selectedGroupId, setSelectedGroupId] = useState("protocol");
+  orgId,
+  timeRange = "7d",
+  title,
+  subtitle,
+  selectedDevices,
+}: UserConnectionsProp) {
+  const [selectedMetric, setSelectedMetric] = useState<string>("");
+  const selected = selectedMetric || AVAILABLE_DIMENSIONS[0]?.metric || "";
 
-  const [activeKeys, setActiveKeys] = useState<
-    Record<string, Record<string, boolean>>
-  >(() =>
-    Object.fromEntries(
-      FILTER_GROUPS.map((g) => [
-        g.id,
-        Object.fromEntries(g.items.map((i) => [i.key, true])),
-      ])
-    )
+  const metricData = useUserConnectionsMetrics(
+    orgId,
+    selected,
+    timeRange,
+    selectedDevices
   );
 
-  const toggleKey = (groupId: string, key: string) =>
-    setActiveKeys((prev) => ({
-      ...prev,
-      [groupId]: { ...prev[groupId], [key]: !prev[groupId][key] },
-    }));
+  const segments = useMemo(() => {
+    if (!metricData.length) return [];
+    return Array.from(
+      new Set(metricData.map((d) => d.segment).filter(Boolean))
+    ) as string[];
+  }, [metricData]);
 
-  const currentGroup = FILTER_GROUPS.find((g) => g.id === selectedGroupId)!;
-  const currentActive = activeKeys[selectedGroupId];
-
-  const connectionData = useMemo(() => {
-    return data.map((d) => {
-      const point: Record<string, string | number> = { label: fmtDate(d.date) };
-      currentGroup.items.forEach((item) => {
-        point[item.key] = currentActive[item.key] ? (d[item.key] as number) : 0;
-      });
-      return point;
+  const segmentColorMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    segments.forEach((s, i) => {
+      map[s] = COLOR_PALETTE[i % COLOR_PALETTE.length];
     });
-  }, [data, currentGroup, currentActive]);
+    return map;
+  }, [segments]);
 
-  const legendItems = [...currentGroup.items].reverse();
+  const [activeSegments, setActiveSegments] = useState<Record<string, boolean>>(
+    {}
+  );
+
+  useEffect(() => {
+    if (!segments.length) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setActiveSegments((prev) => {
+      const next: Record<string, boolean> = {};
+      segments.forEach((s) => {
+        next[s] = prev[s] ?? true;
+      });
+      return next;
+    });
+  }, [segments]);
+
+  const chartData = useMemo<ChartRow[]>(() => {
+    if (!metricData.length || segments.length === 0) return [];
+    const map: Record<string, ChartRow> = {};
+    metricData.forEach((row) => {
+      if (!map[row.date]) {
+        map[row.date] = { label: formatShortDate(row.date) };
+        segments.forEach((seg) => {
+          map[row.date][seg] = 0;
+        });
+      }
+    });
+    metricData.forEach((row) => {
+      if (!row.segment) return;
+      if (activeSegments[row.segment] ?? true) {
+        map[row.date][row.segment] =
+          ((map[row.date][row.segment] as number) || 0) + row.value;
+      }
+    });
+    return Object.entries(map)
+      .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
+      .map(([, v]) => v);
+  }, [metricData, segments, activeSegments]);
+
+  const xTicks = useMemo(
+    () => getSevenTicks(chartData.map((d) => d.label as string)),
+    [chartData]
+  );
 
   return (
-    <div className="mb-8">
-      <div className="font-semibold text-[15px] text-black mb-0.5">
-        User Connections
-      </div>
-
-      <div className="text-[13px] text-gray-400 mb-3">
-        Compare connection modes, sharing protocols, user operating systems, and
-        types of conferencing solutions used
-      </div>
-
-      <div className="bg-white rounded-xl p-5 pb-4 border border-gray-200">
-        <ResponsiveContainer width="100%" height={260}>
-          <AreaChart
-            data={connectionData}
-            margin={{ top: 8, right: 16, left: -20, bottom: 0 }}
+    <div className="mb-8 w-full">
+      <div className="text-[15px] font-semibold text-black mb-1">{title}</div>
+      <div className="text-[13px] text-[#8F8F91] mt-2 mb-6">{subtitle}</div>
+      <div className="bg-white rounded-xl py-5 pb-4 border border-gray-200 ">
+        {!chartData.length ? (
+          <EmptyState
+            title="No data for this date range"
+            description="Connection data appears when users share via Web, AirPlay, Miracast, Google Cast, or HDMI-IN"
+            icon={phoneLinkIcon}
+          />
+        ) : (
+          <>
+            <ResponsiveContainer width="100%" height={336}>
+              <AreaChart data={chartData}>
+                <CartesianGrid stroke="#f0f0f0" vertical={false} />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 11, fill: "#000" }}
+                  axisLine={false}
+                  tickLine={false}
+                  ticks={xTicks}
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: "#000" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip content={<ChartTooltip />} />
+                {segments.map((segment) => (
+                  <Area
+                    key={segment}
+                    type="linear"
+                    dataKey={segment}
+                    stackId="1"
+                    stroke={segmentColorMap[segment]}
+                    fill={segmentColorMap[segment]}
+                    fillOpacity={0.9}
+                  />
+                ))}
+              </AreaChart>
+            </ResponsiveContainer>
+          </>
+        )}
+        <div className="flex items-center gap-3 mt-3.5 flex-wrap ml-6">
+          <select
+            value={selected}
+            onChange={(e) => setSelectedMetric(e.target.value)}
+            className="border border-gray-300 rounded-md px-2.5 py-1.5 text-[13px] text-black bg-white font-medium w-32.5"
           >
-            <CartesianGrid stroke="#f0f0f0" vertical={false} />
-
-            <XAxis
-              dataKey="label"
-              tick={{ fontSize: 11, fill: "#000" }}
-              interval={interval}
-              axisLine={false}
-              tickLine={false}
-              padding={{ left: 8, right: 8 }}
-            />
-
-            <YAxis
-              tick={{ fontSize: 11, fill: "#000" }}
-              axisLine={false}
-              tickLine={false}
-            />
-
-            <Tooltip content={<ChartTooltip />} />
-
-            {currentGroup.items.map((item) => (
-              <Area
-                key={item.key}
-                type="linear"
-                dataKey={item.key}
-                name={item.label}
-                stackId="1"
-                stroke={item.color}
-                fill={item.color}
-                fillOpacity={0.85}
-              />
+            {AVAILABLE_DIMENSIONS.map((item) => (
+              <option key={item.metric} value={item.metric}>
+                {item.label}
+              </option>
             ))}
-          </AreaChart>
-        </ResponsiveContainer>
+          </select>
 
-        <div className="flex items-center gap-3 mt-3.5 flex-wrap">
-          <div className="border border-gray-300 rounded-md inline-flex items-center bg-white">
-            <select
-              value={selectedGroupId}
-              onChange={(e) => setSelectedGroupId(e.target.value)}
-              className="appearance-none border-none px-2.5 py-1.5 text-[13px] text-gray-800 bg-transparent cursor-pointer outline-none font-medium"
-            >
-              {FILTER_GROUPS.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.label}
-                </option>
-              ))}
-            </select>
+          {segments.map((segment) => {
+            const activeCount =
+              Object.values(activeSegments).filter(Boolean).length;
+            const isChecked = activeSegments[segment] ?? true;
+            const isLastActive = isChecked && activeCount === 1;
 
-            <span className="-ml-5 mr-1.5 text-[10px] text-gray-500 pointer-events-none">
-              ▾
-            </span>
-          </div>
-
-          {legendItems.map((item) => (
-            <SeriesToggle
-              key={item.key}
-              item={item}
-              checked={currentActive[item.key]}
-              onToggle={() => toggleKey(selectedGroupId, item.key)}
-            />
-          ))}
+            return (
+              <label
+                key={segment}
+                className={`flex items-center gap-2 ${
+                  isLastActive ? "cursor-not-allowed" : "cursor-pointer"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={isChecked}
+                  disabled={isLastActive}
+                  onChange={() =>
+                    setActiveSegments((prev) => ({
+                      ...prev,
+                      [segment]: !prev[segment],
+                    }))
+                  }
+                />
+                <span
+                  className="px-3 py-1 rounded-full text-white text-xs font-medium"
+                  style={{ backgroundColor: segmentColorMap[segment] }}
+                >
+                  {segment}
+                </span>
+              </label>
+            );
+          })}
         </div>
       </div>
     </div>

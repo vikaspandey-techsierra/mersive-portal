@@ -1,7 +1,1147 @@
-export default function EmailAlertsPage() {
+"use client";
+
+import { useState, useEffect } from "react";
+import {
+  AnalyticsApiResponse,
+  DAY_COUNTS,
+  generateMockData,
+  isValidEmail,
+  tickInterval,
+} from "@/lib/homePage";
+import { AlertConfig, AlertHistoryRow, Recipient } from "@/lib/types/homepage";
+import AlertGraph from "@/components/AlertGraph";
+import React from "react";
+import AreaChartSkeleton from "@/components/skeleton/AreaChartSkeleton";
+import Image from "next/image";
+import loader from "@/components/icons/loading.svg";
+
+const SHOW_ALERT_HISTORY =
+  process.env.NEXT_PUBLIC_FEATURE_FLAG_SHOW_ALERT_HISTORY === "true"; // Toggle this to show/hide the alert history section
+const SHOW_ALERT_TABLE =
+  process.env.NEXT_PUBLIC_FEATURE_FLAG_SHOW_ALERT_TABLE === "true"; // Toggle this to show/hide the alert graph section
+
+// ─── Mock Data ───────────────────────────────────────────────────────────────
+
+const MOCK_HISTORY: AlertHistoryRow[] = [
+  {
+    date: "December 16th 2025, 8:45AM",
+    timeAgo: "6 days ago",
+    name: "Board Room",
+    id: "PD0104A0001",
+    description: "Device rebooted",
+    recipients: "jflores@mersive.com, rkumar@mersive.com",
+  },
+  {
+    date: "December 16th 2025, 9:45AM",
+    timeAgo: "6 days ago",
+    name: "Corner Conference",
+    id: "PD0104A0002",
+    description: "Device unreachable for 10 minutes",
+    recipients: "itsupport@mersive.com",
+  },
+  {
+    date: "December 16th 2025, 10:45AM",
+    timeAgo: "6 days ago",
+    name: "Hallway",
+    id: "PD0104A0003",
+    description: "Device firmware update from 15.0 to 15.1 failed",
+    recipients:
+      "itsupport@mersive.com, jflores@mersive.com, rkumar@mersive.com",
+  },
+  {
+    date: "December 16th 2025, 11:45AM",
+    timeAgo: "6 days ago",
+    name: "John's Office",
+    id: "PD0104A0004",
+    description: "Device firmware update from 15.0 to 15.0.3 completed",
+    recipients: "jflores@mersive.com, rkumar@mersive.com",
+  },
+];
+
+const DEFAULT_ALERT_CONFIG: AlertConfig = {
+  unreachable: false,
+  unreachableMinutes: 5,
+  rebooted: false,
+  unassignedFromTemplate: false,
+  firmwareAvailable: false,
+  firmwareAboutToBegin: false,
+  firmwareCompleted: false,
+};
+
+const MAX_RECIPIENTS = 5;
+
+// ─── Alert ID mapping ─────────────────────────────────────────────────────────
+
+const ALERT_ID_MAP = {
+  unreachable: 1,
+  rebooted: 2,
+  unassignedFromTemplate: 3,
+  firmwareAvailable: 4,
+  firmwareAboutToBegin: 5,
+  firmwareCompleted: 6,
+} as const;
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface AlertSetting {
+  alert_id: number;
+  enabled: boolean;
+  parameters: {
+    duration: number | null;
+  };
+}
+
+interface EmailAlertSetting {
+  recipient: "user" | "additional_recipient";
+  parameters: {
+    email: string | null;
+  };
+  settings: AlertSetting[];
+}
+
+interface EmailAlertPayload {
+  org_id: string;
+  user_id: string;
+  email_alert_settings: EmailAlertSetting[];
+}
+
+// ─── Build payload helper ─────────────────────────────────────────────────────
+
+function buildAlertSettings(
+  myAlerts: AlertConfig,
+  recipients: Recipient[],
+): EmailAlertSetting[] {
+  const toSettings = (config: AlertConfig): AlertSetting[] => [
+    {
+      alert_id: ALERT_ID_MAP.unreachable,
+      enabled: config.unreachable,
+      parameters: {
+        duration: (config.unreachableMinutes ?? 5) * 60 * 1000,
+      },
+    },
+    {
+      alert_id: ALERT_ID_MAP.rebooted,
+      enabled: config.rebooted,
+      parameters: { duration: null },
+    },
+    {
+      alert_id: ALERT_ID_MAP.unassignedFromTemplate,
+      enabled: config.unassignedFromTemplate,
+      parameters: { duration: null },
+    },
+    {
+      alert_id: ALERT_ID_MAP.firmwareAvailable,
+      enabled: config.firmwareAvailable,
+      parameters: { duration: null },
+    },
+    {
+      alert_id: ALERT_ID_MAP.firmwareAboutToBegin,
+      enabled: config.firmwareAboutToBegin,
+      parameters: { duration: null },
+    },
+    {
+      alert_id: ALERT_ID_MAP.firmwareCompleted,
+      enabled: config.firmwareCompleted,
+      parameters: { duration: null },
+    },
+  ];
+
+  return [
+    {
+      recipient: "user",
+      parameters: { email: null },
+      settings: toSettings(myAlerts),
+    },
+    ...recipients.map((r) => ({
+      recipient: "additional_recipient" as const,
+      parameters: { email: r.email },
+      settings: toSettings(r.alerts),
+    })),
+  ];
+}
+
+// ─── Toggle ───────────────────────────────────────────────────────────────────
+
+function Toggle({
+  checked,
+  onChange,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
   return (
-    <div style={{ padding: 24, fontFamily: "sans-serif", color: "#333" }}>
-      EMAIL ALERTS PAGE
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 ${
+        checked ? "bg-[#5E54C5]" : "bg-gray-300"
+      }`}
+    >
+      <span
+        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
+          checked ? "translate-x-4" : "translate-x-0"
+        }`}
+      />
+    </button>
+  );
+}
+
+// ─── Alert Row ────────────────────────────────────────────────────────────────
+
+function AlertRow({
+  label,
+  checked,
+  onChange,
+  minutes,
+  onMinutesChange,
+  showMinutes = false,
+}: {
+  label?: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  minutes?: number;
+  onMinutesChange?: (v: number) => void;
+  showMinutes?: boolean;
+}) {
+  return (
+    <div className="flex items-center h-11 gap-3 px-3">
+      <Toggle checked={checked} onChange={onChange} />
+      <span className="text-[14px] font-normal text-[#374151] flex items-center gap-2 leading-5">
+        {showMinutes ? (
+          <>
+            <span>Email when a Pod is unreachable for</span>
+            <div className="flex items-center h-8 border border-[#D1D5DB] rounded-lg px-2 bg-white">
+              <input
+                type="number"
+                min={1}
+                max={60}
+                value={minutes ?? 5}
+                onChange={(e) => onMinutesChange?.(Number(e.target.value))}
+                className="w-8 text-[14px] text-[#111827] text-center focus:outline-none bg-transparent"
+              />
+              <div className="flex flex-col ml-1.5 justify-center">
+                <button
+                  type="button"
+                  onClick={() =>
+                    onMinutesChange?.(Math.min(60, (minutes ?? 5) + 1))
+                  }
+                  className="flex items-center justify-center h-2.5"
+                >
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    className="text-[#6B7280]"
+                  >
+                    <path
+                      d="M4 10L8 6L12 10"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    onMinutesChange?.(Math.max(1, (minutes ?? 5) - 1))
+                  }
+                  className="flex items-center justify-center h-2.5"
+                >
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    className="text-[#6B7280]"
+                  >
+                    <path
+                      d="M4 6L8 10L12 6"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <span className="text-[14px] text-[#374151] ml-2">minutes</span>
+          </>
+        ) : (
+          label
+        )}
+      </span>
     </div>
-  )
+  );
+}
+
+// ─── Alert Config Section ─────────────────────────────────────────────────────
+
+function AlertConfigSection({
+  config,
+  onChange,
+}: {
+  config: AlertConfig;
+  onChange: (patch: Partial<AlertConfig>) => void;
+}) {
+  return (
+    <div>
+      <AlertRow
+        showMinutes
+        checked={config.unreachable}
+        onChange={(v) => onChange({ unreachable: v })}
+        minutes={config.unreachableMinutes}
+        onMinutesChange={(v) => onChange({ unreachableMinutes: v })}
+      />
+      <AlertRow
+        label="Email when a Pod is rebooted"
+        checked={config.rebooted}
+        onChange={(v) => onChange({ rebooted: v })}
+      />
+      <AlertRow
+        label="Email when a Pod is unassigned from a template"
+        checked={config.unassignedFromTemplate}
+        onChange={(v) => onChange({ unassignedFromTemplate: v })}
+      />
+      <AlertRow
+        label="Email when a firmware update is available"
+        checked={config.firmwareAvailable}
+        onChange={(v) => onChange({ firmwareAvailable: v })}
+      />
+      <AlertRow
+        label="Email when a firmware update is about to begin"
+        checked={config.firmwareAboutToBegin}
+        onChange={(v) => onChange({ firmwareAboutToBegin: v })}
+      />
+      <AlertRow
+        label="Email when a firmware update is completed"
+        checked={config.firmwareCompleted}
+        onChange={(v) => onChange({ firmwareCompleted: v })}
+      />
+    </div>
+  );
+}
+
+// ─── Animated Recipient Card Wrapper ──────────────────────────────────────────
+
+function AnimatedRecipientCard({
+  recipient,
+  onChange,
+  onRemove,
+  emailError,
+}: {
+  recipient: Recipient;
+  onChange: (r: Recipient) => void;
+  onRemove: () => void;
+  emailError?: string;
+}) {
+  const [isVisible, setIsVisible] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsVisible(true), 30);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleRemove = () => {
+    setIsRemoving(true);
+    setTimeout(onRemove, 350);
+  };
+
+  const show = isVisible && !isRemoving;
+
+  return (
+    <div
+      className={`grid transition-all ease-out ${
+        show
+          ? "grid-rows-[1fr] opacity-100 duration-400"
+          : "grid-rows-[0fr] opacity-0 duration-300"
+      }`}
+    >
+      <div
+        className={`overflow-hidden transition-transform ease-out ${
+          show
+            ? "translate-y-0 duration-400"
+            : isRemoving
+              ? "-translate-y-2 duration-300"
+              : "translate-y-4 duration-400"
+        }`}
+      >
+        <div className="pb-3">
+          <div className="border border-[#E5E7EB] rounded-lg p-4 bg-white">
+            <div className="flex items-start justify-between mb-1">
+              <label className="text-sm font-medium text-gray-700">
+                Recipient Email<span className="text-red-500">*</span>
+              </label>
+              <button
+                type="button"
+                onClick={handleRemove}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="Remove recipient"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <input
+              type="text"
+              value={recipient.email}
+              onChange={(e) =>
+                onChange({ ...recipient, email: e.target.value })
+              }
+              placeholder="user1@example.org"
+              className={`w-full rounded border px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 ${
+                emailError ? "border-red-400 bg-red-50" : "border-gray-300"
+              }`}
+            />
+
+            {emailError ? (
+              <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                <svg
+                  className="w-3 h-3 shrink-0"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                {emailError}
+              </p>
+            ) : (
+              <p className="text-xs text-gray-400 mt-1">
+                Separate multiple email addresses with a comma
+              </p>
+            )}
+
+            <div className="mt-2">
+              <AlertConfigSection
+                config={recipient.alerts}
+                onChange={(patch) =>
+                  onChange({
+                    ...recipient,
+                    alerts: { ...recipient.alerts, ...patch },
+                  })
+                }
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Alert History ────────────────────────────────────────────────────────────
+
+type HistoryFilter = "my" | "all";
+type SortField = keyof AlertHistoryRow;
+type SortDir = "asc" | "desc";
+
+function SortArrows({ active, dir }: { active: boolean; dir: SortDir }) {
+  return (
+    <span className="flex flex-col ml-1 justify-center">
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 16 16"
+        fill="none"
+        className={`-mb-0.5 ${
+          active && dir === "asc" ? "text-[#5E54C5]" : "text-[#9CA3AF]"
+        }`}
+      >
+        <path
+          d="M4 10L8 6L12 10"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 16 16"
+        fill="none"
+        className={`-mb-0.5 ${
+          active && dir === "desc" ? "text-[#5E54C5]" : "text-[#9CA3AF]"
+        }`}
+      >
+        <path
+          d="M4 6L8 10L12 6"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </span>
+  );
+}
+
+function Th({
+  label,
+  field,
+  sortField,
+  sortDir,
+  handleSort,
+}: {
+  label: string;
+  field: SortField;
+  sortField: SortField;
+  sortDir: SortDir;
+  handleSort: (field: SortField) => void;
+}) {
+  return (
+    <th
+      className="text-left text-[12px] font-medium text-[#6B7280] py-3 pr-4 first:pl-4 cursor-pointer select-none whitespace-nowrap"
+      onClick={() => handleSort(field)}
+    >
+      <span className="inline-flex items-center">
+        {label}
+        <SortArrows active={sortField === field} dir={sortDir} />
+      </span>
+    </th>
+  );
+}
+
+function AlertHistorySection() {
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<HistoryFilter>("my");
+  const [sortField, setSortField] = useState<SortField>("date");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 2000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir(sortDir === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDir("asc");
+    }
+  };
+
+  const rows = MOCK_HISTORY.filter((row) => {
+    const q = search.toLowerCase();
+    return (
+      !q ||
+      row.name.toLowerCase().includes(q) ||
+      row.id.toLowerCase().includes(q) ||
+      row.description.toLowerCase().includes(q) ||
+      row.recipients.toLowerCase().includes(q)
+    );
+  }).sort((a, b) => {
+    const av = a[sortField];
+    const bv = b[sortField];
+    const cmp = av < bv ? -1 : av > bv ? 1 : 0;
+    return sortDir === "asc" ? cmp : -cmp;
+  });
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <div className="flex items-center gap-5">
+          <div className="relative">
+            <svg
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"
+              />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-75 h-10 pl-9 pr-3 text-[13px] text-[#111827] border border-[#D1D5DB] rounded-lg focus:outline-none"
+            />
+          </div>
+
+          <div className="flex h- border border-[#D1D5DB] rounded-lg overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setFilter("my")}
+              className={`w-30 text-[13px] font-medium flex items-center justify-center transition-colors ${
+                filter === "my"
+                  ? "bg-[#5E54C5] text-white"
+                  : "bg-white text-[#374151]"
+              }`}
+            >
+              My alerts
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilter("all")}
+              className={`w-30 text-[13px] font-medium flex items-center justify-center transition-colors border-l border-[#E5E7EB] ${
+                filter === "all"
+                  ? "bg-[#5E54C5] text-white"
+                  : "bg-white text-[#374151]"
+              }`}
+            >
+              All alerts
+            </button>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          className="flex items-center gap-1.5 px-3 h-8 text-[13px] font-medium border border-[#D1D5DB] rounded-lg bg-white hover:bg-gray-50 transition-colors"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            className="text-[#374151]"
+          >
+            <path
+              d="M8 2V10M8 10L5.5 7.5M8 10L10.5 7.5"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M3 12.5H13"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+          </svg>
+          Export to CSV
+        </button>
+      </div>
+
+      <div className="border border-[#E5E7EB] rounded-lg overflow-x-auto bg-white">
+        <table className="w-full table-fixed border-collapse text-sm">
+          <colgroup>
+            <col className="w-92.5" />
+            <col className="w-87.5" />
+            <col className="w-35" />
+            <col className="w-102.5" />
+            <col className="w-100" />
+          </colgroup>
+
+          <thead className="border-b border-[#E5E7EB]">
+            <tr>
+              <Th
+                label="Date"
+                field="date"
+                sortField={sortField}
+                sortDir={sortDir}
+                handleSort={handleSort}
+              />
+              <Th
+                label="Name"
+                field="name"
+                sortField={sortField}
+                sortDir={sortDir}
+                handleSort={handleSort}
+              />
+              <Th
+                label="ID"
+                field="id"
+                sortField={sortField}
+                sortDir={sortDir}
+                handleSort={handleSort}
+              />
+              <Th
+                label="Description"
+                field="description"
+                sortField={sortField}
+                sortDir={sortDir}
+                handleSort={handleSort}
+              />
+              <Th
+                label="Recipients"
+                field="recipients"
+                sortField={sortField}
+                sortDir={sortDir}
+                handleSort={handleSort}
+              />
+            </tr>
+          </thead>
+
+          <tbody>
+            {isLoading ? (
+              <tr>
+                <td colSpan={5} className="py-16 text-center">
+                  <div className="flex justify-center items-center">
+                    <Image
+                      src={loader}
+                      alt="Loading"
+                      width={100}
+                      height={100}
+                      className="animate-spin"
+                    />
+                  </div>
+                </td>
+              </tr>
+            ) : rows.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="text-center text-gray-400 py-8">
+                  No alerts found
+                </td>
+              </tr>
+            ) : (
+              rows.map((row, i) => (
+                <tr
+                  key={i}
+                  className="h-10.75 border-b border-[#F1F2F4] hover:bg-[#F9FAFB] transition-colors"
+                >
+                  <td className="py-3 px-2 whitespace-nowrap">
+                    <span className="text-[14px] font-medium text-[#090814]">
+                      {row.date} – {row.timeAgo}
+                    </span>
+                  </td>
+                  <td className="py-3 px-2 text-[14px] font-medium text-[#090814]">
+                    {row.name}
+                  </td>
+                  <td className="py-3 px-2 text-[12px] font-mono text-[#6B7280]">
+                    {row.id}
+                  </td>
+                  <td className="py-3 px-2 text-[14px] text-[#374151]">
+                    {row.description}
+                  </td>
+                  <td className="py-3 px-2 text-[13px] text-[#6B7280] truncate">
+                    {row.recipients}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ─── Save Feedback ────────────────────────────────────────────────────────────
+
+function SaveFeedback({
+  isSaving,
+  saveSuccess,
+  saveError,
+}: {
+  isSaving: boolean;
+  saveSuccess: boolean;
+  saveError: string | null;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <button
+        type="button"
+        disabled={isSaving}
+        className="px-4 py-2 bg-[#5E54C5] text-white text-sm font-medium rounded-lg hover:bg-[#4e46b0] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+      >
+        {isSaving && (
+          <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8v8H4z"
+            />
+          </svg>
+        )}
+        {isSaving ? "Saving…" : "Save Changes"}
+      </button>
+
+      {saveSuccess && !isSaving && (
+        <span className="text-sm text-green-600 font-medium flex items-center gap-1">
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M5 13l4 4L19 7"
+            />
+          </svg>
+          Saved successfully
+        </span>
+      )}
+
+      {saveError && !isSaving && (
+        <span className="text-sm text-red-500 flex items-center gap-1">
+          <svg
+            className="w-4 h-4 shrink-0"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+          >
+            <path
+              fillRule="evenodd"
+              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+              clipRule="evenodd"
+            />
+          </svg>
+          {saveError}
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+const MOCK: Record<string, AnalyticsApiResponse> = {
+  "7d": generateMockData(7),
+  "30d": generateMockData(30),
+  "60d": generateMockData(60),
+  "90d": generateMockData(90),
+  all: generateMockData(120),
+};
+
+type TimeRange = "7d" | "30d" | "60d" | "90d" | "all";
+
+const TIME_RANGES: { key: TimeRange; label: string }[] = [
+  { key: "7d", label: "Last 7 days" },
+  { key: "30d", label: "Last 30 days" },
+  { key: "60d", label: "Last 60 days" },
+  { key: "90d", label: "Last 90 days" },
+  { key: "all", label: "All time" },
+];
+
+export default function EmailAlertsPage({ orgId }: { orgId: string }) {
+  const [collapsed, setCollapsed] = useState(false);
+  const [activeTab, setActiveTab] = useState<"my" | "additional">("my");
+  const [timeRange, setTimeRange] = useState<TimeRange>("7d");
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  const apiData = MOCK[timeRange];
+  const days = DAY_COUNTS[timeRange];
+  const interval = tickInterval(days);
+
+  const [myAlerts, setMyAlerts] = useState<AlertConfig>({
+    unreachable: true,
+    unreachableMinutes: 5,
+    rebooted: true,
+    unassignedFromTemplate: true,
+    firmwareAvailable: true,
+    firmwareAboutToBegin: true,
+    firmwareCompleted: true,
+  });
+
+  const [recipients, setRecipients] = useState<Recipient[]>([]);
+  const [emailErrors, setEmailErrors] = useState<Record<string, string>>({});
+
+  // ── Save state ──
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // ── Shared API call ──
+  const saveToBackend = async (patch?: {
+    recipients?: Recipient[];
+    myAlerts?: AlertConfig;
+  }) => {
+    const effectiveMyAlerts = patch?.myAlerts ?? myAlerts;
+    const effectiveRecipients = patch?.recipients ?? recipients;
+
+    const payload: EmailAlertPayload = {
+      org_id: orgId,
+      user_id: "user_8c9130bd", // TODO: replace with value from Phoenix app context
+      email_alert_settings: buildAlertSettings(
+        effectiveMyAlerts,
+        effectiveRecipients,
+      ),
+    };
+
+    setIsSaving(true);
+    setSaveError(null);
+    setSaveSuccess(false);
+
+    try {
+      const res = await fetch("/api/email-alert-settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.message ?? `Server error: ${res.status}`);
+      }
+
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err) {
+      setSaveError(
+        err instanceof Error ? err.message : "Failed to save settings.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // ── My Alerts save ──
+  const saveMyAlerts = () => saveToBackend({ myAlerts });
+
+  // ── Additional Recipients save (with validation) ──
+  const validateAndSave = async () => {
+    const errs: Record<string, string> = {};
+    recipients.forEach((r) => {
+      if (!r.email) errs[r.id] = "Email is required.";
+      else if (!isValidEmail(r.email))
+        errs[r.id] = "Please enter a valid email address.";
+    });
+    setEmailErrors(errs);
+    if (Object.keys(errs).length > 0) return;
+
+    await saveToBackend({ recipients });
+  };
+
+  const addRecipient = () => {
+    if (recipients.length >= MAX_RECIPIENTS) return;
+    setRecipients([
+      ...recipients,
+      {
+        id: Math.random().toString(36).slice(2),
+        email: "",
+        alerts: { ...DEFAULT_ALERT_CONFIG },
+      },
+    ]);
+  };
+
+  const updateRecipient = (id: string, updated: Recipient) => {
+    setRecipients(recipients.map((r) => (r.id === id ? updated : r)));
+    if (emailErrors[id]) {
+      const errs = { ...emailErrors };
+      delete errs[id];
+      setEmailErrors(errs);
+    }
+  };
+
+  const removeRecipient = (id: string) => {
+    setRecipients(recipients.filter((r) => r.id !== id));
+    const errs = { ...emailErrors };
+    delete errs[id];
+    setEmailErrors(errs);
+  };
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    <div className="text-[#090814]">
+      {/* Alert Settings section */}
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex flex-col gap-2">
+          <h2 className="text-[20px] font-medium text-[#090814] leading-6">
+            Alert Settings
+          </h2>
+          <p className="text-[13px] font-normal text-[#6B7280] leading-4">
+            Control which type of alerts to receive and add additional
+            recipients when an event occurs within your fleet
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setCollapsed((c) => !c)}
+          aria-label={collapsed ? "Expand" : "Collapse"}
+          className="w-11 h-11 flex items-center justify-center rounded-lg bg-white hover:bg-[#F9FAFB] transition-colors shrink-0"
+        >
+          <svg
+            className={`w-6 h-6 text-[#5E54C5] transition-transform duration-200 ${
+              collapsed ? "rotate-180" : ""
+            }`}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M6 15l6-6 6 6"
+            />
+          </svg>
+        </button>
+      </div>
+      {!collapsed && (
+        <>
+          {/* Tabs */}
+          <div className="inline-flex mb-5 h-8 rounded-lg border border-gray-300 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setActiveTab("my")}
+              className={`w-42.5 flex items-center justify-center text-[13px] font-medium border-r transition ${
+                activeTab === "my"
+                  ? "bg-[#5E54C5] text-white border-[#6860C8]"
+                  : "bg-white text-gray-600 border-gray-300"
+              }`}
+            >
+              My Alerts
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("additional")}
+              className={`px-4 flex items-center text-[13px] font-medium transition ${
+                activeTab === "additional"
+                  ? "bg-[#5E54C5] text-white"
+                  : "bg-white text-gray-600"
+              }`}
+            >
+              Additional Recipients
+            </button>
+          </div>
+
+          {/* My Alerts */}
+          {activeTab === "my" && (
+            <div className="max-w-lg">
+              <AlertConfigSection
+                config={myAlerts}
+                onChange={(patch) => setMyAlerts({ ...myAlerts, ...patch })}
+              />
+              <div className="pt-4 border-t border-gray-100 mt-2">
+                <div onClick={saveMyAlerts}>
+                  <SaveFeedback
+                    isSaving={isSaving}
+                    saveSuccess={saveSuccess}
+                    saveError={saveError}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Additional Recipients */}
+          {activeTab === "additional" && (
+            <div className="max-w-lg">
+              <p className="text-sm text-gray-500 mb-4">
+                Add up to {MAX_RECIPIENTS} additional recipients and configure
+                alerts for each user
+              </p>
+
+              {recipients.map((r) => (
+                <AnimatedRecipientCard
+                  key={r.id}
+                  recipient={r}
+                  onChange={(updated) => updateRecipient(r.id, updated)}
+                  onRemove={() => removeRecipient(r.id)}
+                  emailError={emailErrors[r.id]}
+                />
+              ))}
+
+              {recipients.length >= MAX_RECIPIENTS ? (
+                <div className="transition-all duration-300 ease-out">
+                  <p className="text-xs text-amber-700 mb-4 py-1.5 px-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-1.5">
+                    <svg
+                      className="w-4 h-4 shrink-0"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+                      />
+                    </svg>
+                    Max number of recipients reached
+                  </p>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={addRecipient}
+                  className="text-sm text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1 mb-4 transition-colors"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 4v16m8-8H4"
+                    />
+                  </svg>
+                  Add recipient
+                </button>
+              )}
+
+              {recipients.length > 0 && (
+                <div className="pt-4 border-t border-gray-100">
+                  <div onClick={validateAndSave}>
+                    <SaveFeedback
+                      isSaving={isSaving}
+                      saveSuccess={saveSuccess}
+                      saveError={saveError}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+      {/* Divider */}
+      {SHOW_ALERT_HISTORY && <div className="my-6 h-px bg-[#E5E7EB]" />}
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4" />
+      {SHOW_ALERT_HISTORY &&
+        (isLoading ? (
+          <AreaChartSkeleton
+            title={"Alert History"}
+            description={
+              "View the quantity and which types of alerts were emailed to users"
+            }
+          />
+        ) : (
+          <AlertGraph data={apiData.userConnections} interval={interval} />
+        ))}
+
+      {SHOW_ALERT_TABLE && <AlertHistorySection />}
+    </div>
+  );
 }

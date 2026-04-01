@@ -2,12 +2,13 @@ import { AdminAlert } from "@/lib/types/api";
 import Image from "next/image";
 import TvOffIcon from "@/components/icons/tv_off.svg";
 import CalendarIcon from "@/components/icons/event_busy.svg";
-import DownloadIcon from "@/components/icons/outdated_firmware.svg";
-import AlertTriangleIcon from "@/components/icons/warning.svg";
 import AlertChip from "./AlertChip";
 import ErrorIcon from "@/components/icons/error.svg";
 
 const AlertBanner = ({ alert }: { alert: AdminAlert }) => {
+  const hasAlerts = alert.offlineDevices || alert.expiredOrExpiringSoon;
+
+  if (!hasAlerts) return null;
   return (
     <div className=" px-8 py-4 flex items-center gap-2 bg-[#F3D9D7] justify-between ">
       {/* Left: title */}
@@ -26,7 +27,7 @@ const AlertBanner = ({ alert }: { alert: AdminAlert }) => {
       </div>
 
       {/* Chips */}
-      <div className="flex w-[74%] gap-1 justify-between flex-wrap">
+      <div className="flex w-[74%] gap-8  flex-wrap">
         <AlertChip
           icon={TvOffIcon}
           label="Offline devices"
@@ -36,16 +37,6 @@ const AlertBanner = ({ alert }: { alert: AdminAlert }) => {
           icon={CalendarIcon}
           label="Expired or expiring soon"
           value={alert.expiredOrExpiringSoon}
-        />
-        <AlertChip
-          icon={DownloadIcon}
-          label="Outdated firmware"
-          value={alert.outdatedFirmware}
-        />
-        <AlertChip
-          icon={AlertTriangleIcon}
-          label="Other issues"
-          value={alert.otherIssues}
         />
       </div>
     </div>
