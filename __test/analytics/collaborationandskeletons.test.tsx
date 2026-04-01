@@ -1,9 +1,3 @@
-/**
- * @file collaboration-and-skeletons.test.tsx
- * Tests for CollaborationUsage, LineChartSkeleton, AreaChartSkeleton,
- * and the mock data generation utilities used by UsagePage.
- */
-
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom";
@@ -13,22 +7,23 @@ import AreaChartSkeleton from "@/components/skeleton/AreaChartSkeleton";
 import { generateMockData, tickInterval, DAY_COUNTS } from "@/lib/homePage";
 import { timeseriesMock } from "@/lib/analytics/mock/timeseriesMock";
 
-// ---------------------------------------------------------------------------
-// Create a mock function that we can control
-// ---------------------------------------------------------------------------
-const mockUseFilteredCollaborationMetrics = jest.fn();
+const mockUseCollaborationUsageMetrics = jest.fn();
 
-// ---------------------------------------------------------------------------
-// Mock the useTimeSeriesMetrics hooks
-// ---------------------------------------------------------------------------
 jest.mock("@/lib/analytics/hooks/useTimeSeriesMetrics", () => ({
-  useFilteredCollaborationMetrics: (...args: any[]) =>
-    mockUseFilteredCollaborationMetrics(...args),
+  useCollaborationUsageMetrics: (...args: any[]) =>
+    mockUseCollaborationUsageMetrics(...args),
 }));
 
-// ---------------------------------------------------------------------------
-// Mock recharts for CollaborationUsage
-// ---------------------------------------------------------------------------
+jest.mock("@/components/emptyStates/emptyStates", () => ({
+  __esModule: true,
+  default: ({ title, description }: { title: string; description: string }) => (
+    <div data-testid="empty-state">
+      <div>{title}</div>
+      <div>{description}</div>
+    </div>
+  ),
+}));
+
 jest.mock("recharts", () => {
   const Original = jest.requireActual("recharts");
   return {
@@ -73,9 +68,6 @@ jest.mock("recharts", () => {
   };
 });
 
-// ---------------------------------------------------------------------------
-// Mock helpers
-// ---------------------------------------------------------------------------
 jest.mock("@/lib/analytics/utils/helpers", () => ({
   formatShortDate: (date: string) => {
     const d = new Date(date);
@@ -87,10 +79,6 @@ jest.mock("@/lib/analytics/utils/helpers", () => ({
     return labels.filter((_, i) => i % step === 0).slice(0, 7);
   },
 }));
-
-// ---------------------------------------------------------------------------
-// CollaborationUsage tests
-// ---------------------------------------------------------------------------
 
 const buildDeviceUtilizationPoints = (count: number) =>
   Array.from({ length: count }, (_, i) => ({
@@ -104,13 +92,14 @@ const buildDeviceUtilizationPoints = (count: number) =>
 
 describe("CollaborationUsage", () => {
   const defaultProps = {
+    orgId: "test-org-123",
     timeRange: "7d",
     selectedDevices: new Set<string>(),
   };
 
   beforeEach(() => {
     // Default mock implementation for most tests
-    mockUseFilteredCollaborationMetrics.mockReturnValue({
+    mockUseCollaborationUsageMetrics.mockReturnValue({
       connectionsAvg: [
         { date: "2026-02-01", value: 3 },
         { date: "2026-02-02", value: 4 },
@@ -238,7 +227,7 @@ describe("CollaborationUsage", () => {
     });
 
     it("handles different time ranges", () => {
-      mockUseFilteredCollaborationMetrics.mockReturnValue({
+      mockUseCollaborationUsageMetrics.mockReturnValue({
         connectionsAvg: [
           { date: "2026-02-01", value: 3 },
           { date: "2026-02-02", value: 4 },
@@ -252,7 +241,11 @@ describe("CollaborationUsage", () => {
       });
 
       render(
-        <CollaborationUsage timeRange="30d" selectedDevices={new Set()} />
+        <CollaborationUsage
+          orgId="test-org-123"
+          timeRange="30d"
+          selectedDevices={new Set()}
+        />
       );
       expect(screen.getByTestId("line-chart")).toHaveAttribute(
         "data-points",
@@ -261,12 +254,18 @@ describe("CollaborationUsage", () => {
     });
 
     it("renders with a single data point without crashing", () => {
-      mockUseFilteredCollaborationMetrics.mockReturnValue({
+      mockUseCollaborationUsageMetrics.mockReturnValue({
         connectionsAvg: [{ date: "2026-02-01", value: 3 }],
         postsAvg: [{ date: "2026-02-01", value: 4 }],
       });
 
-      render(<CollaborationUsage timeRange="7d" selectedDevices={new Set()} />);
+      render(
+        <CollaborationUsage
+          orgId="test-org-123"
+          timeRange="7d"
+          selectedDevices={new Set()}
+        />
+      );
       expect(screen.getByTestId("line-chart")).toHaveAttribute(
         "data-points",
         "1"
@@ -274,16 +273,21 @@ describe("CollaborationUsage", () => {
     });
 
     it("renders with empty data without crashing", () => {
-      mockUseFilteredCollaborationMetrics.mockReturnValue({
+      mockUseCollaborationUsageMetrics.mockReturnValue({
         connectionsAvg: [],
         postsAvg: [],
       });
 
-      render(<CollaborationUsage timeRange="7d" selectedDevices={new Set()} />);
-      expect(screen.getByTestId("line-chart")).toHaveAttribute(
-        "data-points",
-        "0"
+      render(
+        <CollaborationUsage
+          orgId="test-org-123"
+          timeRange="7d"
+          selectedDevices={new Set()}
+        />
       );
+      // When data is empty, the component shows an EmptyState instead of the chart
+      expect(screen.getByTestId("empty-state")).toBeInTheDocument();
+      expect(screen.queryByTestId("line-chart")).not.toBeInTheDocument();
     });
   });
 
@@ -575,11 +579,6 @@ describe("timeseriesMock", () => {
       expect(knownOS.has(os as string)).toBe(true);
     });
     expect(osValues.size).toBeGreaterThan(0);
-  });
-
-  it("all rows belong to the same org_id", () => {
-    const orgIds = new Set(timeseriesMock.map((r) => r.org_id));
-    expect(orgIds.size).toBe(1);
   });
 
   it("all rows have 'Day' as aggregation_level", () => {

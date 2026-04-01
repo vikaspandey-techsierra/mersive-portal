@@ -6,14 +6,11 @@ import {
   waitFor,
   act,
 } from "@testing-library/react";
-import SelectableDataTable, {
+import SelectableDataTable from "@/components/SelectedDevices";
+import type {
   ColumnDef,
   SelectableDataTableHandle,
 } from "@/components/SelectedDevices";
-
-/* ─────────────────────────────────────────────
-   MOCKS
-───────────────────────────────────────────── */
 
 jest.mock("next/image", () => ({
   __esModule: true,
@@ -26,6 +23,19 @@ jest.mock("next/image", () => ({
 jest.mock("../components/icons/loading.svg", () => "LoadingIcon", {
   virtual: true,
 });
+
+// Mock EmptyState
+jest.mock("@/components/emptyStates/emptyStates", () => ({
+  __esModule: true,
+  default: ({ title, description }: { title: string; description: string }) => (
+    <div data-testid="empty-state">
+      <div className="text-[24px] font-medium text-[#090814] my-8">{title}</div>
+      <div className="text-[13px] text-[#93949C] max-w-80 leading-snug">
+        {description}
+      </div>
+    </div>
+  ),
+}));
 
 // Mock URL.createObjectURL and URL.revokeObjectURL
 const mockCreateObjectURL = jest.fn();
@@ -59,10 +69,6 @@ afterEach(() => {
   global.URL.createObjectURL = originalCreateObjectURL;
   global.URL.revokeObjectURL = originalRevokeObjectURL;
 });
-
-/* ─────────────────────────────────────────────
-   SHARED FIXTURES
-───────────────────────────────────────────── */
 
 interface Device extends Record<string, unknown> {
   id: string;
@@ -110,8 +116,8 @@ const COLUMNS: ColumnDef<Device>[] = [
     key: "avgDurationMinutes",
     label: "Avg. Duration",
     sortable: true,
-    render: (_v, row) => row.avgDuration ?? "-",
-    csvValue: (_v, row) => row.avgDuration ?? "",
+    render: (_v: unknown, row: Device) => row.avgDuration ?? "-",
+    csvValue: (_v: unknown, row: Device) => row.avgDuration ?? "",
   },
 ];
 
@@ -119,8 +125,10 @@ const COLUMNS: ColumnDef<Device>[] = [
 function renderTable(
   overrides: Partial<React.ComponentProps<typeof SelectableDataTable>> = {}
 ) {
+  const orgId = overrides.orgId || "test-org-123";
   return render(
     <SelectableDataTable
+      orgId={orgId}
       heading="Selected Devices"
       subheading="Select all or narrow data"
       rows={ROWS}
@@ -134,10 +142,6 @@ function renderTable(
     />
   );
 }
-
-/* ─────────────────────────────────────────────
-   1. RENDERING
-───────────────────────────────────────────── */
 
 describe("SelectableDataTable – rendering", () => {
   it("renders the heading with selected count", () => {
@@ -201,6 +205,7 @@ describe("SelectableDataTable – rendering", () => {
   it("hides the spinner after the internal 2-second delay when isLoading is omitted", async () => {
     render(
       <SelectableDataTable
+        orgId="test-org-123"
         heading="H"
         subheading="S"
         rows={ROWS}
@@ -217,10 +222,6 @@ describe("SelectableDataTable – rendering", () => {
   });
 });
 
-/* ─────────────────────────────────────────────
-   2. DEFAULT SELECTION STATE
-───────────────────────────────────────────── */
-
 describe("SelectableDataTable – default selection", () => {
   it("selects all rows when defaultAllSelected=true (default)", () => {
     renderTable();
@@ -232,10 +233,6 @@ describe("SelectableDataTable – default selection", () => {
     expect(screen.getByText("Selected Devices (0)")).toBeInTheDocument();
   });
 });
-
-/* ─────────────────────────────────────────────
-   3. ROW SELECTION (toggle individual rows)
-───────────────────────────────────────────── */
 
 describe("SelectableDataTable – row selection", () => {
   it("deselects a row when clicked and count decreases", () => {
@@ -270,10 +267,6 @@ describe("SelectableDataTable – row selection", () => {
   });
 });
 
-/* ─────────────────────────────────────────────
-   4. SELECT-ALL CHECKBOX (header)
-───────────────────────────────────────────── */
-
 describe("SelectableDataTable – select-all checkbox", () => {
   function getHeaderCheckbox(container: HTMLElement) {
     return container.querySelector("thead span")!;
@@ -303,10 +296,6 @@ describe("SelectableDataTable – select-all checkbox", () => {
   });
 });
 
-/* ─────────────────────────────────────────────
-   5. SEARCH / FILTER (using fireEvent for speed)
-───────────────────────────────────────────── */
-
 describe("SelectableDataTable – search", () => {
   it("filters rows by name", () => {
     renderTable();
@@ -316,11 +305,12 @@ describe("SelectableDataTable – search", () => {
     expect(screen.queryByText("Hallway")).not.toBeInTheDocument();
   });
 
-  it("shows 'No results found.' when search matches nothing", () => {
+  it("shows empty state when search matches nothing", () => {
     renderTable();
     const input = screen.getByPlaceholderText("Search");
     fireEvent.change(input, { target: { value: "zzznomatch" } });
-    expect(screen.getByText("No results found.")).toBeInTheDocument();
+    // The component renders EmptyState with title "No results found"
+    expect(screen.getByText("No results found")).toBeInTheDocument();
   });
 
   it("restores rows when search is cleared", () => {
@@ -347,10 +337,6 @@ describe("SelectableDataTable – search", () => {
     expect(screen.getByText("Selected Devices (1)")).toBeInTheDocument();
   });
 });
-
-/* ─────────────────────────────────────────────
-   6. SORTING
-───────────────────────────────────────────── */
 
 describe("SelectableDataTable – sorting", () => {
   function getRowNames(container: HTMLElement): string[] {
@@ -452,10 +438,6 @@ describe("SelectableDataTable – onSelectionChange", () => {
   });
 });
 
-/* ─────────────────────────────────────────────
-   9. ROWS UPDATE (sync selection)
-───────────────────────────────────────────── */
-
 describe("SelectableDataTable – rows prop update", () => {
   it("updates selection when rows prop changes with defaultAllSelected=true", () => {
     const extraRow: Device = {
@@ -471,6 +453,7 @@ describe("SelectableDataTable – rows prop update", () => {
 
     rerender(
       <SelectableDataTable
+        orgId="test-org-123"
         heading="Selected Devices"
         subheading="Select all or narrow data"
         rows={[...ROWS, extraRow]}
@@ -487,14 +470,10 @@ describe("SelectableDataTable – rows prop update", () => {
   });
 });
 
-/* ─────────────────────────────────────────────
-   10. EDGE CASES
-───────────────────────────────────────────── */
-
 describe("SelectableDataTable – edge cases", () => {
-  it("renders 'No results found.' when rows is empty", () => {
+  it("shows empty state when rows is empty", () => {
     renderTable({ rows: [] });
-    expect(screen.getByText("No results found.")).toBeInTheDocument();
+    expect(screen.getByText("No results found")).toBeInTheDocument();
   });
 
   it("heading shows (0) when rows is empty", () => {
@@ -532,6 +511,7 @@ describe("SelectableDataTable – edge cases", () => {
     render(
       <SelectableDataTable
         ref={ref}
+        orgId="test-org-123"
         heading="H"
         subheading="S"
         rows={rowWithComma}

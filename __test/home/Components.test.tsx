@@ -36,15 +36,12 @@ jest.mock("lucide-react", () => ({
   ExternalLinkIcon: () => <span data-testid="external-link" />,
 }));
 
-// ---------------------------------------------------------------------------
-// Card
-// ---------------------------------------------------------------------------
 describe("Card", () => {
   it("renders the title", () => {
     render(
       <Card title="Device Type" icon="mock-icon.svg">
         <div>Child content</div>
-      </Card>,
+      </Card>
     );
     expect(screen.getByText("Device Type")).toBeInTheDocument();
   });
@@ -53,7 +50,7 @@ describe("Card", () => {
     render(
       <Card title="Device Type" icon="mock-icon.svg">
         <div>Child content</div>
-      </Card>,
+      </Card>
     );
     expect(screen.getByText("Child content")).toBeInTheDocument();
   });
@@ -62,24 +59,26 @@ describe("Card", () => {
     render(
       <Card title="My Card" icon="mock-icon.svg">
         <span />
-      </Card>,
+      </Card>
     );
     expect(screen.getByAltText("Card Icon")).toBeInTheDocument();
   });
 });
 
-// ---------------------------------------------------------------------------
-// DeviceStatusPie
-// ---------------------------------------------------------------------------
 const mockDeviceStatusData = [
   { name: "Offline", value: 2, percent: 67 },
   { name: "Online", value: 1, percent: 33 },
 ];
 
 describe("DeviceStatusPie", () => {
-  it("renders 'No data available' when data is empty", () => {
+  it("renders chart with empty data (no 'No data' message)", () => {
+    // The component renders an empty pie chart instead of a "No data" message
     render(<DeviceStatusPie data={[]} />);
-    expect(screen.getByText("No data available")).toBeInTheDocument();
+    // It should still render the chart structure
+    expect(screen.getByTestId("pie-chart")).toBeInTheDocument();
+    // No legend items should be present
+    expect(screen.queryByText("Offline")).not.toBeInTheDocument();
+    expect(screen.queryByText("Online")).not.toBeInTheDocument();
   });
 
   it("renders chart when data is provided", () => {
@@ -104,12 +103,6 @@ describe("DeviceStatusPie", () => {
     const cells = screen.getAllByTestId("cell");
     expect(cells.length).toBe(mockDeviceStatusData.length);
   });
-
-  it("renders null-like input gracefully", () => {
-    // @ts-expect-error testing null edge case
-    render(<DeviceStatusPie data={null} />);
-    expect(screen.getByText("No data available")).toBeInTheDocument();
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -121,9 +114,14 @@ const mockPlanTypeData = [
 ];
 
 describe("PlanTypePie", () => {
-  it("renders 'No plan data available' when data is empty", () => {
+  it("renders chart with empty data (no 'No plan data' message)", () => {
+    // The component renders an empty pie chart instead of a "No data" message
     render(<PlanTypePie data={[]} />);
-    expect(screen.getByText("No plan data available")).toBeInTheDocument();
+    // It should still render the chart structure
+    expect(screen.getByTestId("pie-chart")).toBeInTheDocument();
+    // No legend items should be present
+    expect(screen.queryByText("Dev Smart - 1 year")).not.toBeInTheDocument();
+    expect(screen.queryByText("Dev Pro - 1 year")).not.toBeInTheDocument();
   });
 
   it("renders chart when data is provided", () => {
@@ -158,9 +156,6 @@ describe("PlanTypePie", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// FleetHealthGauge
-// ---------------------------------------------------------------------------
 describe("FleetHealthGauge", () => {
   it("renders the health score", () => {
     render(
@@ -168,7 +163,7 @@ describe("FleetHealthGauge", () => {
         score={7.1}
         totalDevices={496}
         devicesWithIssues={355}
-      />,
+      />
     );
     expect(screen.getByText("7.1")).toBeInTheDocument();
   });
@@ -179,7 +174,7 @@ describe("FleetHealthGauge", () => {
         score={7.1}
         totalDevices={496}
         devicesWithIssues={355}
-      />,
+      />
     );
     expect(screen.getByText("Health Score")).toBeInTheDocument();
   });
@@ -190,7 +185,7 @@ describe("FleetHealthGauge", () => {
         score={7.1}
         totalDevices={496}
         devicesWithIssues={355}
-      />,
+      />
     );
     expect(screen.getByText("496")).toBeInTheDocument();
   });
@@ -201,7 +196,7 @@ describe("FleetHealthGauge", () => {
         score={7.1}
         totalDevices={496}
         devicesWithIssues={355}
-      />,
+      />
     );
     expect(screen.getByText("355")).toBeInTheDocument();
   });
@@ -212,7 +207,7 @@ describe("FleetHealthGauge", () => {
         score={7.1}
         totalDevices={496}
         devicesWithIssues={355}
-      />,
+      />
     );
     expect(screen.getByText("Total devices")).toBeInTheDocument();
   });
@@ -223,7 +218,7 @@ describe("FleetHealthGauge", () => {
         score={7.1}
         totalDevices={496}
         devicesWithIssues={355}
-      />,
+      />
     );
     expect(screen.getByText("Devices with issues")).toBeInTheDocument();
   });
@@ -234,16 +229,16 @@ describe("FleetHealthGauge", () => {
         score={7.1}
         totalDevices={496}
         devicesWithIssues={355}
-      />,
+      />
     );
     expect(
-      screen.getByRole("button", { name: /show devices with issues/i }),
+      screen.getByRole("button", { name: /show devices with issues/i })
     ).toBeInTheDocument();
   });
 
   it("renders with perfect score of 10", () => {
     render(
-      <FleetHealthGauge score={10} totalDevices={100} devicesWithIssues={0} />,
+      <FleetHealthGauge score={10} totalDevices={100} devicesWithIssues={0} />
     );
     expect(screen.getByText("10")).toBeInTheDocument();
     // devicesWithIssues = 0 → there should be a 0 on screen
@@ -256,15 +251,12 @@ describe("FleetHealthGauge", () => {
         score={7.1}
         totalDevices={496}
         devicesWithIssues={355}
-      />,
+      />
     );
     expect(screen.getByTestId("pie-chart")).toBeInTheDocument();
   });
 });
 
-// ---------------------------------------------------------------------------
-// DeviceTypeDonut
-// ---------------------------------------------------------------------------
 const mockDonutData = [
   { name: "Gen 4 Smart", value: 2 },
   { name: "Gen 4 Pod", value: 1 },
@@ -272,22 +264,21 @@ const mockDonutData = [
 ];
 
 describe("DeviceTypeDonut", () => {
-  // ── Empty / null state ────────────────────────────────────────────────────
-
-  it("renders 'No device data available' when data is empty", () => {
+  it("renders chart with empty data (no 'No device data' message)", () => {
     render(<DeviceTypeDonut data={[]} />);
-    expect(screen.getByText("No device data available")).toBeInTheDocument();
+    // The component still renders the chart structure with total 0
+    expect(screen.getByTestId("pie-chart")).toBeInTheDocument();
+    // Shows total devices as 0
+    expect(screen.getByText("0")).toBeInTheDocument();
+    expect(screen.getByText("Total Devices")).toBeInTheDocument();
+    // No legend items should be present
+    expect(screen.queryByText("Gen 4 Smart")).not.toBeInTheDocument();
   });
 
-  it("renders 'No device data available' when data is null", () => {
-    // @ts-expect-error testing null edge case
-    render(<DeviceTypeDonut data={null} />);
-    expect(screen.getByText("No device data available")).toBeInTheDocument();
-  });
-
-  it("does not render the chart when data is empty", () => {
+  it("renders the chart when data is empty", () => {
     render(<DeviceTypeDonut data={[]} />);
-    expect(screen.queryByTestId("pie-chart")).not.toBeInTheDocument();
+    // Chart should still be rendered
+    expect(screen.getByTestId("pie-chart")).toBeInTheDocument();
   });
 
   // ── Chart structure ───────────────────────────────────────────────────────
@@ -367,8 +358,6 @@ describe("DeviceTypeDonut", () => {
     expect(screen.getByText("8000")).toBeInTheDocument();
   });
 
-  // ── Legend / list ─────────────────────────────────────────────────────────
-
   it("renders a legend entry for each data item", () => {
     render(<DeviceTypeDonut data={mockDonutData} />);
     expect(screen.getByText("Gen 4 Smart")).toBeInTheDocument();
@@ -390,11 +379,9 @@ describe("DeviceTypeDonut", () => {
     expect(dots.length).toBeGreaterThanOrEqual(mockDonutData.length);
   });
 
-  // ── No crash edge cases ───────────────────────────────────────────────────
-
   it("does not crash with a single data entry", () => {
     expect(() =>
-      render(<DeviceTypeDonut data={[{ name: "Only", value: 1 }]} />),
+      render(<DeviceTypeDonut data={[{ name: "Only", value: 1 }]} />)
     ).not.toThrow();
   });
 

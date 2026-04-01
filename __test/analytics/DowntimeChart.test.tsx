@@ -1,29 +1,56 @@
-/**
- * @file DowntimeChart.test.tsx
- * Tests for DowntimeChart component.
- */
-
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import DowntimeChart from "@/components/DowntimeChart";
 
-// ---------------------------------------------------------------------------
-// Create mock function
-// ---------------------------------------------------------------------------
-const mockUseFilteredDowntimePoints = jest.fn();
+const mockUseDowntimeChart = jest.fn();
 
-// ---------------------------------------------------------------------------
-// Mock the hook
-// ---------------------------------------------------------------------------
 jest.mock("@/lib/analytics/hooks/useTimeSeriesMetrics", () => ({
-  useFilteredDowntimePoints: (...args: any[]) =>
-    mockUseFilteredDowntimePoints(...args),
+  useDowntimeChart: (...args: any[]) => mockUseDowntimeChart(...args),
 }));
 
-// ---------------------------------------------------------------------------
-// Mock data
-// ---------------------------------------------------------------------------
+jest.mock("@/components/emptyStates/emptyStates", () => ({
+  __esModule: true,
+  default: ({ title, description }: { title: string; description: string }) => (
+    <div data-testid="empty-state">
+      <div>{title}</div>
+      <div>{description}</div>
+    </div>
+  ),
+}));
+
+jest.mock("@/components/charts/ChartsTooltip", () => ({
+  ChartTooltip: ({ active, payload, label, labelMap, formatValue }: any) => {
+    if (!active || !payload?.length) return null;
+    return (
+      <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-[13px] shadow-md">
+        <div className="font-semibold mb-1 text-black">{label}</div>
+        {payload.map((p: any) => {
+          const displayLabel =
+            (labelMap && labelMap[p.dataKey]) || p.name || p.dataKey;
+          const displayValue = formatValue
+            ? formatValue(p.value, p.dataKey)
+            : String(p.value);
+          return (
+            <div key={p.dataKey} style={{ color: p.color || p.stroke }}>
+              {displayLabel}: {displayValue}
+            </div>
+          );
+        })}
+      </div>
+    );
+  },
+}));
+
+jest.mock("@/components/charts/AxisLabel", () => ({
+  LeftAxisLabel: ({ label, color }: { label: string; color: string }) => (
+    <text data-testid="left-axis-label">{label}</text>
+  ),
+  RightAxisLabel: ({ label, color }: { label: string; color: string }) => (
+    <text data-testid="right-axis-label">{label}</text>
+  ),
+}));
+
 const DOWNTIME_DATA = [
   { date: "2026-02-26", devices: 9, hours: 1.45 },
   { date: "2026-02-27", devices: 13, hours: 1.65 },
@@ -34,16 +61,10 @@ const DOWNTIME_DATA = [
   { date: "2026-03-04", devices: 0, hours: 1.0 },
 ];
 
-// ---------------------------------------------------------------------------
-// Tooltip state flags
-// ---------------------------------------------------------------------------
 let __tooltipActive = false;
 let __tooltipLabel = "";
 let __tooltipPayload: { dataKey: string; value: number; stroke: string }[] = [];
 
-// ---------------------------------------------------------------------------
-// Mock recharts
-// ---------------------------------------------------------------------------
 jest.mock("recharts", () => {
   const actual = jest.requireActual("recharts");
   return {
@@ -104,26 +125,26 @@ jest.mock("recharts", () => {
       <div data-testid={`ref-line-${y}`} />
     ),
     Tooltip: ({ content }: { content?: React.ReactElement }) => {
-      if (!content || !__tooltipActive) return <div />;
-      const ContentFn = (content as React.ReactElement).type as React.FC<{
-        active?: boolean;
-        payload?: { dataKey: string; value: number; stroke: string }[];
-        label?: string;
-      }>;
+      if (!__tooltipActive) return <div />;
+      const ContentFn = (content as React.ReactElement).type as React.FC<any>;
       return (
         <ContentFn
           active={__tooltipActive}
           label={__tooltipLabel}
           payload={__tooltipPayload}
+          labelMap={{
+            devices: "Devices",
+            hours: "Hours",
+          }}
+          formatValue={(v: number, key: string) =>
+            key === "hours" ? `${Number(v).toFixed(1)} hr` : String(v)
+          }
         />
       );
     },
   };
 });
 
-// ---------------------------------------------------------------------------
-// Mock helpers
-// ---------------------------------------------------------------------------
 jest.mock("@/lib/analytics/utils/helpers", () => ({
   formatShortDate: (date: string) => {
     const d = new Date(date);
@@ -136,27 +157,29 @@ jest.mock("@/lib/analytics/utils/helpers", () => ({
   },
 }));
 
-// ---------------------------------------------------------------------------
-// Test helpers
-// ---------------------------------------------------------------------------
-const renderChart = (timeRange = "7d", selectedDevices = new Set<string>()) =>
+const renderChart = (
+  orgId = "test-org-123",
+  timeRange = "7d",
+  selectedDevices = new Set<string>()
+) =>
   render(
-    <DowntimeChart timeRange={timeRange} selectedDevices={selectedDevices} />
+    <DowntimeChart
+      orgId={orgId}
+      timeRange={timeRange}
+      selectedDevices={selectedDevices}
+    />
   );
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 describe("DowntimeChart", () => {
   beforeEach(() => {
-    mockUseFilteredDowntimePoints.mockReturnValue(DOWNTIME_DATA);
+    mockUseDowntimeChart.mockReturnValue({ data: DOWNTIME_DATA });
+    __tooltipActive = false;
+    __tooltipPayload = [];
+    __tooltipLabel = "";
   });
 
   afterEach(() => {
     jest.clearAllMocks();
-    __tooltipActive = false;
-    __tooltipPayload = [];
-    __tooltipLabel = "";
   });
 
   // ── Heading & description ─────────────────────────────────────────────────
@@ -275,43 +298,47 @@ describe("DowntimeChart", () => {
 
   // ── AxisLabels (LeftAxisLabel / RightAxisLabel) ───────────────────────────
   describe("AxisLabels", () => {
-    it("LeftAxisLabel renders SVG <text> with 'Number of devices'", () => {
+    it("LeftAxisLabel renders with 'Number of devices'", () => {
       renderChart();
-      const texts = Array.from(document.querySelectorAll("text")).map(
-        (t) => t.textContent
-      );
-      expect(texts.some((t) => t?.includes("Number of devices"))).toBe(true);
-    });
-
-    it("RightAxisLabel renders SVG <text> with 'Number of hours'", () => {
-      renderChart();
-      const texts = Array.from(document.querySelectorAll("text")).map(
-        (t) => t.textContent
-      );
-      expect(texts.some((t) => t?.includes("Number of hours"))).toBe(true);
-    });
-
-    it("both axis label SVG texts are present", () => {
-      renderChart();
-      expect(document.querySelectorAll("text").length).toBeGreaterThanOrEqual(
-        2
+      expect(screen.getByTestId("left-axis-label")).toBeInTheDocument();
+      expect(screen.getByTestId("left-axis-label").textContent).toBe(
+        "Number of devices"
       );
     });
 
-    it("LeftAxisLabel returns null when viewBox is absent", () => {
-      // With no data, the component still renders without crash
-      mockUseFilteredDowntimePoints.mockReturnValue([]);
-      expect(() => renderChart()).not.toThrow();
+    it("RightAxisLabel renders with 'Number of hours'", () => {
+      renderChart();
+      expect(screen.getByTestId("right-axis-label")).toBeInTheDocument();
+      expect(screen.getByTestId("right-axis-label").textContent).toBe(
+        "Number of hours"
+      );
+    });
+
+    it("both axis labels are present", () => {
+      renderChart();
+      expect(screen.getByTestId("left-axis-label")).toBeInTheDocument();
+      expect(screen.getByTestId("right-axis-label")).toBeInTheDocument();
+    });
+
+    it("shows empty state when data is empty", () => {
+      mockUseDowntimeChart.mockReturnValue({ data: [] });
+      renderChart();
+      expect(screen.getByTestId("empty-state")).toBeInTheDocument();
     });
   });
 
   // ── CustomTooltip ─────────────────────────────────────────────────────────
   describe("CustomTooltip", () => {
+    afterEach(() => {
+      __tooltipActive = false;
+      __tooltipPayload = [];
+      __tooltipLabel = "";
+    });
+
     it("renders nothing when tooltip is not active", () => {
       __tooltipActive = false;
       renderChart();
-      const tooltips = document.querySelectorAll("[style*='boxShadow']");
-      expect(tooltips.length).toBe(0);
+      expect(document.querySelector(".shadow-md")).not.toBeInTheDocument();
     });
 
     it("renders the date label when active", () => {
@@ -364,14 +391,14 @@ describe("DowntimeChart", () => {
   // ── Edge cases ────────────────────────────────────────────────────────────
   describe("edge cases", () => {
     it("renders without crashing when data is empty", () => {
-      mockUseFilteredDowntimePoints.mockReturnValue([]);
+      mockUseDowntimeChart.mockReturnValue({ data: [] });
       expect(() => renderChart()).not.toThrow();
     });
 
     it("renders correctly with a single data point", () => {
-      mockUseFilteredDowntimePoints.mockReturnValue([
-        { date: "2026-02-26", devices: 5, hours: 1.2 },
-      ]);
+      mockUseDowntimeChart.mockReturnValue({
+        data: [{ date: "2026-02-26", devices: 5, hours: 1.2 }],
+      });
       renderChart();
       expect(screen.getByTestId("line-chart")).toHaveAttribute(
         "data-points",
@@ -379,11 +406,15 @@ describe("DowntimeChart", () => {
       );
     });
 
-    it("renders correctly when all device values are zero", () => {
-      const zeroData = DOWNTIME_DATA.map((d) => ({ ...d, devices: 0 }));
-      mockUseFilteredDowntimePoints.mockReturnValue(zeroData);
+    it("shows empty state when all device values are zero", () => {
+      const zeroData = DOWNTIME_DATA.map((d) => ({
+        ...d,
+        devices: 0,
+        hours: 0,
+      }));
+      mockUseDowntimeChart.mockReturnValue({ data: zeroData });
       renderChart();
-      expect(screen.getByTestId("line-devices")).toBeInTheDocument();
+      expect(screen.getByTestId("empty-state")).toBeInTheDocument();
     });
 
     it("handles 30-day data length correctly", () => {
@@ -392,7 +423,7 @@ describe("DowntimeChart", () => {
         devices: i % 20,
         hours: 1.0 + (i % 10) * 0.1,
       }));
-      mockUseFilteredDowntimePoints.mockReturnValue(data30);
+      mockUseDowntimeChart.mockReturnValue({ data: data30 });
       renderChart();
       expect(screen.getByTestId("line-chart")).toHaveAttribute(
         "data-points",

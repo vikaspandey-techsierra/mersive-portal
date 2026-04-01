@@ -1,26 +1,14 @@
-/**
- * @file AlertsChart.test.tsx
- * Tests for AlertsChart component.
- */
-
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import AlertsChart from "@/components/AlertChart";
 
-// ---------------------------------------------------------------------------
-// Mock the hook
-// ---------------------------------------------------------------------------
-const mockUseFilteredAlertsPoints = jest.fn();
+const mockUseAlertsChart = jest.fn();
 
 jest.mock("@/lib/analytics/hooks/useTimeSeriesMetrics", () => ({
-  useFilteredAlertsPoints: (...args: any[]) =>
-    mockUseFilteredAlertsPoints(...args),
+  useAlertsChart: (...args: any[]) => mockUseAlertsChart(...args),
 }));
 
-// ---------------------------------------------------------------------------
-// Mock data
-// ---------------------------------------------------------------------------
 const ALERT_DATA = [
   {
     date: "2026-02-26",
@@ -52,7 +40,7 @@ const ALL_KEYS = [
   "ts_app_alerts_usb_in_num",
   "ts_app_alerts_onboarded_num",
   "ts_app_alerts_plan_assigned_num",
-];
+] as const;
 
 const ALL_LABELS = [
   "Unreachable",
@@ -64,9 +52,34 @@ const ALL_LABELS = [
   "Plan assigned",
 ];
 
-// ---------------------------------------------------------------------------
-// Mock recharts
-// ---------------------------------------------------------------------------
+// Define a type for the alert data
+type AlertDataPoint = {
+  date: string;
+  ts_app_alerts_unreachable_num: number;
+  ts_app_alerts_rebooted_num: number;
+  ts_app_alerts_template_unassigned_num: number;
+  ts_app_alerts_usb_out_num: number;
+  ts_app_alerts_usb_in_num: number;
+  ts_app_alerts_onboarded_num: number;
+  ts_app_alerts_plan_assigned_num: number;
+};
+
+jest.mock("@/components/charts/ChartsTooltip", () => ({
+  ChartTooltip: ({ labelMap }: { labelMap: Record<string, string> }) => (
+    <div data-testid="chart-tooltip">Tooltip Content</div>
+  ),
+}));
+
+jest.mock("@/components/emptyStates/emptyStates", () => ({
+  __esModule: true,
+  default: ({ title, description }: { title: string; description: string }) => (
+    <div data-testid="empty-state">
+      <div>{title}</div>
+      <div>{description}</div>
+    </div>
+  ),
+}));
+
 jest.mock("recharts", () => {
   const actual = jest.requireActual("recharts");
   return {
@@ -99,41 +112,12 @@ jest.mock("recharts", () => {
     XAxis: () => <div data-testid="x-axis" />,
     YAxis: () => <div data-testid="y-axis" />,
     CartesianGrid: () => <div data-testid="cartesian-grid" />,
-    Tooltip: ({
-      content,
-    }: {
-      content?: (...args: unknown[]) => React.ReactNode;
-    }) => {
-      // Always render the tooltip content for testing
-      if (typeof content !== "function") return <div />;
-      // Create a default payload for testing
-      const defaultPayload = [
-        {
-          dataKey: "ts_app_alerts_unreachable_num",
-          name: "Unreachable",
-          value: 4,
-          color: "#5B5BD6",
-        },
-        {
-          dataKey: "ts_app_alerts_rebooted_num",
-          name: "Rebooted",
-          value: 3,
-          color: "#C34F7D",
-        },
-      ];
-      const result = content({
-        active: true,
-        payload: defaultPayload,
-        label: "2/26",
-      });
-      return <>{result}</>;
-    },
+    Tooltip: ({ content }: { content?: React.ReactNode }) => (
+      <div data-testid="tooltip">{content}</div>
+    ),
   };
 });
 
-// ---------------------------------------------------------------------------
-// Mock helpers
-// ---------------------------------------------------------------------------
 jest.mock("@/lib/analytics/utils/helpers", () => ({
   formatShortDate: (date: string) => {
     const d = new Date(date);
@@ -146,20 +130,22 @@ jest.mock("@/lib/analytics/utils/helpers", () => ({
   },
 }));
 
-// ---------------------------------------------------------------------------
-// Test helpers
-// ---------------------------------------------------------------------------
-const renderChart = (timeRange = "7d", selectedDevices = new Set<string>()) =>
+const renderChart = (
+  orgId = "test-org-123",
+  timeRange = "7d",
+  selectedDevices = new Set<string>()
+) =>
   render(
-    <AlertsChart timeRange={timeRange} selectedDevices={selectedDevices} />
+    <AlertsChart
+      orgId={orgId}
+      timeRange={timeRange}
+      selectedDevices={selectedDevices}
+    />
   );
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 describe("AlertsChart", () => {
   beforeEach(() => {
-    mockUseFilteredAlertsPoints.mockReturnValue(ALERT_DATA);
+    mockUseAlertsChart.mockReturnValue({ data: ALERT_DATA });
   });
 
   afterEach(() => {
@@ -299,15 +285,19 @@ describe("AlertsChart", () => {
     });
   });
 
-  // ── Edge cases ────────────────────────────────────────────────────────────
-  describe("edge cases", () => {
-    it("renders without crashing when data is empty", () => {
-      mockUseFilteredAlertsPoints.mockReturnValue([]);
-      expect(() => renderChart()).not.toThrow();
+  // ── Empty state ────────────────────────────────────────────────────────────
+  describe("empty state", () => {
+    it("shows empty state when data is empty", () => {
+      mockUseAlertsChart.mockReturnValue({ data: [] });
+      renderChart();
+      expect(screen.getByTestId("empty-state")).toBeInTheDocument();
+      expect(
+        screen.getByText("No data for this date range")
+      ).toBeInTheDocument();
     });
 
     it("renders correctly with a single data point", () => {
-      mockUseFilteredAlertsPoints.mockReturnValue([ALERT_DATA[0]]);
+      mockUseAlertsChart.mockReturnValue({ data: [ALERT_DATA[0]] });
       renderChart();
       expect(screen.getByTestId("area-chart")).toHaveAttribute(
         "data-points",
@@ -316,14 +306,20 @@ describe("AlertsChart", () => {
     });
 
     it("renders all areas even when all values are 0", () => {
-      const zeroData = ALERT_DATA.map((d) => {
-        const newData = { ...d };
-        ALL_KEYS.forEach((key) => {
-          newData[key] = 0;
-        });
+      const zeroData: AlertDataPoint[] = ALERT_DATA.map((d) => {
+        const newData: AlertDataPoint = {
+          date: d.date,
+          ts_app_alerts_unreachable_num: 0,
+          ts_app_alerts_rebooted_num: 0,
+          ts_app_alerts_template_unassigned_num: 0,
+          ts_app_alerts_usb_out_num: 0,
+          ts_app_alerts_usb_in_num: 0,
+          ts_app_alerts_onboarded_num: 0,
+          ts_app_alerts_plan_assigned_num: 0,
+        };
         return newData;
       });
-      mockUseFilteredAlertsPoints.mockReturnValue(zeroData);
+      mockUseAlertsChart.mockReturnValue({ data: zeroData });
       renderChart();
       ALL_KEYS.forEach((key) =>
         expect(screen.getByTestId(`area-${key}`)).toBeInTheDocument()

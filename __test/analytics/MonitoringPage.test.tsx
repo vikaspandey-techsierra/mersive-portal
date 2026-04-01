@@ -1,8 +1,3 @@
-/**
- * @file MonitoringPage.test.tsx
- * Tests for the MonitoringPage orchestrator component.
- */
-
 import React from "react";
 import {
   render,
@@ -13,9 +8,6 @@ import {
 } from "@testing-library/react";
 import "@testing-library/jest-dom";
 
-// ---------------------------------------------------------------------------
-// Mock recharts (needed because DowntimeChart / AlertsChart import it)
-// ---------------------------------------------------------------------------
 jest.mock("recharts", () => {
   const actual = jest.requireActual("recharts");
   return {
@@ -76,46 +68,22 @@ jest.mock("recharts", () => {
   };
 });
 
-// ---------------------------------------------------------------------------
-// Mock data for the charts
-// ---------------------------------------------------------------------------
-const mockDowntimeData = [
-  { date: "2026-02-26", devices: 9, hours: 1.45 },
-  { date: "2026-02-27", devices: 13, hours: 1.65 },
-  { date: "2026-02-28", devices: 3, hours: 1.15 },
-];
+jest.mock("@/components/emptyStates/emptyStates", () => ({
+  __esModule: true,
+  default: ({ title, description }: { title: string; description: string }) => (
+    <div data-testid="empty-state">
+      <div>{title}</div>
+      <div>{description}</div>
+    </div>
+  ),
+}));
 
-const mockAlertsData = [
-  { date: "2026-02-26", value: 5 },
-  { date: "2026-02-27", value: 8 },
-  { date: "2026-02-28", value: 3 },
-];
-
-// ---------------------------------------------------------------------------
-// Mock the hooks
-// ---------------------------------------------------------------------------
 const mockUseMonitoringMetrics = jest.fn();
-const mockUseFilteredDowntimePoints = jest.fn();
-const mockUseFilteredAlertsPoints = jest.fn();
-const mockUseFilteredChartPoints = jest.fn();
-const mockUseFilteredCollaborationMetrics = jest.fn();
-const mockUseDeviceUtilizationMetrics = jest.fn();
 
 jest.mock("@/lib/analytics/hooks/useTimeSeriesMetrics", () => ({
   useMonitoringMetrics: (...args: any[]) => mockUseMonitoringMetrics(...args),
-  useFilteredDowntimePoints: (...args: any[]) =>
-    mockUseFilteredDowntimePoints(...args),
-  useFilteredAlertsPoints: (...args: any[]) =>
-    mockUseFilteredAlertsPoints(...args),
-  useFilteredChartPoints: (...args: any[]) =>
-    mockUseFilteredChartPoints(...args),
-  useFilteredCollaborationMetrics: (...args: any[]) =>
-    mockUseFilteredCollaborationMetrics(...args),
-  useDeviceUtilizationMetrics: (...args: any[]) =>
-    mockUseDeviceUtilizationMetrics(...args),
 }));
 
-// Mock the helpers
 jest.mock("@/lib/analytics/utils/helpers", () => ({
   formatShortDate: (date: string) => {
     const d = new Date(date);
@@ -128,15 +96,106 @@ jest.mock("@/lib/analytics/utils/helpers", () => ({
   },
 }));
 
+jest.mock("@/components/SelectedDevices", () => {
+  return {
+    __esModule: true,
+    default: ({
+      heading,
+      subheading,
+      onSelectionChange,
+      timeRange,
+      orgId,
+      isLoading,
+    }: any) => {
+      React.useEffect(() => {
+        if (onSelectionChange && !isLoading) {
+          onSelectionChange(new Set(["device-1", "device-2"]));
+        }
+      }, [onSelectionChange, isLoading]);
+
+      return (
+        <div
+          data-testid="selected-devices"
+          data-time-range={timeRange}
+          data-org-id={orgId}
+        >
+          <div>{heading}</div>
+          <div>{subheading}</div>
+          {!isLoading && <span>Selected Devices (2)</span>}
+        </div>
+      );
+    },
+  };
+});
+
+jest.mock("@/components/DowntimeChart", () => ({
+  __esModule: true,
+  default: ({ orgId, timeRange, selectedDevices }: any) => (
+    <div
+      data-testid="downtime-chart"
+      data-org-id={orgId}
+      data-time-range={timeRange}
+    >
+      <div className="font-semibold text-[20px] text-[#090814] mb-0.5">
+        Downtime
+      </div>
+      <div data-testid="downtime-chart-content">Downtime Chart Content</div>
+    </div>
+  ),
+}));
+
+jest.mock("@/components/AlertChart", () => ({
+  __esModule: true,
+  default: ({ orgId, timeRange, selectedDevices }: any) => (
+    <div
+      data-testid="alerts-chart"
+      data-org-id={orgId}
+      data-time-range={timeRange}
+    >
+      <div className="font-semibold text-[20px] text-[#090814] mb-0.5">
+        Alerts
+      </div>
+      <div data-testid="alerts-chart-content">Alerts Chart Content</div>
+    </div>
+  ),
+}));
+
+jest.mock("@/components/skeleton/LineChartSkeleton", () => ({
+  __esModule: true,
+  default: ({
+    title,
+    description,
+  }: {
+    title: string;
+    description?: string;
+  }) => (
+    <div data-testid="line-chart-skeleton" data-title={title}>
+      <h2>{title}</h2>
+      <p>{description}</p>
+    </div>
+  ),
+}));
+
+jest.mock("@/components/skeleton/AreaChartSkeleton", () => ({
+  __esModule: true,
+  default: ({
+    title,
+    description,
+  }: {
+    title: string;
+    description?: string;
+  }) => (
+    <div data-testid="area-chart-skeleton" data-title={title}>
+      <h2>{title}</h2>
+      <p>{description}</p>
+    </div>
+  ),
+}));
+
 import MonitoringPage from "@/components/analytics/monitoring/page";
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-const renderPage = () => render(<MonitoringPage />);
-
-const getChartPoints = (testId: string) =>
-  parseInt(screen.getByTestId(testId).getAttribute("data-points") ?? "0", 10);
+const renderPage = (orgId = "test-org-123") =>
+  render(<MonitoringPage orgId={orgId} />);
 
 // Wait for loading to complete
 const waitForLoad = async () => {
@@ -145,23 +204,12 @@ const waitForLoad = async () => {
   });
 };
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 describe("MonitoringPage", () => {
   beforeEach(() => {
     jest.useFakeTimers();
 
     // Default mock implementations
     mockUseMonitoringMetrics.mockReturnValue({ ready: true });
-    mockUseFilteredDowntimePoints.mockReturnValue(mockDowntimeData);
-    mockUseFilteredAlertsPoints.mockReturnValue(mockAlertsData);
-    mockUseFilteredChartPoints.mockReturnValue([]);
-    mockUseFilteredCollaborationMetrics.mockReturnValue({
-      connectionsAvg: [],
-      postsAvg: [],
-    });
-    mockUseDeviceUtilizationMetrics.mockReturnValue({ dataA: [], dataB: [] });
   });
 
   afterEach(() => {
@@ -209,50 +257,44 @@ describe("MonitoringPage", () => {
 
   // ── Loading state (before 800ms) ─────────────────────────────────────────────
   describe("loading state", () => {
-    it("shows LineChartSkeleton heading for Downtime before load", () => {
+    it("shows LineChartSkeleton for Downtime before load", () => {
       renderPage();
-      expect(
-        screen.getByRole("heading", { name: "Downtime" })
-      ).toBeInTheDocument();
+      expect(screen.getByTestId("line-chart-skeleton")).toBeInTheDocument();
+      expect(screen.getByText("Downtime")).toBeInTheDocument();
     });
 
-    it("shows AreaChartSkeleton heading for Alerts before load", () => {
+    it("shows AreaChartSkeleton for Alerts before load", () => {
       renderPage();
+      expect(screen.getByTestId("area-chart-skeleton")).toBeInTheDocument();
       expect(screen.getByText("Alerts")).toBeInTheDocument();
     });
 
     it("SelectedDevices is always visible (not behind load gate)", () => {
       renderPage();
-      expect(screen.getByText(/Selected Devices \(\d+\)/)).toBeInTheDocument();
+      expect(screen.getByTestId("selected-devices")).toBeInTheDocument();
     });
 
     it("charts are NOT rendered before 800 ms", () => {
       renderPage();
-      expect(screen.queryByTestId("line-chart")).not.toBeInTheDocument();
-      expect(screen.queryByTestId("area-chart")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("downtime-chart")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("alerts-chart")).not.toBeInTheDocument();
     });
   });
 
   // ── Loaded state (after 800ms) ───────────────────────────────────────────────
   describe("loaded state", () => {
-    it("renders DowntimeChart (line-chart) after load", async () => {
+    it("renders DowntimeChart after load", async () => {
       renderPage();
       await waitForLoad();
-      expect(screen.getByTestId("line-chart")).toBeInTheDocument();
+      expect(screen.getByTestId("downtime-chart")).toBeInTheDocument();
+      expect(screen.getByText("Downtime")).toBeInTheDocument();
     });
 
-    it("renders AlertsChart (area-chart) after load", async () => {
+    it("renders AlertsChart after load", async () => {
       renderPage();
       await waitForLoad();
-      expect(screen.getByTestId("area-chart")).toBeInTheDocument();
-    });
-
-    it("Downtime h2 heading is present after load (from DowntimeChart)", async () => {
-      renderPage();
-      await waitForLoad();
-      expect(
-        screen.getByRole("heading", { name: "Downtime" })
-      ).toBeInTheDocument();
+      expect(screen.getByTestId("alerts-chart")).toBeInTheDocument();
+      expect(screen.getByText("Alerts")).toBeInTheDocument();
     });
   });
 
@@ -293,39 +335,6 @@ describe("MonitoringPage", () => {
       expect(screen.getByText("Last 7 days").className).toMatch(
         /bg-\[#6860C8\]/
       );
-    });
-  });
-
-  // ── Mock data integrity via data-points attribute ─────────────────────────
-  describe("mock data counts per range", () => {
-    it("displays correct number of data points", async () => {
-      renderPage();
-      await waitForLoad();
-      expect(screen.getByTestId("line-chart")).toHaveAttribute(
-        "data-points",
-        mockDowntimeData.length.toString()
-      );
-    });
-  });
-
-  // ── XAxis rendering ─────────────────────────────────────────────────
-  describe("XAxis rendering", () => {
-    it("XAxis is rendered after load", async () => {
-      renderPage();
-      await waitForLoad();
-      const xAxes = screen.getAllByTestId("x-axis");
-      expect(xAxes.length).toBeGreaterThan(0);
-    });
-
-    it("XAxis has ticks attribute", async () => {
-      renderPage();
-      await waitForLoad();
-      const xAxes = screen.getAllByTestId("x-axis");
-      xAxes.forEach((xAxis) => {
-        const ticks = xAxis.getAttribute("data-ticks");
-        // The XAxis should have ticks (may be empty array if no data)
-        expect(ticks).not.toBeNull();
-      });
     });
   });
 });

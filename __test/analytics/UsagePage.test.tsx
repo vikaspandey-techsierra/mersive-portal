@@ -112,6 +112,11 @@ const TIME_RANGE_BUTTONS = [
   "All time",
 ];
 
+// Helper function to render UsagePage with required orgId prop
+const renderUsagePage = (props: Partial<{ orgId: string }> = {}) => {
+  return render(<UsagePage orgId="test-org-123" {...props} />);
+};
+
 describe("UsagePage", () => {
   beforeEach(() => {
     jest.useFakeTimers();
@@ -126,25 +131,25 @@ describe("UsagePage", () => {
 
   describe("initial render", () => {
     it("renders the page heading", () => {
-      render(<UsagePage />);
+      renderUsagePage();
       expect(screen.getByText("Usage")).toBeInTheDocument();
     });
 
     it("renders all five time-range buttons", () => {
-      render(<UsagePage />);
+      renderUsagePage();
       TIME_RANGE_BUTTONS.forEach((label) => {
         expect(screen.getByText(label)).toBeInTheDocument();
       });
     });
 
     it("defaults to 'Last 7 days' as the active time range", () => {
-      render(<UsagePage />);
+      renderUsagePage();
       const activeBtn = screen.getByText("Last 7 days");
       expect(activeBtn).toHaveClass("bg-[#6860C8]");
     });
 
     it("non-active time range buttons do not have the active style", () => {
-      render(<UsagePage />);
+      renderUsagePage();
       const inactiveBtn = screen.getByText("Last 30 days");
       expect(inactiveBtn).not.toHaveClass("bg-[#6860C8]");
     });
@@ -154,7 +159,7 @@ describe("UsagePage", () => {
 
   describe("loading state (first 1 s)", () => {
     it("shows LineChartSkeleton for Device Utilization while loading", () => {
-      render(<UsagePage />);
+      renderUsagePage();
       // Two LineChartSkeletons render (Device Utilization + Collaboration Usage)
       const skeletons = screen.getAllByTestId("line-chart-skeleton");
       expect(skeletons.length).toBe(2);
@@ -164,13 +169,13 @@ describe("UsagePage", () => {
     });
 
     it("shows AreaChartSkeleton for User Connections while loading", () => {
-      render(<UsagePage />);
+      renderUsagePage();
       expect(screen.getByTestId("area-chart-skeleton")).toBeInTheDocument();
       expect(screen.queryByTestId("user-connections")).not.toBeInTheDocument();
     });
 
     it("LineChartSkeleton for Device Utilization receives correct title and description props", () => {
-      render(<UsagePage />);
+      renderUsagePage();
       const skeletons = screen.getAllByTestId("line-chart-skeleton");
       const deviceSkeleton = skeletons.find(
         (s) => s.getAttribute("data-title") === "Device Utilization"
@@ -186,13 +191,13 @@ describe("UsagePage", () => {
     });
 
     it("AreaChartSkeleton receives correct title and description props", () => {
-      render(<UsagePage />);
+      renderUsagePage();
       const skeleton = screen.getByTestId("area-chart-skeleton");
       expect(skeleton).toHaveAttribute("data-title", "User Connections");
     });
 
     it("shows LineChartSkeleton for CollaborationUsage while loading", () => {
-      render(<UsagePage />);
+      renderUsagePage();
       const skeletons = screen.getAllByTestId("line-chart-skeleton");
       const collabSkeleton = skeletons.find(
         (s) => s.getAttribute("data-title") === "Collaboration Usage"
@@ -204,7 +209,7 @@ describe("UsagePage", () => {
     });
 
     it("renders SelectedDevices even while loading (no skeleton)", () => {
-      render(<UsagePage />);
+      renderUsagePage();
       expect(screen.getByTestId("selected-devices")).toBeInTheDocument();
     });
   });
@@ -213,7 +218,7 @@ describe("UsagePage", () => {
 
   describe("loaded state (after 1 s)", () => {
     const renderAndLoad = async () => {
-      render(<UsagePage />);
+      renderUsagePage();
       await act(async () => {
         jest.advanceTimersByTime(1000);
       });
@@ -261,7 +266,7 @@ describe("UsagePage", () => {
 
   describe("time range switching", () => {
     const renderAndLoad = async () => {
-      render(<UsagePage />);
+      renderUsagePage();
       await act(async () => {
         jest.advanceTimersByTime(1000);
       });
@@ -317,24 +322,22 @@ describe("UsagePage", () => {
 
   describe("page structure", () => {
     const renderAndLoad = async () => {
-      render(<UsagePage />);
+      const { container } = renderUsagePage();
       await act(async () => {
         jest.advanceTimersByTime(1000);
       });
+      return { container };
     };
 
     it("renders 3 <hr> dividers after loading", async () => {
-      const { container } = render(<UsagePage />);
-      await act(async () => {
-        jest.advanceTimersByTime(1000);
-      });
+      const { container } = await renderAndLoad();
       // There should be 3 hr elements in the component
       const hrs = container.querySelectorAll("hr");
       expect(hrs.length).toBe(3);
     });
 
     it("SelectedDevices is always present regardless of loading state", () => {
-      render(<UsagePage />);
+      renderUsagePage();
       expect(screen.getByTestId("selected-devices")).toBeInTheDocument();
     });
   });
@@ -343,7 +346,7 @@ describe("UsagePage", () => {
 
   describe("device selection (integration)", () => {
     const renderAndLoad = async () => {
-      render(<UsagePage />);
+      renderUsagePage();
       await act(async () => {
         jest.advanceTimersByTime(1000);
       });

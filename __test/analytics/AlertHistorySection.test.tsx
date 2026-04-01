@@ -1,10 +1,3 @@
-/**
- * AlertHistorySection.test.tsx
- * Tests for the AlertHistorySection component (embedded inside page.tsx).
- * Note: These tests are skipped because SHOW_ALERT_HISTORY is false in the component.
- * To run these tests, set SHOW_ALERT_HISTORY = true in components/analytics/email/page.tsx
- */
-
 import React from "react";
 import {
   render,
@@ -48,7 +41,8 @@ import EmailAlertsPage from "@/components/analytics/email/page";
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function renderPage() {
-  return render(<EmailAlertsPage />);
+  // Pass the required orgId prop
+  return render(<EmailAlertsPage orgId="test-org-123" />);
 }
 
 async function waitForTableLoad() {

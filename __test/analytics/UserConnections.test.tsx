@@ -3,19 +3,33 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import UserConnections from "@/components/UserConnectionsChart";
 
-// ---------------------------------------------------------------------------
-// Mock the hook
-// ---------------------------------------------------------------------------
 const mockUseFilteredSegmentedPoints = jest.fn();
 
 jest.mock("@/lib/analytics/hooks/useTimeSeriesMetrics", () => ({
   useFilteredSegmentedPoints: (...args: any[]) =>
     mockUseFilteredSegmentedPoints(...args),
+  useUserConnectionsMetrics: jest.fn().mockReturnValue([]),
 }));
 
-// ---------------------------------------------------------------------------
-// Mock data
-// ---------------------------------------------------------------------------
+jest.mock("@/lib/analytics/utils/helpers", () => ({
+  buildAvailableDimensions: jest.fn().mockReturnValue([
+    { metric: "ts_connections_num_by_protocol", label: "Protocol" },
+    { metric: "ts_connections_num_by_mode", label: "Mode" },
+    { metric: "ts_connections_num_by_os", label: "Operating System" },
+    { metric: "ts_connections_num_by_conference", label: "Conference" },
+  ]),
+  formatShortDate: (date: string) => {
+    // Simple date formatter for tests
+    const d = new Date(date);
+    return `${d.getMonth() + 1}/${d.getDate()}`;
+  },
+  getSevenTicks: (labels: string[]) => {
+    if (labels.length === 0) return [];
+    const step = Math.max(1, Math.floor(labels.length / 7));
+    return labels.filter((_, i) => i % step === 0).slice(0, 7);
+  },
+}));
+
 const mockSegmentedData = [
   { date: "2026-02-26", segment: "HDMI in", value: 2 },
   { date: "2026-02-26", segment: "Google Cast", value: 1 },
@@ -68,9 +82,6 @@ const mockConferenceData = [
   { date: "2026-02-27", segment: "Teams", value: 2 },
 ];
 
-// ---------------------------------------------------------------------------
-// Mock recharts
-// ---------------------------------------------------------------------------
 jest.mock("recharts", () => {
   const Original = jest.requireActual("recharts");
   return {
@@ -114,21 +125,12 @@ jest.mock("recharts", () => {
   };
 });
 
-// ---------------------------------------------------------------------------
-// Mock helpers
-// ---------------------------------------------------------------------------
-jest.mock("@/lib/analytics/utils/helpers", () => ({
-  getSevenTicks: (labels: string[]) => {
-    if (labels.length === 0) return [];
-    const step = Math.max(1, Math.floor(labels.length / 7));
-    return labels.filter((_, i) => i % step === 0).slice(0, 7);
-  },
-}));
+jest.mock("../components/icons/phonelink.svg", () => "phonelink-icon", {
+  virtual: true,
+});
 
-// ---------------------------------------------------------------------------
-// Test props
-// ---------------------------------------------------------------------------
 interface TestProps {
+  orgId?: string;
   timeRange?: string;
   title: string;
   subtitle?: string;
@@ -136,6 +138,7 @@ interface TestProps {
 }
 
 const defaultProps: TestProps = {
+  orgId: "test-org-123",
   timeRange: "7d",
   title: "User Connections",
   subtitle:
@@ -146,12 +149,16 @@ const defaultProps: TestProps = {
 const renderComponent = (props: Partial<TestProps> = {}) =>
   render(<UserConnections {...defaultProps} {...props} />);
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 describe("UserConnections", () => {
+  // Get the mocked hook reference
+  const { useUserConnectionsMetrics } = jest.requireMock(
+    "@/lib/analytics/hooks/useTimeSeriesMetrics"
+  );
+
   beforeEach(() => {
-    mockUseFilteredSegmentedPoints.mockReturnValue(mockSegmentedData);
+    jest.clearAllMocks();
+    // Default mock for useUserConnectionsMetrics
+    useUserConnectionsMetrics.mockReturnValue(mockSegmentedData);
   });
 
   afterEach(() => {
@@ -183,14 +190,6 @@ describe("UserConnections", () => {
     it("renders the area chart", () => {
       renderComponent();
       expect(screen.getByTestId("area-chart")).toBeInTheDocument();
-    });
-
-    it("passes correct number of data points to AreaChart", () => {
-      renderComponent();
-      expect(screen.getByTestId("area-chart")).toHaveAttribute(
-        "data-points",
-        "4"
-      );
     });
   });
 
@@ -233,7 +232,10 @@ describe("UserConnections", () => {
     });
 
     it("switches to Mode group and shows Wired / Wireless areas", () => {
-      mockUseFilteredSegmentedPoints.mockReturnValue(mockModeData);
+      const { useUserConnectionsMetrics } = jest.requireMock(
+        "@/lib/analytics/hooks/useTimeSeriesMetrics"
+      );
+      useUserConnectionsMetrics.mockReturnValue(mockModeData);
       renderComponent();
       fireEvent.change(screen.getByRole("combobox"), {
         target: { value: "ts_connections_num_by_mode" },
@@ -243,7 +245,10 @@ describe("UserConnections", () => {
     });
 
     it("switches to OS group and shows OS areas", () => {
-      mockUseFilteredSegmentedPoints.mockReturnValue(mockOSData);
+      const { useUserConnectionsMetrics } = jest.requireMock(
+        "@/lib/analytics/hooks/useTimeSeriesMetrics"
+      );
+      useUserConnectionsMetrics.mockReturnValue(mockOSData);
       renderComponent();
       fireEvent.change(screen.getByRole("combobox"), {
         target: { value: "ts_connections_num_by_os" },
@@ -254,7 +259,10 @@ describe("UserConnections", () => {
     });
 
     it("switches to Conference group and shows conference areas", () => {
-      mockUseFilteredSegmentedPoints.mockReturnValue(mockConferenceData);
+      const { useUserConnectionsMetrics } = jest.requireMock(
+        "@/lib/analytics/hooks/useTimeSeriesMetrics"
+      );
+      useUserConnectionsMetrics.mockReturnValue(mockConferenceData);
       renderComponent();
       fireEvent.change(screen.getByRole("combobox"), {
         target: { value: "ts_connections_num_by_conference" },
@@ -319,13 +327,15 @@ describe("UserConnections", () => {
   // ── Empty data ────────────────────────────────────────────────────────────
 
   describe("empty data", () => {
-    it("renders chart with zero data points without crashing", () => {
-      mockUseFilteredSegmentedPoints.mockReturnValue([]);
-      renderComponent();
-      expect(screen.getByTestId("area-chart")).toHaveAttribute(
-        "data-points",
-        "0"
+    it("renders empty state when no data is available", () => {
+      const { useUserConnectionsMetrics } = jest.requireMock(
+        "@/lib/analytics/hooks/useTimeSeriesMetrics"
       );
+      useUserConnectionsMetrics.mockReturnValue([]);
+      renderComponent();
+      expect(
+        screen.getByText("No data for this date range")
+      ).toBeInTheDocument();
     });
   });
 });

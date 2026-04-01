@@ -1,10 +1,17 @@
 import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
-import DashboardPage from "@/app/pages/home/page";
+import DashboardPage from "@/app/[orgId]/home/page";
 
-// ---------------------------------------------------------------------------
-// Next.js Image
-// ---------------------------------------------------------------------------
+jest.mock("next/navigation", () => ({
+  useParams: jest.fn().mockReturnValue({ orgId: "test-org-123" }),
+  useRouter: jest.fn().mockReturnValue({
+    push: jest.fn(),
+    replace: jest.fn(),
+    prefetch: jest.fn(),
+  }),
+  usePathname: jest.fn().mockReturnValue("/test-org-123/home"),
+}));
+
 jest.mock("next/image", () => ({
   __esModule: true,
   default: ({ alt, ...props }: { alt: string; [key: string]: unknown }) => (
@@ -13,9 +20,6 @@ jest.mock("next/image", () => ({
   ),
 }));
 
-// ---------------------------------------------------------------------------
-// SVG imports
-// ---------------------------------------------------------------------------
 jest.mock("@/components/icons/replay.svg", () => "ReplayIcon");
 jest.mock("@/components/icons/tv_black.svg", () => "DeviceTypeIcon");
 jest.mock("@/components/icons/dvr.svg", () => "PlanTypeIcon");
@@ -33,18 +37,12 @@ jest.mock("@/components/icons/trending_up.svg", () => "TrendingIcon");
 jest.mock("@/components/icons/help.svg", () => "HelpIcon");
 jest.mock("@/components/icons/feed.svg", () => "FeedIcon");
 
-// ---------------------------------------------------------------------------
-// Lucide
-// ---------------------------------------------------------------------------
 jest.mock("lucide-react", () => ({
   ChevronDownIcon: () => <span data-testid="chevron-down" />,
   ChevronUpIcon: () => <span data-testid="chevron-up" />,
   ExternalLinkIcon: () => <span data-testid="external-link" />,
 }));
 
-// ---------------------------------------------------------------------------
-// Recharts
-// ---------------------------------------------------------------------------
 jest.mock("recharts", () => ({
   PieChart: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="pie-chart">{children}</div>
@@ -58,13 +56,133 @@ jest.mock("recharts", () => ({
   ),
 }));
 
-// ---------------------------------------------------------------------------
-// Sidebar
-// ---------------------------------------------------------------------------
 jest.mock("@/components/Sidebar", () => ({
   __esModule: true,
   default: () => <nav data-testid="sidebar">Sidebar</nav>,
 }));
+
+jest.mock("@/components/home/AlertBanner", () => ({
+  __esModule: true,
+  default: ({ alert }: any) => (
+    <div data-testid="alert-banner">
+      Requires admin attention: {alert.offlineDevices} offline,{" "}
+      {alert.expiredOrExpiringSoon} expired
+    </div>
+  ),
+}));
+
+jest.mock("@/components/home/StatCards", () => ({
+  __esModule: true,
+  default: ({ stats }: any) => (
+    <div data-testid="stat-cards">
+      <div>Meetings underway: {stats.meetingsUnderway}</div>
+      <div>Device used: {stats.activeUsers}</div>
+      <div>Average meeting length: {stats.avgMeetingLengthMin} min</div>
+      <div>Busiest time: {stats.busiestTimeLabel}</div>
+    </div>
+  ),
+}));
+
+jest.mock("@/components/home/UpdatesSection", () => ({
+  __esModule: true,
+  default: ({ faqs }: any) => (
+    <div data-testid="updates-section">
+      <div>Updates Section</div>
+      <div>{faqs.length} FAQs</div>
+    </div>
+  ),
+}));
+
+jest.mock("@/components/charts/device-type/DeviceTypeDonut", () => ({
+  __esModule: true,
+  default: ({ data }: any) => (
+    <div data-testid="device-type-donut">
+      {data.map((item: any) => (
+        <div key={item.name}>{item.name}</div>
+      ))}
+    </div>
+  ),
+}));
+
+jest.mock("@/components/charts/device-status/DeviceStatusPie", () => ({
+  __esModule: true,
+  default: ({ data }: any) => (
+    <div data-testid="device-status-pie">
+      {data.map((item: any) => (
+        <div key={item.name}>{item.name}</div>
+      ))}
+    </div>
+  ),
+}));
+
+jest.mock("@/components/charts/plan-type/PlanTypePie", () => ({
+  __esModule: true,
+  default: ({ data }: any) => (
+    <div data-testid="plan-type-pie">
+      {data.map((item: any) => (
+        <div key={item.name}>{item.name}</div>
+      ))}
+    </div>
+  ),
+}));
+
+jest.mock("@/components/charts/fleet-health/FleetHealthGauge", () => ({
+  __esModule: true,
+  default: ({ score, totalDevices, devicesWithIssues }: any) => (
+    <div data-testid="fleet-health-gauge">
+      <div>Score: {score}</div>
+      <div>Total: {totalDevices}</div>
+      <div>Issues: {devicesWithIssues}</div>
+    </div>
+  ),
+}));
+
+// Mock skeleton and empty state components
+jest.mock("@/components/charts/device-type/DeviceTypeDonutSkeleton", () => ({
+  __esModule: true,
+  default: () => <div data-testid="device-type-skeleton">Loading...</div>,
+}));
+
+jest.mock("@/components/charts/device-status/DeviceStatusSkeleton", () => ({
+  __esModule: true,
+  default: () => <div data-testid="device-status-skeleton">Loading...</div>,
+}));
+
+jest.mock("@/components/charts/plan-type/PlanTypeSkeleton", () => ({
+  __esModule: true,
+  default: () => <div data-testid="plan-type-skeleton">Loading...</div>,
+}));
+
+jest.mock("@/components/charts/fleet-health/FleetHealthSkeleton", () => ({
+  __esModule: true,
+  default: () => <div data-testid="fleet-health-skeleton">Loading...</div>,
+}));
+
+jest.mock("@/components/charts/device-type/DeviceTypeDonutEmptyState", () => ({
+  __esModule: true,
+  default: () => <div data-testid="device-type-empty">No data</div>,
+}));
+
+jest.mock(
+  "@/components/charts/device-status/DeviceStatusPieEmptyState",
+  () => ({
+    __esModule: true,
+    default: () => <div data-testid="device-status-empty">No data</div>,
+  })
+);
+
+jest.mock("@/components/charts/plan-type/PlanTypePieEmptyState", () => ({
+  __esModule: true,
+  default: () => <div data-testid="plan-type-empty">No data</div>,
+}));
+
+jest.mock(
+  "@/components/charts/fleet-health/FleetHealthGaugeEmptyState",
+  () => ({
+    __esModule: true,
+    default: () => <div data-testid="fleet-health-empty">No data</div>,
+  })
+);
 
 // ---------------------------------------------------------------------------
 // All snapshot hooks – return deterministic values
@@ -107,12 +225,20 @@ jest.mock("@/lib/analytics/hooks/useSnapshotMetric", () => ({
   useBusiestTimeMetric: () => "10:00 AM - 11:00 AM",
 }));
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
+jest.mock("@/lib/analytics/utils/helpers", () => ({
+  formatDate: (date: string) => {
+    return new Date(date).toLocaleDateString();
+  },
+}));
+
 describe("DashboardPage", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   it("renders without crashing", () => {
     render(<DashboardPage />);
+    expect(screen.getByTestId("sidebar")).toBeInTheDocument();
   });
 
   it("renders the sidebar", () => {
@@ -122,23 +248,33 @@ describe("DashboardPage", () => {
 
   it("renders the AlertBanner with admin attention heading", () => {
     render(<DashboardPage />);
-    expect(screen.getByText("Requires admin attention")).toBeInTheDocument();
+    expect(screen.getByTestId("alert-banner")).toBeInTheDocument();
+    expect(screen.getByText(/Requires admin attention/)).toBeInTheDocument();
   });
 
   it("renders stat card labels", () => {
     render(<DashboardPage />);
-    expect(screen.getByText("Meetings underway")).toBeInTheDocument();
-    expect(screen.getByText("Device used")).toBeInTheDocument();
-    expect(screen.getByText("Average meeting length")).toBeInTheDocument();
-    expect(screen.getByText("Busiest time")).toBeInTheDocument();
+    expect(screen.getByTestId("stat-cards")).toBeInTheDocument();
+    expect(screen.getByText(/Meetings underway: 12/)).toBeInTheDocument();
+    expect(screen.getByText(/Device used: 45/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Average meeting length: 38 min/)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Busiest time: 10:00 AM - 11:00 AM/)
+    ).toBeInTheDocument();
   });
 
   it("renders stat card values from hooks", () => {
     render(<DashboardPage />);
-    expect(screen.getByText("12")).toBeInTheDocument();
-    expect(screen.getByText("45")).toBeInTheDocument();
-    expect(screen.getByText("38 min")).toBeInTheDocument();
-    expect(screen.getByText("10:00 AM - 11:00 AM")).toBeInTheDocument();
+    expect(screen.getByText(/Meetings underway: 12/)).toBeInTheDocument();
+    expect(screen.getByText(/Device used: 45/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Average meeting length: 38 min/)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Busiest time: 10:00 AM - 11:00 AM/)
+    ).toBeInTheDocument();
   });
 
   it("renders the Device Breakdown section header", () => {
@@ -156,6 +292,7 @@ describe("DashboardPage", () => {
 
   it("renders device type legend entries", () => {
     render(<DashboardPage />);
+    expect(screen.getByTestId("device-type-donut")).toBeInTheDocument();
     expect(screen.getByText("Gen 4 Smart")).toBeInTheDocument();
     expect(screen.getByText("Gen 4 Pod")).toBeInTheDocument();
     expect(screen.getByText("Gen 3 Pod")).toBeInTheDocument();
@@ -163,28 +300,38 @@ describe("DashboardPage", () => {
 
   it("renders device status legend entries", () => {
     render(<DashboardPage />);
+    expect(screen.getByTestId("device-status-pie")).toBeInTheDocument();
     expect(screen.getByText("Offline")).toBeInTheDocument();
     expect(screen.getByText("Online")).toBeInTheDocument();
   });
 
   it("renders fleet health score", () => {
     render(<DashboardPage />);
-    expect(screen.getByText("2.8")).toBeInTheDocument();
+    expect(screen.getByTestId("fleet-health-gauge")).toBeInTheDocument();
+    expect(screen.getByText("Score: 2.8")).toBeInTheDocument();
   });
 
   it("renders fleet health total devices", () => {
     render(<DashboardPage />);
-    expect(screen.getByText("496")).toBeInTheDocument();
+    expect(screen.getByText("Total: 496")).toBeInTheDocument();
   });
 
   it("renders fleet health devices with issues", () => {
     render(<DashboardPage />);
-    expect(screen.getByText("355")).toBeInTheDocument();
+    expect(screen.getByText("Issues: 355")).toBeInTheDocument();
   });
 
-  it("renders multiple pie charts", () => {
+  it("renders multiple charts", () => {
     render(<DashboardPage />);
-    const charts = screen.getAllByTestId("pie-chart");
-    expect(charts.length).toBeGreaterThanOrEqual(3);
+    expect(screen.getByTestId("device-type-donut")).toBeInTheDocument();
+    expect(screen.getByTestId("device-status-pie")).toBeInTheDocument();
+    expect(screen.getByTestId("plan-type-pie")).toBeInTheDocument();
+    expect(screen.getByTestId("fleet-health-gauge")).toBeInTheDocument();
+  });
+
+  it("renders the updates section", () => {
+    render(<DashboardPage />);
+    expect(screen.getByTestId("updates-section")).toBeInTheDocument();
+    expect(screen.getByText("5 FAQs")).toBeInTheDocument();
   });
 });
