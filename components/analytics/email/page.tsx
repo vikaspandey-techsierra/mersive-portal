@@ -105,7 +105,7 @@ interface EmailAlertPayload {
 
 function buildAlertSettings(
   myAlerts: AlertConfig,
-  recipients: Recipient[]
+  recipients: Recipient[],
 ): EmailAlertSetting[] {
   const toSettings = (config: AlertConfig): AlertSetting[] => [
     {
@@ -388,8 +388,8 @@ function AnimatedRecipientCard({
           show
             ? "translate-y-0 duration-400"
             : isRemoving
-            ? "-translate-y-2 duration-300"
-            : "translate-y-4 duration-400"
+              ? "-translate-y-2 duration-300"
+              : "translate-y-4 duration-400"
         }`}
       >
         <div className="pb-3">
@@ -899,7 +899,7 @@ export default function EmailAlertsPage({ orgId }: { orgId: string }) {
       user_id: "user_8c9130bd", // TODO: replace with value from Phoenix app context
       email_alert_settings: buildAlertSettings(
         effectiveMyAlerts,
-        effectiveRecipients
+        effectiveRecipients,
       ),
     };
 
@@ -923,7 +923,7 @@ export default function EmailAlertsPage({ orgId }: { orgId: string }) {
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
       setSaveError(
-        err instanceof Error ? err.message : "Failed to save settings."
+        err instanceof Error ? err.message : "Failed to save settings.",
       );
     } finally {
       setIsSaving(false);
@@ -984,7 +984,7 @@ export default function EmailAlertsPage({ orgId }: { orgId: string }) {
 
   return (
     <div className="text-[#090814]">
-      {/* ── Alert Settings section ── */}
+      {/* Alert Settings section */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex flex-col gap-2">
           <h2 className="text-[20px] font-medium text-[#090814] leading-6">
@@ -1140,7 +1140,7 @@ export default function EmailAlertsPage({ orgId }: { orgId: string }) {
           )}
         </>
       )}
-      {/* ── Divider ── */}
+      {/* Divider */}
       {SHOW_ALERT_HISTORY && <div className="my-6 h-px bg-[#E5E7EB]" />}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4" />
       {SHOW_ALERT_HISTORY &&

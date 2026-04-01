@@ -110,7 +110,6 @@ export function DataTable<T extends Record<string, unknown>>({
     <div
       className={`border border-[#E5E7EB] rounded-lg bg-white overflow-hidden ${className}`}
     >
-      {/* Scrollable wrapper: horizontal always, vertical when maxHeight set */}
       <div
         className="overflow-x-auto overflow-y-auto"
         style={maxHeight ? { maxHeight } : undefined}

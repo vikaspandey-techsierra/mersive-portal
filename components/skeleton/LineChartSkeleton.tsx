@@ -30,7 +30,7 @@ export default function LineChartSkeleton({ title, description }: Props) {
             preserveAspectRatio="none"
             className="absolute top-0 left-0"
           >
-            {/* Grid lines — evenly spaced full height */}
+            {/* Grid lines */}
             {[20, 90, 160, 230, 300].map((y) => (
               <line
                 key={y}
@@ -43,7 +43,7 @@ export default function LineChartSkeleton({ title, description }: Props) {
               />
             ))}
 
-            {/* Y-axis labels — on each grid line */}
+            {/* Y-axis labels */}
             {[20, 90, 160, 230, 300].map((y) => (
               <rect
                 key={y}

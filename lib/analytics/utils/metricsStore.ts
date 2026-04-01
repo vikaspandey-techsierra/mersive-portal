@@ -9,7 +9,6 @@ export function setMetric(
   data: ChartPoint[]
 ): void {
   const key = `${orgId}__${metric}__${timeRange}`;
-  console.log("SET METRIC →", key, "points:", data.length);
   metricsStore[key] = data;
 }
 
@@ -20,7 +19,6 @@ export function getMetric(
 ): ChartPoint[] | null {
   const key = `${orgId}__${metric}__${timeRange}`;
   const data = metricsStore[key];
-  console.log("GET METRIC →", key, data ? "CACHE HIT" : "CACHE MISS");
   return data ?? null;
 }
 export function hasMetric(
