@@ -41,6 +41,7 @@ export function getAggregationLevel(timeRange: string): "day" | "week" {
 }
 
 export async function fetchTimeseriesMetrics(
+  orgId: string,
   metrics: string[] | string,
   timeRange: string = "7d"
 ): Promise<void> {
@@ -56,7 +57,6 @@ export async function fetchTimeseriesMetrics(
   metricsArray.forEach((m) => pendingMetrics[timeRange].add(m));
 
   await new Promise((resolve) => setTimeout(resolve, 0));
-
   const allMetrics = Array.from(pendingMetrics[timeRange]);
   pendingMetrics[timeRange].clear();
 
@@ -65,10 +65,11 @@ export async function fetchTimeseriesMetrics(
 
   let expandedMetrics: string[] = [];
 
-  // Handle wildcard alert metrics
+  // Handle alert metrics
   if (allMetrics.includes("ts_app_alerts_*")) {
     const alertRows = timeseriesMock.filter(
       (row) =>
+        row.org_id === orgId &&
         row.metric_name.startsWith("ts_app_alerts_") &&
         row.date >= startDate &&
         row.date <= endDate
@@ -86,25 +87,30 @@ export async function fetchTimeseriesMetrics(
   }
 
   const missingMetrics = expandedMetrics.filter(
-    (metric) => !getMetric(`${metric}__${timeRange}`)
+    (metric) => !getMetric(orgId, metric, timeRange)
   );
 
   if (!missingMetrics.length) return;
 
   const rows: TimeseriesRow[] = timeseriesMock.filter(
     (row) =>
+      row.org_id === orgId &&
       missingMetrics.includes(row.metric_name) &&
       row.date >= startDate &&
       row.date <= endDate
   );
 
-  const parsed = parseTimeseries(rows, timeRange, new Date(), missingMetrics);
+  const orgRows = rows.filter((r) => r.org_id === orgId);
 
-  // Cache REAL metrics (not wildcard)
+  //Parse per metric (prevents metric data mixing)
   missingMetrics.forEach((metric) => {
+    const metricRows = orgRows.filter((r) => r.metric_name === metric);
+
+    const parsed = parseTimeseries(metricRows, timeRange, new Date(), [metric]);
+
     const data = parsed[metric];
     if (data) {
-      setMetric(`${metric}__${timeRange}`, data);
+      setMetric(orgId, metric, timeRange, data);
     }
   });
 }

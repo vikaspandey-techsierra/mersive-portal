@@ -24,8 +24,6 @@ export const DUMMY_DASHBOARD_DATA: DashboardApiResponse = {
   alert: {
     offlineDevices: 78,
     expiredOrExpiringSoon: 2,
-    outdatedFirmware: 14,
-    otherIssues: 120,
   },
 
   latestRelease: {

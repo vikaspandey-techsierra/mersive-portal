@@ -1,13 +1,12 @@
 "use client";
 
 import Card from "@/components/Card";
-import DeviceStatusPie from "@/components/DeviceStatusPie";
-import DeviceTypeDonut from "@/components/DeviceTypeDonut";
-import FleetHealthGauge from "@/components/FleetHealthGauge";
+import DeviceStatusPie from "@/components/charts/device-status/DeviceStatusPie";
+import FleetHealthGauge from "@/components/charts/fleet-health/FleetHealthGauge";
 import AlertBanner from "@/components/home/AlertBanner";
 import StatCards from "@/components/home/StatCards";
 import UpdatesSection from "@/components/home/UpdatesSection";
-import PlanTypePie from "@/components/PlanTypePie";
+import PlanTypePie from "@/components/charts/plan-type/PlanTypePie";
 import Replay from "@/components/icons/replay.svg";
 import Image from "next/image";
 import DeviceType from "@/components/icons/tv_black.svg";
@@ -18,9 +17,7 @@ import Sidebar from "@/components/Sidebar";
 import { formatDate } from "@/lib/analytics/utils/helpers";
 
 // Skeletons
-import DeviceTypeDonutSkeleton from "@/components/skeleton/DeviceTypeDonutSkeleton";
-import DeviceStatusSkeleton from "@/components/skeleton/DeviceStatusSkeleton";
-import FleetHealthSkeleton from "@/components/skeleton/FleetHealthSkeleton";
+import FleetHealthSkeleton from "@/components/charts/fleet-health/FleetHealthSkeleton";
 
 // CHART FUNCTIONS
 import {
@@ -35,40 +32,58 @@ import {
   useAvgMeetingLengthMetric,
   useBusiestTimeMetric,
 } from "@/lib/analytics/hooks/useSnapshotMetric";
+import DeviceTypeDonut from "@/components/charts/device-type/DeviceTypeDonut";
+import PlanTypeSkeleton from "@/components/charts/plan-type/PlanTypeSkeleton";
+import DeviceTypeDonutSkeleton from "@/components/charts/device-type/DeviceTypeDonutSkeleton";
+import DeviceTypeDonutEmptyState from "@/components/charts/device-type/DeviceTypeDonutEmptyState";
+import DeviceStatusPieEmptyState from "@/components/charts/device-status/DeviceStatusPieEmptyState";
+import PlanTypePieEmptyState from "@/components/charts/plan-type/PlanTypePieEmptyState";
+import FleetHealthGaugeEmptyState from "@/components/charts/fleet-health/FleetHealthGaugeEmptyState";
+import DeviceStatusSkeleton from "@/components/charts/device-status/DeviceStatusSkeleton";
 import { useState } from "react";
+import { useParams } from "next/navigation";
 
 export default function DashboardPage() {
   const [refreshKey, setRefreshKey] = useState(0);
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<string>(
+    new Date().toISOString(),
+  );
+
+  const params = useParams();
+  const orgId = params.orgId as string;
 
   const handleRefresh = () => {
     setRefreshKey((prev) => prev + 1);
+    setLastRefreshedAt(new Date().toISOString());
   };
-
   // DEVICE BREAKDOWN METRICS
-  const {
-    data: deviceTypeData,
-    createdAt,
-    loading: typeLoading,
-  } = useDeviceTypeMetric(refreshKey);
+  const { data: deviceTypeData, loading: typeLoading } = useDeviceTypeMetric(
+    orgId,
+    refreshKey,
+  );
 
   const { data: deviceStatusData, loading: statusLoading } =
-    useDeviceStatusMetric(refreshKey);
+    useDeviceStatusMetric(orgId, refreshKey);
 
-  const { data: planTypeData, loading: planLoading } =
-    usePlanTypeMetric(refreshKey);
+  const { data: planTypeData, loading: planLoading } = usePlanTypeMetric(
+    orgId,
+    refreshKey,
+  );
 
-  const { data: fleetHealthData, loading: fleetLoading } =
-    useFleetHealthMetric(refreshKey);
+  const { data: fleetHealthData, loading: fleetLoading } = useFleetHealthMetric(
+    orgId,
+    refreshKey,
+  );
 
   // BANNER METRICS
-  const offlineDevices = useOfflineDevicesMetric();
-  const expiredDevices = useExpiredDevicesMetric();
+  const offlineDevices = useOfflineDevicesMetric(orgId);
+  const expiredDevices = useExpiredDevicesMetric(orgId);
 
   // STATS CARDS METRICS
-  const meetingsUnderway = useMeetingsUnderwayMetric();
-  const activeUsers = useActiveDevicesMetric();
-  const avgMeetingLength = useAvgMeetingLengthMetric();
-  const busiestTime = useBusiestTimeMetric();
+  const meetingsUnderway = useMeetingsUnderwayMetric(orgId);
+  const activeUsers = useActiveDevicesMetric(orgId);
+  const avgMeetingLength = useAvgMeetingLengthMetric(orgId);
+  const busiestTime = useBusiestTimeMetric(orgId);
 
   // RELEASE + FAQ DATA
   const release = {
@@ -142,7 +157,7 @@ export default function DashboardPage() {
               {" "}
               Device Breakdown
               <span className="text-[16px] font-normal text-[#93949C]">
-                {createdAt ? formatDate(createdAt) : ""}
+                {lastRefreshedAt && formatDate(lastRefreshedAt)}
               </span>
               <button onClick={handleRefresh}>
                 <Image src={Replay} alt="Replay icon" width={24} height={24} />
@@ -153,6 +168,8 @@ export default function DashboardPage() {
               <Card title="Device Type" icon={DeviceType}>
                 {typeLoading ? (
                   <DeviceTypeDonutSkeleton />
+                ) : !deviceTypeData || deviceTypeData.length === 0 ? (
+                  <DeviceTypeDonutEmptyState />
                 ) : (
                   <DeviceTypeDonut data={deviceTypeData} />
                 )}
@@ -161,6 +178,8 @@ export default function DashboardPage() {
               <Card title="Device Status" icon={DeviceStatus}>
                 {statusLoading ? (
                   <DeviceStatusSkeleton />
+                ) : !deviceStatusData || deviceStatusData.length === 0 ? (
+                  <DeviceStatusPieEmptyState />
                 ) : (
                   <DeviceStatusPie data={deviceStatusData} />
                 )}
@@ -168,7 +187,9 @@ export default function DashboardPage() {
               {/* PLAN TYPE */}
               <Card title="Plan Type" icon={PlanType}>
                 {planLoading ? (
-                  <DeviceStatusSkeleton />
+                  <PlanTypeSkeleton />
+                ) : !planTypeData || planTypeData.length === 0 ? (
+                  <PlanTypePieEmptyState />
                 ) : (
                   <PlanTypePie data={planTypeData} />
                 )}
@@ -177,6 +198,8 @@ export default function DashboardPage() {
               <Card title="Overall Fleet Health" icon={OverallFleetHealth}>
                 {fleetLoading ? (
                   <FleetHealthSkeleton />
+                ) : !fleetHealthData || fleetHealthData.totalDevices === 0 ? (
+                  <FleetHealthGaugeEmptyState />
                 ) : (
                   <FleetHealthGauge
                     score={fleetHealthData.score}

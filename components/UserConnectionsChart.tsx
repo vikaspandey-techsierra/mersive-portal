@@ -1,4 +1,3 @@
-// ─── UserConnectionsChart.tsx ─────────────────────────────────────────────────
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -11,85 +10,42 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { timeseriesMock } from "@/lib/analytics/mock/timeseriesMock";
-import { useFilteredSegmentedPoints } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
-import { getSevenTicks } from "@/lib/analytics/utils/helpers";
-
-type ChartRow = { label: string; [key: string]: string | number };
-
-function fmtDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  });
-}
+import { useUserConnectionsMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
+import {
+  buildAvailableDimensions,
+  formatShortDate,
+  getSevenTicks,
+} from "@/lib/analytics/utils/helpers";
+import { ChartTooltip } from "./charts/ChartsTooltip";
+import { ChartRow, UserConnectionsProp } from "@/lib/types/charts";
+import EmptyState from "./emptyStates/emptyStates";
+import phoneLinkIcon from "../components/icons/phonelink.svg";
 
 const COLOR_PALETTE = ["#6860C8", "#D44E80", "#4D9EC4", "#7E9E2E", "#E8902A"];
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const CustomTooltip = ({
-  active,
-  payload,
-  label,
-}: {
-  active?: boolean;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  payload?: any[];
-  label?: string;
-}) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-[13px] shadow-md">
-      <div className="font-semibold mb-1 text-black">{label}</div>
-      {/* Show all segments, including those with value 0 */}
-      {payload.map((e) => (
-        <div key={e.name} style={{ color: e.color }}>
-          {e.name}: {e.value ?? 0}
-        </div>
-      ))}
-    </div>
-  );
-};
-
-function buildAvailableDimensions(): { label: string; metric: string }[] {
-  const map = new Map<string, string>();
-  timeseriesMock.forEach((row) => {
-    if (!row.segment_1_name) return;
-    if (!map.has(row.segment_1_name))
-      map.set(row.segment_1_name, row.metric_name);
-  });
-  return Array.from(map.entries()).map(([label, metric]) => ({
-    label,
-    metric,
-  }));
-}
 
 const AVAILABLE_DIMENSIONS = buildAvailableDimensions();
 
 export default function UserConnections({
+  orgId,
   timeRange = "7d",
   title,
   subtitle,
   selectedDevices,
-}: {
-  timeRange?: string;
-  title: string;
-  subtitle?: string;
-  selectedDevices: Set<string>;
-}) {
+}: UserConnectionsProp) {
   const [selectedMetric, setSelectedMetric] = useState<string>("");
   const selected = selectedMetric || AVAILABLE_DIMENSIONS[0]?.metric || "";
 
-  const metricData = useFilteredSegmentedPoints(
+  const metricData = useUserConnectionsMetrics(
+    orgId,
     selected,
     timeRange,
-    selectedDevices,
+    selectedDevices
   );
 
   const segments = useMemo(() => {
     if (!metricData.length) return [];
     return Array.from(
-      new Set(metricData.map((d) => d.segment).filter(Boolean)),
+      new Set(metricData.map((d) => d.segment).filter(Boolean))
     ) as string[];
   }, [metricData]);
 
@@ -102,7 +58,7 @@ export default function UserConnections({
   }, [segments]);
 
   const [activeSegments, setActiveSegments] = useState<Record<string, boolean>>(
-    {},
+    {}
   );
 
   useEffect(() => {
@@ -120,17 +76,14 @@ export default function UserConnections({
   const chartData = useMemo<ChartRow[]>(() => {
     if (!metricData.length || segments.length === 0) return [];
     const map: Record<string, ChartRow> = {};
-
     metricData.forEach((row) => {
       if (!map[row.date]) {
-        map[row.date] = { label: fmtDate(row.date) };
-        // Pre-fill all segments with 0 so inactive ones still appear in tooltip
+        map[row.date] = { label: formatShortDate(row.date) };
         segments.forEach((seg) => {
           map[row.date][seg] = 0;
         });
       }
     });
-
     metricData.forEach((row) => {
       if (!row.segment) return;
       if (activeSegments[row.segment] ?? true) {
@@ -138,59 +91,65 @@ export default function UserConnections({
           ((map[row.date][row.segment] as number) || 0) + row.value;
       }
     });
-
     return Object.entries(map)
       .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
       .map(([, v]) => v);
   }, [metricData, segments, activeSegments]);
 
-  // Always exactly 7 X-axis labels
   const xTicks = useMemo(
     () => getSevenTicks(chartData.map((d) => d.label as string)),
-    [chartData],
+    [chartData]
   );
 
   return (
     <div className="mb-8 w-full">
       <div className="text-[15px] font-semibold text-black mb-1">{title}</div>
-      <div className="text-[13px] text-gray-400 mb-3">{subtitle}</div>
-      <div className="bg-white rounded-xl p-5 border border-gray-200">
-        <ResponsiveContainer width="100%" height={260}>
-          <AreaChart data={chartData}>
-            <CartesianGrid stroke="#f0f0f0" vertical={false} />
-            <XAxis
-              dataKey="label"
-              tick={{ fontSize: 11, fill: "#000" }}
-              axisLine={false}
-              tickLine={false}
-              ticks={xTicks}
-            />
-            <YAxis
-              tick={{ fontSize: 11, fill: "#000" }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <Tooltip content={<CustomTooltip />} />
-            {/* Always render all active segment areas — they sit at y=0 when no data */}
-            {segments.map((segment) => (
-              <Area
-                key={segment}
-                type="linear"
-                dataKey={segment}
-                stackId="1"
-                stroke={segmentColorMap[segment]}
-                fill={segmentColorMap[segment]}
-                fillOpacity={0.9}
-              />
-            ))}
-          </AreaChart>
-        </ResponsiveContainer>
-
-        <div className="flex items-center gap-3 mt-3.5 flex-wrap">
+      <div className="text-[13px] text-[#8F8F91] mt-2 mb-6">{subtitle}</div>
+      <div className="bg-white rounded-xl py-5 pb-4 border border-gray-200 ">
+        {!chartData.length ? (
+          <EmptyState
+            title="No data for this date range"
+            description="Connection data appears when users share via Web, AirPlay, Miracast, Google Cast, or HDMI-IN"
+            icon={phoneLinkIcon}
+          />
+        ) : (
+          <>
+            <ResponsiveContainer width="100%" height={336}>
+              <AreaChart data={chartData}>
+                <CartesianGrid stroke="#f0f0f0" vertical={false} />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 11, fill: "#000" }}
+                  axisLine={false}
+                  tickLine={false}
+                  ticks={xTicks}
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: "#000" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip content={<ChartTooltip />} />
+                {segments.map((segment) => (
+                  <Area
+                    key={segment}
+                    type="linear"
+                    dataKey={segment}
+                    stackId="1"
+                    stroke={segmentColorMap[segment]}
+                    fill={segmentColorMap[segment]}
+                    fillOpacity={0.9}
+                  />
+                ))}
+              </AreaChart>
+            </ResponsiveContainer>
+          </>
+        )}
+        <div className="flex items-center gap-3 mt-3.5 flex-wrap ml-6">
           <select
             value={selected}
             onChange={(e) => setSelectedMetric(e.target.value)}
-            className="border border-gray-300 rounded-md px-2.5 py-1.5 text-[13px] text-black bg-white font-medium"
+            className="border border-gray-300 rounded-md px-2.5 py-1.5 text-[13px] text-black bg-white font-medium w-32.5"
           >
             {AVAILABLE_DIMENSIONS.map((item) => (
               <option key={item.metric} value={item.metric}>
@@ -198,15 +157,19 @@ export default function UserConnections({
               </option>
             ))}
           </select>
+
           {segments.map((segment) => {
             const activeCount =
               Object.values(activeSegments).filter(Boolean).length;
             const isChecked = activeSegments[segment] ?? true;
             const isLastActive = isChecked && activeCount === 1;
+
             return (
               <label
                 key={segment}
-                className={`flex items-center gap-2 ${isLastActive ? "cursor-not-allowed" : "cursor-pointer"}`}
+                className={`flex items-center gap-2 ${
+                  isLastActive ? "cursor-not-allowed" : "cursor-pointer"
+                }`}
               >
                 <input
                   type="checkbox"

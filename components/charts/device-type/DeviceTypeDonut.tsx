@@ -1,27 +1,11 @@
 "use client";
 
+import { DeviceTypeDonutProps } from "@/lib/types/homepage";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
-
-export interface DeviceTypeItem {
-  name: string;
-  value: number;
-}
-
-interface Props {
-  data: DeviceTypeItem[];
-}
 
 const COLORS = ["#5B84C4", "#D97706", "#8B5CF6"];
 
-export default function DeviceTypeDonut({ data }: Props) {
-  if (!data || data.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-55 text-gray-400">
-        No device data available
-      </div>
-    );
-  }
-
+export default function DeviceTypeDonut({ data }: DeviceTypeDonutProps) {
   const total = data.reduce((acc, item) => acc + item.value, 0);
 
   return (

@@ -1,14 +1,13 @@
-// lib/analytics/mock/snapshotMock.ts
-
-import { FleetHealthRow, SnapshotRow } from "../snapshot/snapshotTypes";
+import { SnapshotRow } from "../snapshot/snapshotTypes";
 
 export async function mockSnapshotCloudFunction(
+  org_id: string,
   metric: string
 ): Promise<SnapshotRow[]> {
   const mockDB: Record<string, SnapshotRow[]> = {
     cs_devices_num_by_type: [
       {
-        org_id: "aVRMM99r6Q6KdR5Bu3gB-7m0i9",
+        org_id: "GDeZNiL4IS3QrYdLQTf6-clney",
         metric_name: "cs_devices_num_by_type",
         segment_1_name: "Device Type",
         segment_1_value: "Gen 4 Smart",
@@ -17,7 +16,7 @@ export async function mockSnapshotCloudFunction(
         created_at: "2026-03-05 03:00:03",
       },
       {
-        org_id: "aVRMM99r6Q6KdR5Bu3gB-7m0i9",
+        org_id: "GDeZNiL4IS3QrYdLQTf6-clney",
         metric_name: "cs_devices_num_by_type",
         segment_1_name: "Device Type",
         segment_1_value: "Gen 4 Pod",
@@ -26,7 +25,7 @@ export async function mockSnapshotCloudFunction(
         created_at: "2026-03-05 03:00:03",
       },
       {
-        org_id: "aVRMM99r6Q6KdR5Bu3gB-7m0i9",
+        org_id: "GDeZNiL4IS3QrYdLQTf6-clney",
         metric_name: "cs_devices_num_by_type",
         segment_1_name: "Device Type",
         segment_1_value: "Gen 3 Pod",
@@ -38,7 +37,7 @@ export async function mockSnapshotCloudFunction(
 
     cs_devices_num_by_status: [
       {
-        org_id: "aVRMM99r6Q6KdR5Bu3gB-7m0i9",
+        org_id: "GDeZNiL4IS3QrYdLQTf6-clney",
         metric_name: "cs_devices_num_by_status",
         segment_1_name: "Device Status",
         segment_1_value: "Offline",
@@ -47,7 +46,7 @@ export async function mockSnapshotCloudFunction(
         created_at: "2026-03-05 02:59:39",
       },
       {
-        org_id: "aVRMM99r6Q6KdR5Bu3gB-7m0i9",
+        org_id: "GDeZNiL4IS3QrYdLQTf6-clney ",
         metric_name: "cs_devices_num_by_status",
         segment_1_name: "Device Status",
         segment_1_value: "Online",
@@ -59,7 +58,7 @@ export async function mockSnapshotCloudFunction(
 
     cs_devices_num_by_plan: [
       {
-        org_id: "aVRMM99r6Q6KdR5Bu3gB-7m0i9",
+        org_id: "GDeZNiL4IS3QrYdLQTf6-clney",
         metric_name: "cs_devices_num_by_plan",
         segment_1_name: "Plan Type",
         segment_1_value: "Dev Smart - 1 year",
@@ -68,7 +67,7 @@ export async function mockSnapshotCloudFunction(
         created_at: "2026-03-05 02:57:59",
       },
       {
-        org_id: "aVRMM99r6Q6KdR5Bu3gB-7m0i9",
+        org_id: "GDeZNiL4IS3QrYdLQTf6-clney",
         metric_name: "cs_devices_num_by_plan",
         segment_1_name: "Plan Type",
         segment_1_value: "Dev Pro - 1 year",
@@ -77,29 +76,29 @@ export async function mockSnapshotCloudFunction(
         created_at: "2026-03-05 02:57:59",
       },
     ],
+
+    cs_overall_fleet_health: [
+      {
+        org_id: "GDeZNiL4IS3QrYdLQTf6-clney",
+        metric_name: "cs_overall_fleet_health",
+        segment_1_name: "Device Health Type",
+        segment_1_value: "All devices",
+        metric_value: "496",
+        devices_list: null,
+        created_at: "2026-03-12 04:04:58.718413 UTC",
+      },
+      {
+        org_id: "GDeZNiL4IS3QrYdLQTf6-clney",
+        metric_name: "cs_overall_fleet_health",
+        segment_1_name: "Device Health Type",
+        segment_1_value: "Devices with issues",
+        metric_value: "355",
+        devices_list:
+          '["device-158a1165-f908-4e85-9b46-7918ba0a29db","device-f9e8e73f-1493-406d-aa91-bdcd9c973da7"]',
+        created_at: "2026-03-12 04:04:58.718413 UTC",
+      },
+    ],
   };
 
-  return mockDB[metric] ?? [];
+  return (mockDB[metric] ?? []).filter((row) => row.org_id === org_id);
 }
-
-export const fleetHealthMock: FleetHealthRow[] = [
-  {
-    org_id: "test-org-1000",
-    metric_name: "cs_overall_fleet_health",
-    segment_1_name: "Device Health Type",
-    segment_1_value: "All devices",
-    metric_value: "496",
-    devices_list: null,
-    created_at: "2026-03-12 04:04:58.718413 UTC",
-  },
-  {
-    org_id: "test-org-1000",
-    metric_name: "cs_overall_fleet_health",
-    segment_1_name: "Device Health Type",
-    segment_1_value: "Devices with issues",
-    metric_value: "355",
-    devices_list:
-      '["device-158a1165-f908-4e85-9b46-7918ba0a29db","device-f9e8e73f-1493-406d-aa91-bdcd9c973da7"]',
-    created_at: "2026-03-12 04:04:58.718413 UTC",
-  },
-];

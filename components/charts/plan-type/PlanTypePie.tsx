@@ -1,5 +1,6 @@
 "use client";
 
+import { PlanTypePieProps } from "@/lib/types/homepage";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 
 const COLORS = [
@@ -11,45 +12,18 @@ const COLORS = [
   "#9333EA",
 ];
 
-interface PlanTypeItem {
-  name: string;
-  value: number;
-  percent?: number;
-}
-
-interface Props {
-  data: PlanTypeItem[];
-}
-
-export default function PlanTypePie({ data }: Props) {
-
-  if (!data || data.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-55 text-gray-400">
-        No plan data available
-      </div>
-    );
-  }
-
+export default function PlanTypePie({ data }: PlanTypePieProps) {
   const total = data.reduce((sum, item) => sum + item.value, 0);
 
   return (
-    <div className="flex items-center justify-between text-[#090814] w-[90%] max-md:flex-col">
-
+    <div className="flex items-center justify-between w-full max-md:flex-col">
       {/* Chart */}
       <div className="w-64 h-64">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
-            <Pie
-              data={data}
-              dataKey="value"
-              outerRadius={100}
-            >
+            <Pie data={data} dataKey="value" outerRadius={100}>
               {data.map((_, i) => (
-                <Cell
-                  key={i}
-                  fill={COLORS[i % COLORS.length]}
-                />
+                <Cell key={i} fill={COLORS[i % COLORS.length]} />
               ))}
             </Pie>
           </PieChart>

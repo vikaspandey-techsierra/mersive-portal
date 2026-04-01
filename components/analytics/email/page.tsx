@@ -195,12 +195,12 @@ function Toggle({
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-[20px] w-[36px] shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 ${
+      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 ${
         checked ? "bg-[#5E54C5]" : "bg-gray-300"
       }`}
     >
       <span
-        className={`pointer-events-none inline-block h-[16px] w-[16px] transform rounded-full bg-white shadow ring-0 transition duration-200 ${
+        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
           checked ? "translate-x-4" : "translate-x-0"
         }`}
       />
@@ -290,7 +290,7 @@ function AlertRow({
                 </button>
               </div>
             </div>
-            <span className="text-[14px] text-[#374151] ml-[8px]">minutes</span>
+            <span className="text-[14px] text-[#374151] ml-2">minutes</span>
           </>
         ) : (
           label
@@ -485,7 +485,7 @@ function SortArrows({ active, dir }: { active: boolean; dir: SortDir }) {
         height="16"
         viewBox="0 0 16 16"
         fill="none"
-        className={`-mb-[2px] ${
+        className={`-mb-0.5 ${
           active && dir === "asc" ? "text-[#5E54C5]" : "text-[#9CA3AF]"
         }`}
       >
@@ -502,7 +502,7 @@ function SortArrows({ active, dir }: { active: boolean; dir: SortDir }) {
         height="16"
         viewBox="0 0 16 16"
         fill="none"
-        className={`-mt-[2px] ${
+        className={`-mb-0.5 ${
           active && dir === "desc" ? "text-[#5E54C5]" : "text-[#9CA3AF]"
         }`}
       >
@@ -858,7 +858,7 @@ const TIME_RANGES: { key: TimeRange; label: string }[] = [
   { key: "all", label: "All time" },
 ];
 
-export default function EmailAlertsPage() {
+export default function EmailAlertsPage({ orgId }: { orgId: string }) {
   const [collapsed, setCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState<"my" | "additional">("my");
   const [timeRange, setTimeRange] = useState<TimeRange>("7d");
@@ -895,7 +895,7 @@ export default function EmailAlertsPage() {
     const effectiveRecipients = patch?.recipients ?? recipients;
 
     const payload: EmailAlertPayload = {
-      org_id: "org_7f21c4a9", // TODO: replace with value from Phoenix app context
+      org_id: orgId,
       user_id: "user_8c9130bd", // TODO: replace with value from Phoenix app context
       email_alert_settings: buildAlertSettings(
         effectiveMyAlerts,
@@ -984,7 +984,7 @@ export default function EmailAlertsPage() {
 
   return (
     <div className="text-[#090814]">
-      {/* ── Alert Settings section ── */}
+      {/* Alert Settings section */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex flex-col gap-2">
           <h2 className="text-[20px] font-medium text-[#090814] leading-6">
@@ -1140,7 +1140,7 @@ export default function EmailAlertsPage() {
           )}
         </>
       )}
-      {/* ── Divider ── */}
+      {/* Divider */}
       {SHOW_ALERT_HISTORY && <div className="my-6 h-px bg-[#E5E7EB]" />}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4" />
       {SHOW_ALERT_HISTORY &&

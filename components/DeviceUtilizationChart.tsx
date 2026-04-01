@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import {
   LineChart,
   Line,
@@ -11,23 +11,23 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { Check } from "lucide-react";
-import { useFilteredChartPoints } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
+import { useDeviceUtilizationMetrics } from "@/lib/analytics/hooks/useTimeSeriesMetrics";
 import { ChartPoint } from "@/lib/analytics/timeseries/timeseriesTypes";
-import { formatShortDate, getSevenTicks } from "@/lib/analytics/utils/helpers";
-
-interface DeviceUtilizationProps {
-  timeRange: string;
-  selectedDevices: Set<string>;
-}
-
-interface TEntry {
-  name: string;
-  value: number;
-  color: string;
-}
-
-/* ─── pure helpers ─── */
+import {
+  formatShortDate,
+  getNiceTicks,
+  getSevenTicks,
+} from "@/lib/analytics/utils/helpers";
+import { ChartTooltip } from "./charts/ChartsTooltip";
+import { LeftAxisLabel, RightAxisLabel } from "./charts/AxisLabel";
+import {
+  DeviceMetric,
+  DeviceUtilizationProps,
+  DropdownOption,
+} from "@/lib/types/charts";
+import { MetricDropdown } from "./charts/MetricDropdown";
+import EmptyState from "./emptyStates/emptyStates";
+import trendingUpIcon from "../components/icons/trending_up_black.svg";
 
 function computeAvgLength(
   meetings: ChartPoint[],
@@ -40,41 +40,6 @@ function computeAvgLength(
   }));
 }
 
-function getNiceTicks(points: ChartPoint[]): { ticks: number[]; max: number } {
-  if (!points.length) return { ticks: [0, 1, 2, 3, 4], max: 4 };
-  const rawMax = Math.max(...points.map((p) => p.value));
-  if (rawMax === 0) return { ticks: [0, 1, 2, 3, 4], max: 4 };
-  const roughStep = rawMax / 4;
-  const magnitude = Math.pow(10, Math.floor(Math.log10(roughStep)));
-  const candidates = [1, 2, 2.5, 5, 10].map((c) => c * magnitude);
-  const niceStep =
-    candidates.find((c) => c >= roughStep) ?? candidates[candidates.length - 1];
-  const niceMax = niceStep * 4;
-  const ticks = [0, 1, 2, 3, 4].map(
-    (i) => Math.round(niceStep * i * 1e10) / 1e10,
-  );
-  return { ticks, max: niceMax };
-}
-
-/* ─── metric config ─── */
-
-type DeviceMetric =
-  | "meetings"
-  | "hours"
-  | "connections"
-  | "posts"
-  | "avgLength";
-
-const METRIC_LABELS: Record<DeviceMetric, string> = {
-  meetings: "Number of meetings",
-  hours: "Hours in use",
-  connections: "Number of connections",
-  posts: "Number of posts",
-  avgLength: "Avg. length of meetings",
-};
-
-const METRIC_KEYS = Object.keys(METRIC_LABELS) as DeviceMetric[];
-
 const METRIC_API_MAP: Record<Exclude<DeviceMetric, "avgLength">, string> = {
   meetings: "ts_meetings_num",
   hours: "ts_meetings_duration_tot",
@@ -85,216 +50,40 @@ const METRIC_API_MAP: Record<Exclude<DeviceMetric, "avgLength">, string> = {
 const PURPLE = "#6860C8";
 const PINK = "#D44E80";
 
-/* ─── tooltip ─── */
-
-const ChartTooltip = ({
-  active,
-  payload,
-  label,
-}: {
-  active?: boolean;
-  payload?: TEntry[];
-  label?: string;
-}) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-[13px] shadow-md">
-      <div className="font-semibold mb-1 text-black">{label}</div>
-      {payload.map((e) => (
-        <div key={e.name} className="mt-1" style={{ color: e.color }}>
-          {e.name}: {e.value ?? 0}
-        </div>
-      ))}
-    </div>
-  );
-};
-
-/* ─── axis labels ─── */
-
-const LeftAxisLabel = ({
-  viewBox,
-  label,
-}: {
-  viewBox?: { x: number; y: number; width: number; height: number };
-  label: string;
-}) => {
-  if (!viewBox) return null;
-  const cx = viewBox.x - 1;
-  const cy = viewBox.y + viewBox.height / 2;
-  return (
-    <text
-      x={cx}
-      y={cy}
-      fill={PURPLE}
-      fontSize={16}
-      fontWeight={500}
-      textAnchor="middle"
-      transform={`rotate(-90, ${cx}, ${cy})`}
-    >
-      {label}
-    </text>
-  );
-};
-
-const RightAxisLabel = ({
-  viewBox,
-  label,
-}: {
-  viewBox?: { x: number; y: number; width: number; height: number };
-  label: string;
-}) => {
-  if (!viewBox) return null;
-  const cx = viewBox.x + viewBox.width + 10;
-  const cy = viewBox.y + viewBox.height / 2;
-  return (
-    <text
-      x={cx}
-      y={cy}
-      fill={PINK}
-      fontSize={16}
-      fontWeight={500}
-      textAnchor="middle"
-      transform={`rotate(90, ${cx}, ${cy})`}
-    >
-      {label}
-    </text>
-  );
-};
-
-/* ─── dropdown ─── */
-
-const MetricDropdown = ({
-  value,
-  color,
-  disabledOption,
-  showNone,
-  onChange,
-}: {
-  value: DeviceMetric | null;
-  color: string;
-  disabledOption: DeviceMetric | null;
-  showNone?: boolean;
-  onChange: (v: DeviceMetric | null) => void;
-}) => {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node))
-        setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  return (
-    <div ref={ref} className="relative inline-block">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="inline-flex items-center gap-2 text-white text-[13px] font-medium rounded-md px-4 py-1.5 whitespace-nowrap"
-        style={{ background: color }}
-      >
-        {value ? METRIC_LABELS[value] : "None"}
-        <svg width="12" height="12" viewBox="0 0 12 12">
-          <path
-            d="M2 4l4 4 4-4"
-            stroke="#fff"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </button>
-      {open && (
-        <div className="absolute left-0 top-full mt-1.5 bg-white border border-gray-200 rounded-xl shadow-lg min-w-55 z-999 py-1.5">
-          {showNone && (
-            <div
-              onClick={() => {
-                onChange(null);
-                setOpen(false);
-              }}
-              className={`flex items-center justify-between px-4 py-2.5 text-sm cursor-pointer transition ${
-                value === null
-                  ? "text-black font-medium"
-                  : "text-gray-700 hover:bg-gray-100"
-              }`}
-            >
-              <span>None</span>
-              {value === null && (
-                <Check size={16} strokeWidth={2.5} className="text-[#6860C8]" />
-              )}
-            </div>
-          )}
-          {METRIC_KEYS.map((key) => {
-            const isSelected = value === key;
-            const isDisabled = key === disabledOption;
-            return (
-              <div
-                key={key}
-                onClick={() => {
-                  if (!isDisabled) {
-                    onChange(key);
-                    setOpen(false);
-                  }
-                }}
-                className={`flex items-center justify-between px-4 py-2.5 text-sm transition ${
-                  isDisabled
-                    ? "text-gray-400 cursor-default"
-                    : "cursor-pointer hover:bg-gray-100 text-gray-800"
-                } ${isSelected ? "font-medium" : ""}`}
-              >
-                <span>{METRIC_LABELS[key]}</span>
-                {isSelected && (
-                  <Check
-                    size={16}
-                    strokeWidth={2.5}
-                    className="text-[#6860C8]"
-                  />
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-};
-
-/* ─── main component ─── */
-
 export default function DeviceUtilization({
+  orgId,
   timeRange,
   selectedDevices,
 }: DeviceUtilizationProps) {
   const [metricA, setMetricA] = useState<DeviceMetric>("meetings");
   const [metricB, setMetricB] = useState<DeviceMetric | null>("connections");
 
-  const filteredMeetings = useFilteredChartPoints(
-    "ts_meetings_num",
-    timeRange,
-    selectedDevices,
-  );
-  const filteredDuration = useFilteredChartPoints(
-    "ts_meetings_duration_tot",
+  const apiMetricA =
+    metricA !== "avgLength"
+      ? METRIC_API_MAP[metricA as Exclude<DeviceMetric, "avgLength">]
+      : "ts_meetings_num";
+
+  const apiMetricB =
+    metricB && metricB !== "avgLength"
+      ? METRIC_API_MAP[metricB as Exclude<DeviceMetric, "avgLength">]
+      : "ts_meetings_duration_tot";
+
+  const { dataA: rawA, dataB: rawB } = useDeviceUtilizationMetrics(
+    orgId,
+    apiMetricA,
+    apiMetricB,
     timeRange,
     selectedDevices,
   );
 
-  const rawA = useFilteredChartPoints(
-    metricA !== "avgLength"
-      ? METRIC_API_MAP[metricA as Exclude<DeviceMetric, "avgLength">]
-      : "",
-    timeRange,
-    selectedDevices,
-  );
-  const rawB = useFilteredChartPoints(
-    metricB && metricB !== "avgLength"
-      ? METRIC_API_MAP[metricB as Exclude<DeviceMetric, "avgLength">]
-      : "",
-    timeRange,
-    selectedDevices,
-  );
+  const { dataA: filteredMeetings, dataB: filteredDuration } =
+    useDeviceUtilizationMetrics(
+      orgId,
+      "ts_meetings_num",
+      "ts_meetings_duration_tot",
+      timeRange,
+      selectedDevices,
+    );
 
   const pointsA: ChartPoint[] = useMemo(
     () =>
@@ -312,35 +101,25 @@ export default function DeviceUtilization({
     [metricB, rawB, filteredMeetings, filteredDuration],
   );
 
-  // Use the longer array as the date spine; fall back to the other
-  const baseData = pointsA.length >= pointsB.length ? pointsA : pointsB;
-
-  // Always show both axes — use nice ticks regardless of whether data is all-zero
   const { ticks: ticksA, max: maxA } = getNiceTicks(pointsA);
   const { ticks: ticksB, max: maxB } = getNiceTicks(pointsB);
-
   const hasTwoMetrics = metricB !== null;
-  // Show right axis whenever metricB is selected (even if data is zero)
-  const showRightAxis = hasTwoMetrics;
+  const baseData = pointsA.length >= pointsB.length ? pointsA : pointsB;
 
   const deviceData = useMemo(
     () =>
       baseData.map((d, i) => ({
         label: formatShortDate(d.date),
-        // Always include values (even 0) so lines always render on both axes
         [metricA]: pointsA[i]?.value ?? 0,
         ...(metricB !== null && { [metricB]: pointsB[i]?.value ?? 0 }),
       })),
     [baseData, metricA, metricB, pointsA, pointsB],
   );
 
-  // Always exactly 7 X-axis labels
   const xTicks = useMemo(
     () => getSevenTicks(deviceData.map((d) => d.label)),
     [deviceData],
   );
-
-  const refLineTicks = ticksA;
 
   const handleChangeA = (next: DeviceMetric | null) => {
     if (next === null) return;
@@ -353,129 +132,181 @@ export default function DeviceUtilization({
     setMetricB(next);
   };
 
+  const METRIC_LABELS: Record<DeviceMetric, string> = {
+    meetings: "Number of meetings",
+    hours: "Hours in use",
+    connections: "Number of connections",
+    posts: "Number of posts",
+    avgLength: "Avg. length of meetings",
+  };
+
+  const METRIC_OPTIONS: DropdownOption<DeviceMetric>[] = (
+    Object.entries(METRIC_LABELS) as [DeviceMetric, string][]
+  ).map(([value, label]) => ({ value, label }));
+
+  const isAllZeroData = useMemo(() => {
+    return deviceData.every((d) => {
+      const valA = d[metricA] ?? 0;
+      const valB = metricB ? (d[metricB] ?? 0) : 0;
+      return valA === 0 && valB === 0;
+    });
+  }, [deviceData, metricA, metricB]);
+
   return (
     <div className="mb-8">
-      <div className="font-semibold text-[15px] text-black mb-0.5">
+      <div className="font-semibold text-[20px] text-[#090814] mb-0.5">
         Device Utilization
       </div>
-      <div className="text-[13px] text-gray-400 mb-3">
+      <div className="text-[13px] text-[#8F8F91] mt-2 mb-6">
         Compare up to two types of usage data for devices in your organization
       </div>
-      <div className="bg-white rounded-xl py-5 pb-4 border border-gray-200">
-        <ResponsiveContainer width="100%" height={280}>
-          <LineChart
-            data={deviceData}
-            margin={{
-              top: 8,
-              right: showRightAxis ? 38 : 30,
-              left: 24,
-              bottom: 0,
-            }}
-          >
-            <CartesianGrid
-              stroke="#f0f0f0"
-              vertical={false}
-              horizontal={false}
-            />
-
-            <XAxis
-              dataKey="label"
-              tick={{ fontSize: 11, fill: "#000" }}
-              axisLine={{ stroke: "#f0f0f0" }}
-              tickLine={false}
-              ticks={xTicks}
-            />
-
-            {/* Left axis always present */}
-            <YAxis
-              yAxisId="left"
-              orientation="left"
-              tick={{ fontSize: 11, fill: "#9CA3AF" }}
-              axisLine={false}
-              tickLine={false}
-              width={30}
-              domain={[0, maxA]}
-              ticks={ticksA}
-              allowDecimals
-              tickFormatter={(v: number) => {
-                if (metricA === "hours")
-                  return `${v % 1 === 0 ? v : v.toFixed(1)}hr`;
-                return v % 1 === 0 ? `${v}` : `${parseFloat(v.toFixed(2))}`;
+      <div className="bg-white rounded-xl py-5 pb-4 border border-gray-200 ">
+        {isAllZeroData || deviceData.length === 0 ? (
+          <EmptyState
+            title="No data for this date range"
+            description="Device utilization data appears when meetings occur on your devices"
+            icon={trendingUpIcon}
+          />
+        ) : (
+          <ResponsiveContainer width="100%" height={336}>
+            <LineChart
+              data={deviceData}
+              margin={{
+                top: 8,
+                right: hasTwoMetrics ? 38 : 30,
+                left: 24,
+                bottom: 0,
               }}
-              label={<LeftAxisLabel label={METRIC_LABELS[metricA]} />}
-            />
-
-            {/* Right axis always present when metricB is selected */}
-            {showRightAxis && (
+            >
+              <CartesianGrid
+                stroke="#f0f0f0"
+                vertical={false}
+                horizontal={false}
+              />
+              <XAxis
+                dataKey="label"
+                tick={{ fontSize: 11, fill: "#000" }}
+                axisLine={{ stroke: "#f0f0f0" }}
+                tickLine={false}
+                ticks={xTicks}
+              />
               <YAxis
-                yAxisId="right"
-                orientation="right"
+                yAxisId="left"
+                orientation="left"
                 tick={{ fontSize: 11, fill: "#9CA3AF" }}
                 axisLine={false}
                 tickLine={false}
                 width={30}
-                domain={[0, maxB]}
-                ticks={ticksB}
+                domain={[0, maxA]}
+                ticks={ticksA}
                 allowDecimals
-                tickFormatter={(v: number) => {
-                  if (metricB === "hours")
-                    return `${v % 1 === 0 ? v : v.toFixed(1)}hr`;
-                  return v % 1 === 0 ? `${v}` : `${parseFloat(v.toFixed(2))}`;
-                }}
-                label={<RightAxisLabel label={METRIC_LABELS[metricB!]} />}
+                tickFormatter={(v: number) =>
+                  metricA === "hours"
+                    ? `${v % 1 === 0 ? v : v.toFixed(1)}hr`
+                    : v % 1 === 0
+                      ? `${v}`
+                      : `${parseFloat(v.toFixed(2))}`
+                }
+                label={
+                  <LeftAxisLabel
+                    label={METRIC_LABELS[metricA]}
+                    color="#6860C8"
+                  />
+                }
               />
-            )}
-
-            {refLineTicks.map((v) => (
-              <ReferenceLine
-                key={v}
-                yAxisId="left"
-                y={v}
-                stroke="#f0f0f0"
-                strokeWidth={1}
+              {hasTwoMetrics && (
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
+                  tick={{ fontSize: 11, fill: "#9CA3AF" }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={30}
+                  domain={[0, maxB]}
+                  ticks={ticksB}
+                  allowDecimals
+                  tickFormatter={(v: number) =>
+                    metricB === "hours"
+                      ? `${v % 1 === 0 ? v : v.toFixed(1)}hr`
+                      : v % 1 === 0
+                        ? `${v}`
+                        : `${parseFloat(v.toFixed(2))}`
+                  }
+                  label={
+                    <RightAxisLabel
+                      label={METRIC_LABELS[metricB!]}
+                      color="#D44E80"
+                    />
+                  }
+                />
+              )}
+              {ticksA.map((v) => (
+                <ReferenceLine
+                  key={v}
+                  yAxisId="left"
+                  y={v}
+                  stroke="#f0f0f0"
+                  strokeWidth={1}
+                />
+              ))}
+              <Tooltip
+                content={
+                  <ChartTooltip
+                    labelMap={{
+                      meetings: "Number of meetings",
+                      hours: "Hours in use",
+                      connections: "Number of connections",
+                      posts: "Number of posts",
+                      avgLength: "Avg. length of meetings",
+                    }}
+                    formatValue={(v, key) =>
+                      key === "hours"
+                        ? `${v % 1 === 0 ? v : v.toFixed(1)}hr`
+                        : v % 1 === 0
+                          ? String(v)
+                          : String(parseFloat(v.toFixed(2)))
+                    }
+                  />
+                }
               />
-            ))}
-
-            <Tooltip content={<ChartTooltip />} />
-
-            {/* Always render metricA line */}
-            <Line
-              yAxisId="left"
-              type="linear"
-              dataKey={metricA}
-              stroke={PURPLE}
-              strokeWidth={2}
-              dot={{ r: 4, fill: PURPLE, strokeWidth: 0 }}
-              activeDot={{ r: 5 }}
-            />
-
-            {/* Always render metricB line when selected */}
-            {hasTwoMetrics && (
               <Line
-                yAxisId={showRightAxis ? "right" : "left"}
+                yAxisId="left"
                 type="linear"
-                dataKey={metricB!}
-                stroke={PINK}
+                dataKey={metricA}
+                stroke={PURPLE}
                 strokeWidth={2}
-                dot={{ r: 4, fill: PINK, strokeWidth: 0 }}
+                dot={{ r: 4, fill: PURPLE, strokeWidth: 0 }}
                 activeDot={{ r: 5 }}
               />
-            )}
-          </LineChart>
-        </ResponsiveContainer>
-
+              {hasTwoMetrics && (
+                <Line
+                  yAxisId="right"
+                  type="linear"
+                  dataKey={metricB!}
+                  stroke={PINK}
+                  strokeWidth={2}
+                  dot={{ r: 4, fill: PINK, strokeWidth: 0 }}
+                  activeDot={{ r: 5 }}
+                />
+              )}
+            </LineChart>
+          </ResponsiveContainer>
+        )}
         <div className="flex gap-2.5 mt-3.5 flex-wrap items-center px-6.5">
           <MetricDropdown
             value={metricA}
-            color={PURPLE}
-            disabledOption={metricB}
+            options={METRIC_OPTIONS}
+            color="#6860C8"
+            disabledValue={metricB}
             showNone={false}
             onChange={handleChangeA}
           />
+
           <MetricDropdown
             value={metricB}
-            color={PINK}
-            disabledOption={metricA}
+            options={METRIC_OPTIONS}
+            color="#D44E80"
+            disabledValue={metricA}
             showNone={true}
             onChange={handleChangeB}
           />
