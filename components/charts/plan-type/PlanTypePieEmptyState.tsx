@@ -16,10 +16,7 @@ export default function PlanTypePieEmptyState() {
                   className="w-4 h-4 rounded-full shrink-0"
                   style={{ backgroundColor: item.dot }}
                 />
-                <div
-                  className="h-4 w-full rounded-md"
-                  style={{ backgroundColor: "#E2E2EC" }}
-                />
+                <div className="h-4 w-full rounded-md bg-[#E2E2EC]" />
               </div>
             ),
           )}
