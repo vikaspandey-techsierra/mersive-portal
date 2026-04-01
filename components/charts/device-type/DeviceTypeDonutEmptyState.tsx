@@ -11,8 +11,6 @@ export default function DeviceTypeDonutEmptyState() {
 
           {/* Center text blocks */}
           <div className="absolute flex flex-col items-center gap-2 pt-4">
-            {/* <div className="w-28 h-4 bg-gray-200 rounded-md" />
-          <div className="w-16 h-6 bg-gray-200 rounded-md" /> */}
             <h1 className="text-4 text-[#090814]">Total Devices</h1>
             <h2 className="text-[34px] font-semibold text-[#090814]">0</h2>
           </div>

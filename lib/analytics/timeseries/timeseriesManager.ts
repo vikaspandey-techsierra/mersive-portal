@@ -57,9 +57,6 @@ export async function fetchTimeseriesMetrics(
   metricsArray.forEach((m) => pendingMetrics[timeRange].add(m));
 
   await new Promise((resolve) => setTimeout(resolve, 0));
-
-  console.log("Fetching metrics for org:", orgId, "range:", timeRange);
-  console.log("Requested metrics:", metricsArray);
   const allMetrics = Array.from(pendingMetrics[timeRange]);
   pendingMetrics[timeRange].clear();
 
@@ -103,33 +100,11 @@ export async function fetchTimeseriesMetrics(
       row.date <= endDate
   );
 
-  console.log("=====", metrics);
-  console.log("Fetching data for org:", orgId);
-  console.log("Rows after org filter:", rows.length);
-
   const orgRows = rows.filter((r) => r.org_id === orgId);
-
-  console.log("ORG FILTER DEBUG");
-  console.log("Selected org:", orgId);
-  console.log(
-    "Rows for this org:",
-    orgRows.map((r) => ({
-      org: r.org_id,
-      metric: r.metric_name,
-      value: r.metric_value,
-      date: r.date,
-    }))
-  );
 
   //Parse per metric (prevents metric data mixing)
   missingMetrics.forEach((metric) => {
     const metricRows = orgRows.filter((r) => r.metric_name === metric);
-
-    console.log(
-      "Metric debug:",
-      metric,
-      metricRows.map((r) => r.metric_value)
-    );
 
     const parsed = parseTimeseries(metricRows, timeRange, new Date(), [metric]);
 
